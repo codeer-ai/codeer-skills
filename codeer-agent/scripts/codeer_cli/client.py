@@ -53,12 +53,24 @@ def _load_dotenv(path: Path) -> None:
 
 
 def _candidate_env_files() -> list[Path]:
-    """Return dotenv candidates in preferred order; first that exists wins."""
+    """Return dotenv candidates in preferred order; first that exists wins.
+
+    Resolution order:
+      1. $CODEER_ENV_FILE (explicit override — works in both Claude Code & Cowork)
+      2. ~/.codeer/session.env (user-level, Claude Code default)
+      3. <repo-root>/session.env (Cowork default — skill repo mounted as workspace)
+      4. ./.env in the caller's CWD (per-project fallback)
+    """
     out: list[Path] = []
     explicit = os.environ.get("CODEER_ENV_FILE")
     if explicit:
         out.append(Path(explicit).expanduser())
     out.append(Path.home() / ".codeer" / "session.env")
+    # Cowork fallback: session.env at the repo root (two levels up from this file:
+    # codeer-skills/codeer-agent/scripts/codeer_cli/client.py → codeer-skills/session.env)
+    _this_file = Path(__file__).resolve()
+    _repo_root = _this_file.parent.parent.parent.parent  # scripts/codeer_cli → scripts → codeer-agent → codeer-skills
+    out.append(_repo_root / "session.env")
     out.append(Path.cwd() / ".env")
     return out
 

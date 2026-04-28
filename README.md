@@ -10,6 +10,8 @@ Claude Code skills for building, evaluating, and managing [Codeer](https://codee
 
 ## Installation
 
+### Claude Code
+
 Install a skill into Claude Code by running:
 
 ```bash
@@ -24,10 +26,28 @@ claude install-skill https://github.com/anthropics/codeer-skills/tree/main/<skil
 
 Once installed, Claude Code will automatically invoke the skill when your request matches its trigger phrases. You can also invoke it explicitly with `/<skill-name>`.
 
+### Claude Cowork
+
+1. Mount this repo as a **workspace folder** in Cowork (select the
+   `codeer-skills/` directory).
+2. Create `session.env` at the repo root (`codeer-skills/session.env`):
+   ```
+   CODEER_API_BASE=https://api.codeer.ai
+   CODEER_SESSION_ID=<from browser devtools>
+   CODEER_CSRF_TOKEN=<from browser devtools>
+   ```
+3. The skill scripts auto-detect `session.env` from the repo root — no
+   manual `export` needed.
+4. In Cowork, use the sandbox bash tool with absolute paths to invoke
+   scripts. Example:
+   ```bash
+   /sessions/<id>/mnt/codeer-skills/codeer-agent/scripts/codeer get /accounts/me
+   ```
+
 ## Prerequisites
 
-- **[uv](https://docs.astral.sh/uv/)** on PATH — the skills resolve Python dependencies through uv's cache, no manual installs needed.
-- **Codeer session credentials** in `~/.codeer/session.env` — see each skill's `SKILL.md` for setup details.
+- **[uv](https://docs.astral.sh/uv/)** on PATH — the skills resolve Python dependencies through uv's cache, no manual installs needed. (Cowork's sandbox has `uv` pre-installed.)
+- **Codeer session credentials** — in `~/.codeer/session.env` (Claude Code) or `<repo-root>/session.env` (Cowork). See each skill's `SKILL.md` for setup details.
 
 ## Repo structure
 

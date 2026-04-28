@@ -5,9 +5,24 @@
 # caller's CWD, so relative --json-file / file-upload paths resolve against
 # the customer's project files, not the skill.
 #
-# Credentials: ~/.codeer/session.env (chmod 600). See SKILL.md for setup.
+# Credentials (resolved in order):
+#   1. $CODEER_ENV_FILE (explicit)
+#   2. ~/.codeer/session.env (Claude Code default)
+#   3. <repo-root>/session.env (Cowork default)
+#   4. ./.env (CWD fallback)
+#
+# See SKILL.md for setup.
 set -euo pipefail
 SELF="$(readlink -f "$0" 2>/dev/null || python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$0")"
 HERE="$(cd "$(dirname "$SELF")" && pwd)"
+REPO_ROOT="$(cd "$HERE/../.." && pwd)"
+
+# Auto-detect CODEER_ENV_FILE if not set: prefer repo-root/session.env
+if [ -z "${CODEER_ENV_FILE:-}" ]; then
+  if [ -f "$REPO_ROOT/session.env" ]; then
+    export CODEER_ENV_FILE="$REPO_ROOT/session.env"
+  fi
+fi
+
 export PYTHONPATH="$HERE:${PYTHONPATH:-}"
 exec uv run --quiet --with 'httpx>=0.27' --python '>=3.10' python -m codeer_cli.cli "$@"

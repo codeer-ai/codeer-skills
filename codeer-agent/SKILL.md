@@ -39,28 +39,44 @@ Concretely:
 
 ## Setup (one time, per user)
 
-1. Create `~/.codeer/session.env` with **auth only**:
+1. Create a `session.env` file with **auth only**:
    ```
-   CODEER_API_BASE=http://localhost:8000         # or your staging/prod base
+   CODEER_API_BASE=https://api.codeer.ai      # or http://localhost:8000 for local dev
    CODEER_SESSION_ID=<from browser devtools>
    CODEER_CSRF_TOKEN=<from browser devtools>
    ```
-2. `chmod 600 ~/.codeer/session.env`
-3. Cookies are found in the Codeer UI's devtools → Application → Cookies, after logging in.
+2. `chmod 600 <path-to>/session.env`
+3. Cookies are found in the Codeer UI's devtools → Application → Cookies
+   (site: `app.codeer.ai` or your custom domain), after logging in.
 4. Sessions expire. If calls start returning 401/403, re-grab the cookies.
 
 The only prerequisite is `uv` on PATH — the skill's wrapper resolves httpx
 through uv's cache, no installs.
 
+### Where to place `session.env`
+
+The client resolves credentials in this order (first file that exists wins):
+
+| Priority | Path | Best for |
+| --- | --- | --- |
+| 1 | `$CODEER_ENV_FILE` (explicit) | Any environment — always takes precedence |
+| 2 | `~/.codeer/session.env` | Claude Code (user-level, `chmod 600`) |
+| 3 | `<repo-root>/session.env` | **Cowork** (auto-detected from skill dir) |
+| 4 | `./.env` in CWD | Per-project fallback |
+
+**Claude Code users:** place it at `~/.codeer/session.env` (traditional).
+
+**Cowork users:** place it at the repo root — i.e. `codeer-skills/session.env`.
+The skill auto-detects it; no need to export anything.
+
 ### Per-project workspace / org (multi-workspace pattern)
 
 `CODEER_WORKSPACE_ID` and `CODEER_ORGANIZATION_ID` deliberately do **not**
 live in the global `session.env` — that would make "which workspace am I in"
-shared mutable state across every Claude Code session, and concurrent sessions
-on different orgs would silently collide.
+shared mutable state across concurrent sessions on different orgs.
 
-Instead, set them per project in `.claude/settings.json` at the customer
-materials directory's root:
+**Claude Code:** set them per project in `.claude/settings.json` at the
+customer materials directory's root:
 
 ```json
 {
@@ -77,10 +93,18 @@ already in `os.environ`). So opening Claude Code in `~/customers/acme/` vs
 `~/customers/initech/` automatically pins each session to its own workspace,
 even though both share the same auth cookie.
 
+**Cowork:** pass `--workspace` and `--org` explicitly to each script call,
+or add them to `session.env` if you're only working on one workspace at a
+time:
+
+```
+CODEER_WORKSPACE_ID=<ws_id>
+CODEER_ORGANIZATION_ID=<org_id>
+```
+
 **Same Codeer login across all orgs** is assumed. If you ever need to switch
-to a different Codeer account, set `CODEER_ENV_FILE=~/.codeer/<alt>.env` in
-that project's `.claude/settings.json` env block and put a full alternate
-auth set there.
+to a different Codeer account, set `CODEER_ENV_FILE` to point at an
+alternate auth file.
 
 **At the start of any Codeer-skill session, call `GET /accounts/me`** and
 state the active workspace/org name to the user — this catches a missing or
@@ -90,9 +114,13 @@ wrong place.
 ## Invocation
 
 All paths below use `$SKILL_DIR` to refer to this skill's installation
-directory. Claude: resolve this once at the start of a session — if installed
-as a Claude Code skill it is typically `~/.claude/skills/codeer-agent`;
-otherwise ask the user for the actual path.
+directory. Resolve this once at the start of a session:
+
+| Environment | Typical `$SKILL_DIR` |
+| --- | --- |
+| Claude Code (installed) | `~/.claude/skills/codeer-agent` |
+| Claude Code (local repo) | `~/path-to/codeer-skills/codeer-agent` |
+| Cowork (mounted folder) | Sandbox mount path, e.g. `/sessions/<id>/mnt/codeer-skills/codeer-agent` |
 
 The wrapper at `scripts/codeer` inside this skill works from any CWD:
 
@@ -106,8 +134,31 @@ $SKILL_DIR/scripts/codeer stream post /chats/42/messages --json '{"message":"hi"
 Claude: always use the resolved absolute path; the wrapper keeps the caller's
 CWD so `--json-file` and upload paths resolve relative to the user's project.
 
-For scripted workflows, import the package directly (the wrapper puts it on
-PYTHONPATH):
+### Cowork-specific notes
+
+- Each `mcp__workspace__bash` call is **independent** (no CWD/env carryover).
+  Always use absolute paths and set `CODEER_ENV_FILE` or rely on the
+  auto-detect in the wrapper.
+- The sandbox has `uv` pre-installed; no additional setup needed.
+- Example invocation pattern for Cowork:
+  ```bash
+  SKILL=/sessions/<id>/mnt/codeer-skills/codeer-agent
+  $SKILL/scripts/codeer get /accounts/me
+  ```
+  Or using Python directly:
+  ```bash
+  cd /sessions/<id>/mnt/codeer-skills/codeer-agent/scripts && \
+  uv run --with 'httpx>=0.27' python3 -c "
+  import sys; sys.path.insert(0, '.')
+  from codeer_cli import CodeerClient, agents
+  with CodeerClient.from_env() as c:
+      print(c.get('/accounts/me'))
+  "
+  ```
+
+### Scripted workflows (both environments)
+
+Import the package directly (the wrapper puts it on PYTHONPATH):
 
 ```python
 # Run via:  uv run --with 'httpx>=0.27' python your_script.py
@@ -170,11 +221,11 @@ uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_rubrics_apply.py \
     --rubrics .codeer/rubrics.json [--dry-run] [--out .codeer/changes.json]
 ```
 
-Per-project env (set once in `.claude/settings.json` `env` block) makes
-`<ws_id>` and `<agent_id>` injectable so you don't re-pass them every call:
-`CODEER_WORKSPACE_ID`, `CODEER_ORGANIZATION_ID`, `CODEER_AGENT_ID`. Only auth
-(`CODEER_API_BASE`, `CODEER_SESSION_ID`, `CODEER_CSRF_TOKEN`) lives globally
-in `~/.codeer/session.env`.
+Per-project env makes `<ws_id>` and `<agent_id>` injectable so you don't
+re-pass them every call: `CODEER_WORKSPACE_ID`, `CODEER_ORGANIZATION_ID`,
+`CODEER_AGENT_ID`. In Claude Code, set these in `.claude/settings.json` `env`
+block; in Cowork, add them to `session.env` or export them in bash. Only auth
+(`CODEER_API_BASE`, `CODEER_SESSION_ID`, `CODEER_CSRF_TOKEN`) is required.
 
 Only fall back to ad-hoc Python via the `codeer_cli` package when one of
 these scripts genuinely can't express what you need (rare). Common helpers
