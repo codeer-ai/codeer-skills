@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# codeer — thin CLI into the Codeer API, usable from any directory.
+#
+# Runs the codeer_cli package from this skill dir while staying in the
+# caller's CWD, so relative --json-file / file-upload paths resolve against
+# the customer's project files, not the skill.
+#
+# Credentials: ~/.codeer/session.env (chmod 600). See SKILL.md for setup.
+set -euo pipefail
+SELF="$(readlink -f "$0" 2>/dev/null || python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$0")"
+HERE="$(cd "$(dirname "$SELF")" && pwd)"
+export PYTHONPATH="$HERE:${PYTHONPATH:-}"
+exec uv run --quiet --with 'httpx>=0.27' --python '>=3.10' python -m codeer_cli.cli "$@"
