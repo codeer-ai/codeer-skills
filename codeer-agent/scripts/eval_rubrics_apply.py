@@ -29,9 +29,13 @@ Input JSON must match the shape ``eval_rubrics.py`` outputs:
       ]
     }
 
-Only (case, evaluator) pairs whose rubric text differs from the current
+Before writing, the script validates that the referenced case IDs belong to
+the target agent and that evaluator IDs exist in the target workspace. Bad
+UUIDs are reported per pair and skipped instead of failing the whole apply.
+
+Only valid (case, evaluator) pairs whose rubric text differs from the current
 value are written — unchanged pairs are skipped. Pass ``--force`` to write
-all pairs regardless.
+all valid pairs regardless.
 
 Writes a summary JSON to stdout: which pairs were updated, skipped, or
 failed.
@@ -80,20 +84,41 @@ def main() -> int:
         all_evaluator_ids.update((c.get("rubrics_by_evaluator") or {}).keys())
 
     with CodeerClient.from_env() as client:
+        failed: list[dict] = []
+        valid_case_ids = set(all_case_ids)
+        valid_evaluator_ids = set(all_evaluator_ids)
+
+        if agent_id:
+            known_case_ids = {c["id"] for c in eval_mod.list_cases(client, agent_id)}
+            invalid_case_ids = valid_case_ids - known_case_ids
+            valid_case_ids &= known_case_ids
+            if invalid_case_ids:
+                _log(f"warning: {len(invalid_case_ids)} case IDs are not part of agent {agent_id}")
+
+        resolved_workspace_id = workspace_id or client.workspace_id
+        if resolved_workspace_id:
+            known_evaluator_ids = {e["id"] for e in eval_mod.list_evaluators(client, resolved_workspace_id)}
+            invalid_evaluator_ids = valid_evaluator_ids - known_evaluator_ids
+            valid_evaluator_ids &= known_evaluator_ids
+            if invalid_evaluator_ids:
+                _log(f"warning: {len(invalid_evaluator_ids)} evaluator IDs are not part of workspace {resolved_workspace_id}")
+
         current: dict[str, dict[str, str]] = {}
         if not args.force:
-            _log(f"reading current rubrics for {len(all_case_ids)} cases × {len(all_evaluator_ids)} evaluators…")
-            current = eval_mod.get_case_rubrics(
-                client,
-                agent_id=agent_id or "",
-                workspace_id=workspace_id or client.workspace_id or "",
-                evaluator_ids=list(all_evaluator_ids) if all_evaluator_ids else None,
-                case_ids=all_case_ids,
-            )
+            if not valid_case_ids or not valid_evaluator_ids:
+                _log("reading current rubrics skipped: no valid case/evaluator pairs")
+            else:
+                _log(f"reading current rubrics for {len(valid_case_ids)} cases × {len(valid_evaluator_ids)} evaluators…")
+                current = eval_mod.get_case_rubrics(
+                    client,
+                    agent_id=agent_id or "",
+                    workspace_id=resolved_workspace_id or "",
+                    evaluator_ids=list(valid_evaluator_ids),
+                    case_ids=list(valid_case_ids),
+                )
 
         updated: list[dict] = []
         skipped: list[dict] = []
-        failed: list[dict] = []
 
         for case in cases:
             case_id = case["case_id"]
@@ -101,18 +126,25 @@ def main() -> int:
             rubrics = case.get("rubrics_by_evaluator") or {}
 
             for ev_id, new_rubric in rubrics.items():
-                old_rubric = (current.get(case_id) or {}).get(ev_id, "")
-                if not args.force and new_rubric == old_rubric:
-                    skipped.append({"case_id": case_id, "evaluator_id": ev_id, "reason": "unchanged"})
-                    continue
-
                 entry = {
                     "case_id": case_id,
                     "evaluator_id": ev_id,
                     "case_input": case_input,
-                    "old_rubric_preview": _truncate(old_rubric, 80),
                     "new_rubric_preview": _truncate(new_rubric, 80),
                 }
+
+                if case_id not in valid_case_ids:
+                    failed.append({**entry, "error": "case_id not found for agent"})
+                    continue
+                if ev_id not in valid_evaluator_ids:
+                    failed.append({**entry, "error": "evaluator_id not found for workspace"})
+                    continue
+
+                old_rubric = (current.get(case_id) or {}).get(ev_id, "")
+                entry["old_rubric_preview"] = _truncate(old_rubric, 80)
+                if not args.force and new_rubric == old_rubric:
+                    skipped.append({"case_id": case_id, "evaluator_id": ev_id, "reason": "unchanged"})
+                    continue
 
                 if args.dry_run:
                     _log(f"  [dry-run] would update: {case_input} × {ev_id[:8]}…")

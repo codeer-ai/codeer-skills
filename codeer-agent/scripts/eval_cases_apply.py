@@ -7,6 +7,7 @@ Usage:
         [--workspace <ws_id>] \
         [--attachments-dir ./attachments] \
         [--out eval_case_ids.json]
+        [--allow-duplicates]
 
 JSON shape (the "rubrics" map is keyed by evaluator UUID — get them via the
 UI or `codeer get /eval/evaluators --param wid=<ws>`):
@@ -47,8 +48,13 @@ Attachments (optional):
   to the case. ``--workspace`` is required when ``attachment_files`` is used.
 - Common image MIMEs (jpg/png/webp/gif/pdf) are inferred from the extension.
 
+By default, this script is idempotent by exact ``input``. If a case with the
+same input already exists for the agent, the script reuses that case and
+updates its rubrics instead of creating a duplicate. Pass
+``--allow-duplicates`` only when duplicate inputs are intentional.
+
 Writes JSON to stdout:
-    {"case_ids": ["...", ...], "labels": ["...", ...]}
+    {"case_ids": ["...", ...], "labels": ["...", ...], "created": [...], "reused": [...]}
 """
 from __future__ import annotations
 
@@ -78,17 +84,10 @@ def _upload_attachment(c: CodeerClient, *, file_path: Path, workspace_id: str) -
         "scope": "persistent",
         "is_evaluation_context": True,
     })}
-    resp = c._client.post(
-        "/api/v1/retrieval/upload-file",
-        files=files, data=data,
-        headers={"X-CSRFToken": c._client.cookies.get("csrftoken", "")},
-    )
-    resp.raise_for_status()
-    payload = resp.json()
-    d = payload.get("data") or {}
-    uuid = d.get("uuid")
+    uploaded = c.post("/retrieval/upload-file", files=files, data=data)
+    uuid = uploaded.get("uuid") if isinstance(uploaded, dict) else None
     if not uuid:
-        raise RuntimeError(f"upload-file response missing data.uuid for {file_path.name}: {payload}")
+        raise RuntimeError(f"upload-file response missing uuid for {file_path.name}: {uploaded}")
     return uuid
 
 
@@ -101,6 +100,8 @@ def main() -> int:
                          "Defaults to CODEER_WORKSPACE_ID env if not passed.")
     ap.add_argument("--attachments-dir", default=None, dest="attachments_dir",
                     help="Directory holding the files referenced in attachment_files")
+    ap.add_argument("--allow-duplicates", action="store_true",
+                    help="Create a new case even when an existing case has the same exact input")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
@@ -128,8 +129,17 @@ def main() -> int:
             _log("error: attachment uploads require --workspace or CODEER_WORKSPACE_ID")
             return 2
 
+        existing_by_input: dict[str, dict] = {}
+        if not args.allow_duplicates:
+            for existing in eval_mod.list_cases(c, args.agent):
+                existing_input = existing.get("input")
+                if isinstance(existing_input, str) and existing_input not in existing_by_input:
+                    existing_by_input[existing_input] = existing
+
         case_ids: list[str] = []
         labels: list[str] = []
+        created: list[dict] = []
+        reused: list[dict] = []
         for case in cases:
             rubrics = dict(case.get("rubrics") or {})
             if shared_style_rubric:
@@ -150,6 +160,25 @@ def main() -> int:
                 uid = _upload_attachment(c, file_path=fp, workspace_id=workspace_id)  # type: ignore[arg-type]
                 attachment_ids.append(uid)
 
+            existing = existing_by_input.get(case["input"])
+            if existing is not None:
+                case_id = existing["id"]
+                _log(f"reusing existing case: {label} ({case_id[:8]})")
+                if case.get("expected_output") is not None or attachment_ids or case.get("meta") is not None:
+                    eval_mod.update_case(
+                        c,
+                        case_id,
+                        expected_output=case.get("expected_output"),
+                        attachment_ids=attachment_ids or None,
+                        meta=case.get("meta"),
+                    )
+                for ev_id, rubric in rubrics.items():
+                    eval_mod.set_rubric(c, evaluation_case_id=case_id, evaluator_id=ev_id, rubric=rubric)
+                case_ids.append(case_id)
+                labels.append(label)
+                reused.append({"case_id": case_id, "label": label})
+                continue
+
             _log(f"creating: {label}")
             result = eval_mod.create_case_with_rubrics(
                 c,
@@ -162,8 +191,9 @@ def main() -> int:
             )
             case_ids.append(result["id"])
             labels.append(label)
+            created.append({"case_id": result["id"], "label": label})
 
-        out = {"case_ids": case_ids, "labels": labels}
+        out = {"case_ids": case_ids, "labels": labels, "created": created, "reused": reused}
         out_text = json.dumps(out, indent=2, ensure_ascii=False)
         print(out_text)
         if args.out:

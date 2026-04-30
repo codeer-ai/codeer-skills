@@ -49,8 +49,10 @@ Concretely:
 3. Cookies are found in the Codeer UI's devtools → Application → Cookies, after logging in.
 4. Sessions expire. If calls start returning 401/403, re-grab the cookies.
 
-The only prerequisite is `uv` on PATH — the skill's wrapper resolves httpx
-through uv's cache, no installs.
+Most lifecycle helpers use `uv` on PATH — the skill's wrapper resolves httpx
+through uv's cache, no installs. For read-only eval table exports, prefer the
+stdlib-only `scripts/eval_table_export.py`; it avoids `uv` entirely and works
+from any customer directory with only `python3`.
 
 ### Per-project workspace / org (multi-workspace pattern)
 
@@ -161,13 +163,22 @@ uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_run.py \
 uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/agent_diff.py \
     --agent <agent_id> --from-version 41 --to-version 42
 
-# 6. Read current rubrics for all (case, evaluator) pairs
+# 6. Pull the whole eval table without uv/httpx (preferred for read-only audit)
+python3 $SKILL_DIR/scripts/eval_table_export.py \
+    --agent <agent_id> --workspace <ws_id> --out-dir .codeer/eval_table
+
+# 7. Read current rubrics for all (case, evaluator) pairs
 uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_rubrics.py \
     --agent <agent_id> --workspace <ws_id> --out .codeer/rubrics.json
 
-# 7. Apply rubric edits (read → edit → apply cycle with #6)
+# 8. Apply rubric edits (read → edit → apply cycle with #7)
 uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_rubrics_apply.py \
     --rubrics .codeer/rubrics.json [--dry-run] [--out .codeer/changes.json]
+
+# 9. Reconcile local eval manifest with server state (read-only audit)
+uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_reconcile.py \
+    --manifest .codeer/eval_cases.json --agent <agent_id> --workspace <ws_id> \
+    --out .codeer/eval_reconcile.json
 ```
 
 Per-project env (set once in `.claude/settings.json` `env` block) makes
@@ -175,6 +186,10 @@ Per-project env (set once in `.claude/settings.json` `env` block) makes
 `CODEER_WORKSPACE_ID`, `CODEER_ORGANIZATION_ID`, `CODEER_AGENT_ID`. Only auth
 (`CODEER_API_BASE`, `CODEER_SESSION_ID`, `CODEER_CSRF_TOKEN`) lives globally
 in `~/.codeer/session.env`.
+
+Run `eval_reconcile.py` before and after larger eval-suite edits. It catches
+duplicate case inputs, missing local/server cases, bad evaluator IDs, missing
+rubrics, and rubric drift without modifying server state.
 
 Only fall back to ad-hoc Python via the `codeer_cli` package when one of
 these scripts genuinely can't express what you need (rare). Common helpers
@@ -443,8 +458,10 @@ codeer-agent/
     ├── eval_cases_apply.py   ← stage 5: bulk-create eval cases with rubrics
     ├── eval_run.py           ← stage 6: trigger eval, print non-perfect analysis
     ├── agent_diff.py         ← compare system_prompt + tools between two versions
+    ├── eval_table_export.py  ← stdlib-only full eval table export (no uv/httpx)
     ├── eval_rubrics.py       ← read per-(case, evaluator) rubrics
     ├── eval_rubrics_apply.py ← apply rubric edits (pairs with eval_rubrics.py)
+    ├── eval_reconcile.py     ← compare local eval manifest with server state
     └── codeer_cli/           ← Python package, importable
         ├── client.py  constants.py  _validate.py
         ├── agents.py  kb.py  chats.py  eval_.py  histories.py

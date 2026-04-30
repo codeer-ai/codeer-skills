@@ -1,0 +1,35 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Python build and packaging output
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Test, type-checker, and linter caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Virtual environments and local environment files
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# OS and editor local files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Local assistant/tool settings
+.claude/settings.local.json
