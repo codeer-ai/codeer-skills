@@ -1,23 +1,38 @@
 #!/usr/bin/env python3
-"""Export a Codeer eval table without uv or third-party dependencies.
+"""Export a Codeer eval table without third-party dependencies.
 
 This script intentionally uses only the Python standard library. It is meant
-for read-only eval-table pulls from any customer directory without touching
-uv's package cache.
+for read-only eval-table pulls from any customer directory without touching a
+package manager or dependency cache.
 """
 from __future__ import annotations
 
 import argparse
 import csv
+import importlib.util
 import json
 import os
 import sys
+from dataclasses import asdict
 from http.cookiejar import CookieJar
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import HTTPCookieProcessor, Request, build_opener
+
+
+_PARSE_SPEC = importlib.util.spec_from_file_location(
+    "_codeer_parse",
+    Path(__file__).resolve().parent / "codeer_cli" / "parse.py",
+)
+if _PARSE_SPEC is None or _PARSE_SPEC.loader is None:
+    raise SystemExit("could not load codeer_cli.parse helpers")
+_PARSE_MOD = importlib.util.module_from_spec(_PARSE_SPEC)
+sys.modules[_PARSE_SPEC.name] = _PARSE_MOD
+_PARSE_SPEC.loader.exec_module(_PARSE_MOD)
+parse_eval_tool_calls = _PARSE_MOD.parse_eval_tool_calls
+summarize_eval_tool_calls = _PARSE_MOD.summarize_eval_tool_calls
 
 
 def _load_dotenv(path: Path) -> None:
@@ -140,18 +155,16 @@ def _version_by_number(versions: list[dict[str, Any]], number: int) -> dict[str,
 
 
 def _pick_history(versions: list[dict[str, Any]], args: argparse.Namespace) -> dict[str, Any]:
-    if args.history:
-        for version in versions:
-            if version.get("id") == args.history:
-                return version
-        return {"id": args.history, "version_number": None, "status": None}
     if args.version is not None:
         return _version_by_number(versions, args.version)
-    if args.latest:
-        return sorted(versions, key=lambda v: v.get("version_number") or 0, reverse=True)[0]
-    for version in versions:
-        if version.get("status") == "published" or version.get("was_published"):
-            return version
+    if args.published:
+        current = [version for version in versions if version.get("status") == "published"]
+        if current:
+            return sorted(current, key=lambda v: v.get("version_number") or 0, reverse=True)[0]
+        previous = [version for version in versions if version.get("was_published")]
+        if previous:
+            return sorted(previous, key=lambda v: v.get("version_number") or 0, reverse=True)[0]
+        raise SystemExit("no published AgentHistory found")
     return sorted(versions, key=lambda v: v.get("version_number") or 0, reverse=True)[0]
 
 
@@ -166,9 +179,13 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--agent", default=os.environ.get("CODEER_AGENT_ID"))
     ap.add_argument("--workspace", default=os.environ.get("CODEER_WORKSPACE_ID"))
-    ap.add_argument("--history", help="AgentHistory UUID; default is published history")
-    ap.add_argument("--version", type=int, help="AgentHistory version_number")
-    ap.add_argument("--latest", action="store_true", help="Use latest history, including drafts")
+    history_group = ap.add_mutually_exclusive_group()
+    history_group.add_argument("--version", type=int, help="AgentHistory version_number")
+    history_group.add_argument(
+        "--published",
+        action="store_true",
+        help="Use the published history instead of the latest history",
+    )
     ap.add_argument("--cases", help="Comma-separated case UUIDs; default all agent cases")
     ap.add_argument("--evaluators", help="Comma-separated evaluator UUIDs; default all workspace evaluators")
     ap.add_argument("--out-dir", default=".codeer/eval_table")
@@ -215,6 +232,7 @@ def main() -> int:
                 "agent_history_id": history["id"],
                 "workspace_id": args.workspace,
                 "include_output": True,
+                "include_reasoning_steps": True,
             },
         )
         all_rubrics.extend(rubrics)
@@ -230,6 +248,10 @@ def main() -> int:
         for order, case in enumerate(cases, 1):
             case_id = case["id"]
             result = result_by_case.get(case_id, {})
+            tool_calls = parse_eval_tool_calls(result)
+            total_tool_duration_ms = sum(
+                tc.duration_ms for tc in tool_calls if tc.duration_ms is not None
+            )
             rows.append(
                 {
                     "order": order,
@@ -241,6 +263,10 @@ def main() -> int:
                     "reason": result.get("reason") or "",
                     "output": result.get("output") or result.get("actual_output") or "",
                     "rubric": rubric_by_case.get(case_id, ""),
+                    "tool_call_count": len(tool_calls),
+                    "tool_total_duration_ms": total_tool_duration_ms or "",
+                    "tool_calls_summary": summarize_eval_tool_calls(tool_calls),
+                    "tool_calls_json": json.dumps([asdict(tc) for tc in tool_calls], ensure_ascii=False),
                 }
             )
 
@@ -268,7 +294,11 @@ def main() -> int:
     }
     (out_dir / "eval_table_full.json").write_text(json.dumps(full, ensure_ascii=False, indent=2) + "\n")
     with (out_dir / "eval_table.csv").open("w", newline="") as fh:
-        fields = ["order", "case_id", "input", "evaluator_name", "score", "reason", "output", "rubric", "evaluator_id"]
+        fields = [
+            "order", "case_id", "input", "evaluator_name", "score", "reason",
+            "output", "rubric", "tool_call_count", "tool_calls_summary",
+            "tool_total_duration_ms", "tool_calls_json", "evaluator_id",
+        ]
         writer = csv.DictWriter(fh, fieldnames=fields)
         writer.writeheader()
         writer.writerows(rows)

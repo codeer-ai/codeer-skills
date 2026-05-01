@@ -110,7 +110,7 @@ for the apply → test → publish workflow. Pass the draft `AgentHistory.id` fr
 
 | Method & path | Purpose |
 | --- | --- |
-| `POST /eval/results/batch` | Read per-case scores + `reason` + generated `output` for one `agent_history_id` |
+| `POST /eval/results/batch` | Read per-case scores + `reason` + generated `output` + persisted tool trace for one `agent_history_id` |
 | `PUT /agents/{id}` | Apply the fix — creates the next AgentHistory draft |
 
 Iterate: trigger → results → PUT → trigger again, staying on drafts.
@@ -123,7 +123,8 @@ Iterate: trigger → results → PUT → trigger again, staying on drafts.
   "workspace_id":     "<uuid>",
   "case_ids":         ["<uuid>", ...],
   "evaluator_id":     "<uuid>",      // singular — NOT evaluator_ids
-  "include_output":   true            // optional, default true
+  "include_output":   true,           // optional, default true
+  "include_reasoning_steps": true      // include persisted tool args/results/timing
 }
 ```
 
@@ -131,6 +132,13 @@ Both `agent_history_id` and `workspace_id` are required at the body level
 (passing `wid=...` as a query param doesn't count). Cases that haven't been
 evaluated yet on that history come back with `score=null` rather than being
 omitted, so use `null`-checks instead of length comparisons.
+
+Pass `include_reasoning_steps=true` to include persisted tool/reasoning steps.
+The rows then include `reasoning_steps[]` with `id`, `type`, `args`, `result`,
+`start_at`, and `end_at` when available. The skill preserves these as
+normalized `tool_calls`, `tool_calls_summary`, and `tool_total_duration_ms`;
+`eval_table_export.py` also writes `tool_calls_json` and keeps untouched rows
+in `eval_table_full.json`. Per-tool time is computed from `start_at/end_at`.
 
 **`evaluator_id` is singular — one call returns results for one evaluator
 only.** To see the full picture for a case, you must call this endpoint

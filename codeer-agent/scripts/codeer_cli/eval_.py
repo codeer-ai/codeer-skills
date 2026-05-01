@@ -170,6 +170,7 @@ def get_results(
     agent_history_id: str,
     workspace_id: str,
     include_output: bool = True,
+    include_reasoning_steps: bool = True,
 ) -> list[dict]:
     """Fetch scored results for a batch of cases under one evaluator + agent version."""
     return client.post(
@@ -180,6 +181,7 @@ def get_results(
             "agent_history_id": agent_history_id,
             "workspace_id": workspace_id,
             "include_output": include_output,
+            "include_reasoning_steps": include_reasoning_steps,
         },
     )
 

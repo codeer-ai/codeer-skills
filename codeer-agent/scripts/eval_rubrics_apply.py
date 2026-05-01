@@ -3,13 +3,13 @@
 Pairs with ``eval_rubrics.py`` (read) to form a read → edit → apply cycle:
 
     # 1. Dump current rubrics
-    uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_rubrics.py \
+    $SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_rubrics.py \
         --agent <agent_id> --workspace <ws_id> --out rubrics.json
 
     # 2. Edit rubrics.json — change rubric text for specific (case, evaluator) pairs
 
     # 3. Apply
-    uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_rubrics_apply.py \
+    $SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_rubrics_apply.py \
         --rubrics rubrics.json [--dry-run]
 
 Input JSON must match the shape ``eval_rubrics.py`` outputs:

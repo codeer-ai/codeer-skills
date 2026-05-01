@@ -31,6 +31,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, Iterable, Optional
 
 # ---------------------------------------------------------------------------
@@ -51,6 +52,149 @@ class ToolCall:
     completion_tokens: Optional[int] = None
     total_tokens: Optional[int] = None
     model: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class EvalToolCall:
+    name: str
+    call_id: Optional[str] = None
+    status: Optional[str] = None
+    arguments: Any = None
+    output: Any = None
+    error: Optional[str] = None
+    duration_ms: Optional[float] = None
+    started_at: Optional[str] = None
+    ended_at: Optional[str] = None
+    raw: dict = field(default_factory=dict)
+
+
+_EVAL_TOOL_CONTAINER_KEYS = (
+    "reasoning_steps",
+    "tool_calls",
+    "tool_call_trace",
+    "tool_calling_trace",
+    "tool_trace",
+    "tool_traces",
+    "trace",
+)
+
+
+def _first_present(raw: dict, keys: Iterable[str]) -> Any:
+    for key in keys:
+        if key in raw and raw.get(key) not in (None, ""):
+            return raw.get(key)
+    return None
+
+
+def _duration_ms(raw: dict) -> Optional[float]:
+    for key in ("duration_ms", "elapsed_ms", "latency_ms", "execution_time_ms", "time_ms"):
+        val = raw.get(key)
+        if isinstance(val, (int, float)):
+            return float(val)
+    for key in ("duration_s", "elapsed_s", "latency_s", "execution_time", "execution_time_s"):
+        val = raw.get(key)
+        if isinstance(val, (int, float)):
+            return float(val) * 1000
+    started = _first_present(raw, ("start_at", "started_at", "start_time", "created_at"))
+    ended = _first_present(raw, ("end_at", "ended_at", "end_time", "completed_at", "finished_at"))
+    if isinstance(started, str) and isinstance(ended, str):
+        try:
+            start_dt = datetime.fromisoformat(started.replace("Z", "+00:00"))
+            end_dt = datetime.fromisoformat(ended.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        return max((end_dt - start_dt).total_seconds() * 1000, 0)
+    return None
+
+
+def _tool_name(raw: dict) -> str:
+    name = _first_present(raw, ("name", "tool_name", "function_name", "type"))
+    if name:
+        return str(name)
+    function = raw.get("function")
+    if isinstance(function, dict) and function.get("name"):
+        return str(function["name"])
+    tool = raw.get("tool")
+    if isinstance(tool, dict) and tool.get("name"):
+        return str(tool["name"])
+    return ""
+
+
+def _normalize_eval_tool_call(raw: dict) -> EvalToolCall:
+    function = raw.get("function") if isinstance(raw.get("function"), dict) else {}
+    return EvalToolCall(
+        name=_tool_name(raw),
+        call_id=_first_present(raw, ("id", "call_id", "tool_call_id")),
+        status=_first_present(raw, ("status", "state")),
+        arguments=_first_present(raw, ("arguments", "args", "input", "parameters")) or function.get("arguments"),
+        output=_first_present(raw, ("output", "result", "response")),
+        error=_first_present(raw, ("error", "error_message")),
+        duration_ms=_duration_ms(raw),
+        started_at=_first_present(raw, ("start_at", "started_at", "start_time", "created_at")),
+        ended_at=_first_present(raw, ("end_at", "ended_at", "end_time", "completed_at", "finished_at")),
+        raw=raw,
+    )
+
+
+def _iter_eval_tool_payloads(value: Any) -> Iterable[dict]:
+    if isinstance(value, list):
+        for item in value:
+            if isinstance(item, dict):
+                yield item
+        return
+    if not isinstance(value, dict):
+        return
+    for key in ("calls", "tool_calls", "steps", "events", "items"):
+        nested = value.get(key)
+        if isinstance(nested, list):
+            for item in nested:
+                if isinstance(item, dict):
+                    yield item
+            return
+    if _tool_name(value):
+        yield value
+
+
+def parse_eval_tool_calls(raw: dict) -> list[EvalToolCall]:
+    """Extract tool-call trace details from an eval result row, if present.
+
+    Current eval rows expose this as ``reasoning_steps`` when callers pass
+    ``include_reasoning_steps=true``. The parser also accepts earlier trace
+    field-name variants while this data was being added.
+    """
+    out: list[EvalToolCall] = []
+    containers = [raw]
+    for key in ("meta", "metadata", "debug", "execution", "run"):
+        value = raw.get(key)
+        if isinstance(value, dict):
+            containers.append(value)
+    for container in containers:
+        for key in _EVAL_TOOL_CONTAINER_KEYS:
+            if key in container:
+                for item in _iter_eval_tool_payloads(container[key]):
+                    call = _normalize_eval_tool_call(item)
+                    if call.name or call.call_id:
+                        out.append(call)
+    if out:
+        return out
+
+    # Fallback for older rows where only the assistant output/content persisted
+    # tool markers. This gives name + call id, but not args/output/timing.
+    content = raw.get("output") or raw.get("actual_output") or raw.get("content") or ""
+    return [
+        EvalToolCall(name=tc.name, call_id=tc.call_id, raw={"source": "output_tool_marker"})
+        for tc in parse_tool_calls(content)
+    ]
+
+
+def summarize_eval_tool_calls(calls: Iterable[EvalToolCall]) -> str:
+    parts = []
+    for call in calls:
+        label = call.name or call.call_id or "tool"
+        if call.duration_ms is not None:
+            label = f"{label} ({call.duration_ms:g} ms)"
+        parts.append(label)
+    return ", ".join(parts)
 
 
 def parse_tool_calls(content: str, token_usage: Optional[dict] = None) -> list[ToolCall]:
@@ -306,6 +450,7 @@ class EvalResultSummary:
     output: Optional[str]              # the agent response that was scored
     execution_time_s: Optional[float]
     cost_credits: Optional[int]
+    tool_calls: list[EvalToolCall] = field(default_factory=list)
 
 
 def parse_eval_result(raw: dict) -> EvalResultSummary:
@@ -317,9 +462,10 @@ def parse_eval_result(raw: dict) -> EvalResultSummary:
         status=str(raw.get("status") or ""),
         score=raw.get("score"),
         reason=raw.get("reason"),
-        output=raw.get("output"),
-        execution_time_s=raw.get("execution_time"),
+        output=raw.get("output") or raw.get("actual_output"),
+        execution_time_s=raw.get("execution_time") or raw.get("execution_time_s"),
         cost_credits=raw.get("cost_credits"),
+        tool_calls=parse_eval_tool_calls(raw),
     )
 
 

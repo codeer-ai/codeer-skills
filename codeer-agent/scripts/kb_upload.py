@@ -1,7 +1,7 @@
 """Reusable: create (or reuse) a Codeer KB and upload all files from a directory.
 
 Usage:
-    uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/kb_upload.py \
+    $SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/kb_upload.py \
         --kb-dir ./kb \
         --name "My KB" \
         --workspace <ws_id> \

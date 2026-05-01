@@ -2,11 +2,11 @@
 
 Usage:
     # Create a new agent:
-    uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/agent_apply.py \
+    $SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/agent_apply.py \
         --payload ./agent_payload.json
 
     # Update an existing agent (PUT — auto-creates a new draft AgentHistory):
-    uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/agent_apply.py \
+    $SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/agent_apply.py \
         --payload ./agent_payload.json \
         --agent-id <id> \
         --note "tightened URL discipline"

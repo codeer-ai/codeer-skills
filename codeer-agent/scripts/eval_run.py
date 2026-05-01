@@ -1,7 +1,7 @@
 """Reusable: trigger an eval run pinned to an agent history, then read scores.
 
 Usage:
-    uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_run.py \
+    $SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_run.py \
         --agent <agent_id> \
         ( --history <history_id> | --latest-draft ) \
         --workspace <ws_id> \
@@ -52,12 +52,14 @@ import argparse
 import json
 import sys
 import time
+from dataclasses import asdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from codeer_cli import CodeerClient  # noqa: E402
 from codeer_cli import agents as agents_mod  # noqa: E402
 from codeer_cli import eval_ as eval_mod  # noqa: E402
+from codeer_cli.parse import parse_eval_result, parse_eval_tool_calls, summarize_eval_tool_calls  # noqa: E402
 
 POLL_INTERVAL = 5
 
@@ -141,6 +143,7 @@ def main() -> int:
                     c, case_ids=case_ids, evaluator_id=ev_id,
                     agent_history_id=args.history, workspace_id=args.workspace,
                     include_output=True,
+                    include_reasoning_steps=True,
                 )
                 results_by_eval[ev_id] = rows
                 done += sum(1 for r in rows if r.get("score") is not None)
@@ -152,14 +155,27 @@ def main() -> int:
         flat: list[dict] = []
         for ev_id, rows in results_by_eval.items():
             for r in rows:
+                result_summary = parse_eval_result(r)
+                tool_calls = parse_eval_tool_calls(r)
+                total_tool_duration_ms = sum(
+                    tc.duration_ms for tc in tool_calls if tc.duration_ms is not None
+                )
                 flat.append({
                     "case_id": r.get("case_id") or r.get("evaluation_case_id"),
                     "case_label": case_label_by_id.get(r.get("case_id") or r.get("evaluation_case_id"), "?"),
                     "evaluator_id": ev_id,
                     "evaluator_name": evaluator_name_by_id.get(ev_id, ev_id),
                     "score": r.get("score"),
+                    "status": result_summary.status,
                     "reason": r.get("reason"),
                     "output": r.get("output") or r.get("actual_output"),
+                    "execution_time_s": result_summary.execution_time_s,
+                    "cost_credits": result_summary.cost_credits,
+                    "tool_call_count": len(tool_calls),
+                    "tool_total_duration_ms": total_tool_duration_ms or None,
+                    "tool_calls_summary": summarize_eval_tool_calls(tool_calls),
+                    "tool_calls": [asdict(tc) for tc in tool_calls],
+                    "raw_result": r,
                 })
 
         all_perfect = all((r.get("score") or 0.0) >= 1.0 for r in flat) if flat else False
@@ -178,6 +194,8 @@ def main() -> int:
             _log("\nNON-PERFECT RESULTS — analysis:\n")
             for r in non_perfect:
                 _log(f"  [{r.get('score') or 0:.2f}] {r['evaluator_name']} — {r['case_label']}")
+                if r.get("tool_calls_summary"):
+                    _log(f"     tools: {r['tool_calls_summary'][:600]}")
                 _log(f"     reason: {(r.get('reason') or '').strip()[:600]}")
                 _log("")
 
@@ -191,6 +209,7 @@ def main() -> int:
                         c, case_ids=case_ids, evaluator_id=ev_id,
                         agent_history_id=args.diff_vs, workspace_id=args.workspace,
                         include_output=False,
+                        include_reasoning_steps=False,
                     )
                 except Exception as e:
                     _log(f"  warning: prev fetch failed for evaluator {ev_id[:8]}: {e}")

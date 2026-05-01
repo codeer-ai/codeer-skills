@@ -1,7 +1,7 @@
 """Reusable: create eval cases (with per-evaluator rubrics) from a JSON file.
 
 Usage:
-    uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_cases_apply.py \
+    $SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_cases_apply.py \
         --cases ./eval_cases.json \
         --agent <agent_id> \
         [--workspace <ws_id>] \

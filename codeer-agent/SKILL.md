@@ -1,6 +1,6 @@
 ---
 name: codeer-agent
-description: Drive the full Codeer agent lifecycle (author, knowledge base, live test, evaluation, publish, post-release analysis) over the internal API from any directory, AND advise on agent design (which tools to pick, how to write system prompts, when to switch LLM models, common composition patterns). Use when the user wants to brainstorm a Codeer agent's design, build or iterate on one with local customer materials, create/update agents, upload files to a knowledge base, add eval cases with rubrics, run live test chats pinned to a draft version, publish a version, or pull conversation histories with feedback filters. Trigger phrases include "design a codeer agent", "what tools should my codeer agent have", "should I add knowledge base / web search / memory", "how should I structure this codeer agent", "create a codeer agent", "update my codeer agent", "upload files to codeer knowledge base", "add eval cases for my codeer agent", "set rubric on codeer case", "run codeer eval", "live test codeer agent", "publish codeer agent version", "analyze codeer history", "pull codeer feedback", "list agents in my codeer workspace".
+description: Build, evaluate, publish, and analyze Codeer agents over the Codeer API. Use for Codeer agent design, knowledge base uploads, eval cases and rubrics, draft live tests, publishing, production history analysis, and feedback review.
 ---
 
 # Codeer Agent Lifecycle — skill
@@ -49,10 +49,13 @@ Concretely:
 3. Cookies are found in the Codeer UI's devtools → Application → Cookies, after logging in.
 4. Sessions expire. If calls start returning 401/403, re-grab the cookies.
 
-Most lifecycle helpers use `uv` on PATH — the skill's wrapper resolves httpx
-through uv's cache, no installs. For read-only eval table exports, prefer the
-stdlib-only `scripts/eval_table_export.py`; it avoids `uv` entirely and works
-from any customer directory with only `python3`.
+The skill's wrappers manage their own Python virtualenv under
+`${TMPDIR:-/tmp}/codeer-skills/codeer-agent-venv` by default, installing
+`httpx` on first use. Set `CODEER_AGENT_VENV` to override the venv location.
+For read-only eval table exports, prefer the stdlib-only
+`scripts/eval_table_export.py`; it works from any customer directory with only
+`python3`. It exports the latest AgentHistory by default; pass `--published`
+only when you specifically need the currently published version.
 
 ### Per-project workspace / org (multi-workspace pattern)
 
@@ -108,12 +111,12 @@ $SKILL_DIR/scripts/codeer stream post /chats/42/messages --json '{"message":"hi"
 Claude: always use the resolved absolute path; the wrapper keeps the caller's
 CWD so `--json-file` and upload paths resolve relative to the user's project.
 
-For scripted workflows, import the package directly (the wrapper puts it on
-PYTHONPATH):
+For scripted workflows, run Python through `scripts/codeer-python`; it uses the
+same managed virtualenv and puts the skill's `scripts/` directory on
+`PYTHONPATH`:
 
 ```python
-# Run via:  uv run --with 'httpx>=0.27' python your_script.py
-# with PYTHONPATH pointing at the skill's scripts/ dir.
+# Run via:  $SKILL_DIR/scripts/codeer-python your_script.py
 import sys, os
 SKILL_DIR = os.environ.get("SKILL_DIR", os.path.expanduser("~/.claude/skills/codeer-agent"))
 sys.path.insert(0, os.path.join(SKILL_DIR, "scripts"))
@@ -141,42 +144,46 @@ stays at root level.
 
 ```bash
 # 1. Build KB and upload all files in a directory
-uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/kb_upload.py \
+$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/kb_upload.py \
     --kb-dir ./kb --name "<KB display name>" \
     --workspace <ws_id> --org <org_id> --out .codeer/kb_ids.json
 
 # 2. Create or update an agent (PUT auto-forks a new draft history)
-uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/agent_apply.py \
+$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/agent_apply.py \
     --payload .codeer/agent_payload.json [--agent-id <id> --note "..."] --out .codeer/agent_ids.json
 
 # 3. Create eval cases with per-evaluator rubrics from JSON
 #    Add --attachments-dir <dir> when any case has attachment_files: [...]
-uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_cases_apply.py \
+$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_cases_apply.py \
     --cases .codeer/eval_cases.json --agent <agent_id> --out .codeer/case_ids.json
 
 # 4. Trigger an eval run; auto-pick the newest draft and diff vs the previous history
-uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_run.py \
+$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_run.py \
     --agent <agent_id> --latest-draft --workspace <ws_id> \
     --diff-vs <prev_history_id> --out .codeer/eval_results.json
 
 # 5. Show a system-prompt + tools diff between two AgentHistory versions
-uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/agent_diff.py \
+$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/agent_diff.py \
     --agent <agent_id> --from-version 41 --to-version 42
 
-# 6. Pull the whole eval table without uv/httpx (preferred for read-only audit)
+# 6. Pull the whole eval table without third-party dependencies (preferred for read-only audit)
 python3 $SKILL_DIR/scripts/eval_table_export.py \
     --agent <agent_id> --workspace <ws_id> --out-dir .codeer/eval_table
 
+# Pull the published eval table instead of the latest draft/version
+python3 $SKILL_DIR/scripts/eval_table_export.py \
+    --agent <agent_id> --workspace <ws_id> --published --out-dir .codeer/eval_table
+
 # 7. Read current rubrics for all (case, evaluator) pairs
-uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_rubrics.py \
+$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_rubrics.py \
     --agent <agent_id> --workspace <ws_id> --out .codeer/rubrics.json
 
 # 8. Apply rubric edits (read → edit → apply cycle with #7)
-uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_rubrics_apply.py \
+$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_rubrics_apply.py \
     --rubrics .codeer/rubrics.json [--dry-run] [--out .codeer/changes.json]
 
 # 9. Reconcile local eval manifest with server state (read-only audit)
-uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_reconcile.py \
+$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_reconcile.py \
     --manifest .codeer/eval_cases.json --agent <agent_id> --workspace <ws_id> \
     --out .codeer/eval_reconcile.json
 ```
@@ -384,7 +391,7 @@ this is the agent's decision aid.
 ### Stage 3 — Build KB in Codeer
 
 ```bash
-uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/kb_upload.py \
+$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/kb_upload.py \
     --kb-dir kb/ --name "<KB display name>" \
     --workspace <ws_id> --org <org_id> --out .codeer/kb_ids.json
 ```
@@ -399,7 +406,7 @@ for the shape). Pull `system_prompt` allowed-outcomes and boundaries from
 `.codeer/scope.md`; copy the KB node_ids from `.codeer/kb_ids.json`.
 
 ```bash
-uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/agent_apply.py \
+$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/agent_apply.py \
     --payload .codeer/agent_payload.json --out .codeer/agent_ids.json
 ```
 
@@ -412,7 +419,7 @@ per-evaluator rubrics — Style/Tone judges *how*, Content Compliance
 judges *what*.
 
 ```bash
-uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_cases_apply.py \
+$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_cases_apply.py \
     --cases .codeer/eval_cases.json --agent <agent_id> --out .codeer/case_ids.json
 ```
 
@@ -422,7 +429,7 @@ uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_cases_apply.py \
 straight from build → eval. Run:
 
 ```bash
-uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_run.py \
+$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_run.py \
     --agent <agent_id> --history <hid> --workspace <ws_id> --out .codeer/eval_results.json
 ```
 
@@ -453,12 +460,14 @@ codeer-agent/
 ├── examples/                 ← reusable JSON payloads (donation_agent.json, eval cases)
 └── scripts/
     ├── codeer                ← shell wrapper for raw GET/POST against the API
+    ├── codeer-python         ← managed-venv Python runner for reusable scripts
+    ├── _venv_bootstrap.sh    ← shared virtualenv bootstrap
     ├── kb_upload.py          ← stage 3: build KB + upload + poll (reusable CLI)
     ├── agent_apply.py        ← stage 4: POST or PUT agent from JSON payload
     ├── eval_cases_apply.py   ← stage 5: bulk-create eval cases with rubrics
     ├── eval_run.py           ← stage 6: trigger eval, print non-perfect analysis
     ├── agent_diff.py         ← compare system_prompt + tools between two versions
-    ├── eval_table_export.py  ← stdlib-only full eval table export (no uv/httpx)
+    ├── eval_table_export.py  ← stdlib-only full eval table export
     ├── eval_rubrics.py       ← read per-(case, evaluator) rubrics
     ├── eval_rubrics_apply.py ← apply rubric edits (pairs with eval_rubrics.py)
     ├── eval_reconcile.py     ← compare local eval manifest with server state
@@ -488,6 +497,7 @@ from codeer_cli import (
     parse_tool_calls,      # content str -> list[ToolCall]  (name, call_id, tokens)
     strip_tool_markers,    # content str -> assistant final text without <tool …> markers
     parse_eval_result,     # raw -> EvalResultSummary  (score, reason, output)
+    parse_eval_tool_calls, # raw eval result -> list[EvalToolCall] (args/output/timing when persisted)
     parse_kb_node,         # raw -> KBNode  (node_type lowercased)
 )
 ```
@@ -497,6 +507,15 @@ markers in `content`. `parse_tool_calls()` extracts them (in order) and
 attaches per-call token usage from `meta.token_usage`. Tool **arguments**
 and **outputs** are not persisted on the Conversation row — see Gotcha #11
 in the cheatsheet for what is vs isn't recoverable from a history read.
+
+Eval result exports request `include_reasoning_steps=true`, which makes the
+eval API return persisted tool/reasoning steps from the answer conversation.
+`eval_run.py` writes `tool_call_count`, `tool_calls_summary`,
+`tool_total_duration_ms`, `tool_calls`, and `raw_result`; the stdlib
+`eval_table_export.py` writes the same summary columns plus raw
+`tool_calls_json` in the CSV/table output and keeps the untouched API rows in
+`eval_table_full.json`. Per-tool elapsed time is computed from
+`reasoning_steps[].start_at/end_at` when both timestamps are present.
 
 ## Keeping this skill accurate
 

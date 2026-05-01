@@ -1,7 +1,7 @@
 """Show what changed between two AgentHistory versions.
 
 Usage:
-    uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/agent_diff.py \
+    $SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/agent_diff.py \
         --agent <agent_id> \
         --from <history_id_a> \
         --to <history_id_b> \

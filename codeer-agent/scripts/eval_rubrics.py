@@ -7,7 +7,7 @@ eval suite is currently checking, or when designing new cases against the
 same evaluators.
 
 Usage:
-    uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_rubrics.py \
+    $SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_rubrics.py \
         --agent <agent_id> --workspace <ws_id> \
         [--evaluators <id,id>]   # default: all evaluators in workspace
         [--cases <id,id>]        # default: all cases for this agent

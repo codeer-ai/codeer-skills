@@ -5,7 +5,7 @@ manifest against the server cases, evaluators, and per-evaluator rubrics for an
 agent. It does not create, update, or delete anything.
 
 Usage:
-    uv run --with 'httpx>=0.27' python $SKILL_DIR/scripts/eval_reconcile.py \
+    $SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_reconcile.py \
         --manifest .codeer/eval_cases.json \
         --agent <agent_id> \
         --workspace <ws_id> \

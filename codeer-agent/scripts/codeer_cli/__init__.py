@@ -21,6 +21,7 @@ from .parse import (
     AgentSummary,
     ConversationTurn,
     EvalResultSummary,
+    EvalToolCall,
     HistorySummary,
     KBNode,
     ToolCall,
@@ -28,11 +29,13 @@ from .parse import (
     parse_conversation_turn,
     parse_conversations,
     parse_eval_result,
+    parse_eval_tool_calls,
     parse_kb_node,
     parse_kb_nodes,
     parse_rubrics_from_reason,
     parse_tool_calls,
     strip_tool_markers,
+    summarize_eval_tool_calls,
     summarize_history,
 )
 
@@ -40,9 +43,9 @@ __all__ = [
     "CodeerClient", "CodeerError", "AuthError", "ToolValidationError",
     # parsers
     "AgentSummary", "ConversationTurn", "EvalResultSummary", "HistorySummary",
-    "KBNode", "ToolCall",
+    "KBNode", "ToolCall", "EvalToolCall",
     "parse_agent", "parse_conversation_turn", "parse_conversations",
-    "parse_eval_result", "parse_kb_node", "parse_kb_nodes",
+    "parse_eval_result", "parse_eval_tool_calls", "parse_kb_node", "parse_kb_nodes",
     "parse_rubrics_from_reason",
-    "parse_tool_calls", "strip_tool_markers", "summarize_history",
+    "parse_tool_calls", "strip_tool_markers", "summarize_eval_tool_calls", "summarize_history",
 ]
