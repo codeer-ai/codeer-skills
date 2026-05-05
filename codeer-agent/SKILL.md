@@ -332,6 +332,11 @@ Once you know what's failing and what the eval suite currently covers:
   doc. Each `sys_improve`-flagged turn is a candidate eval case. Use
   `eval_cases_apply.py` with `meta.previous_conversations` when the
   failure requires multi-turn context (see DESIGN_GUIDE.md §8.5).
+  Do not simply copy the failed user message into the eval input. Rewrite
+  it into the smallest question that makes the failure objectively
+  judgeable. An eval case is not a stored failure transcript; it is a
+  regression asset that abstracts the failure into source, criterion,
+  coverage, and a syncable server case.
 - Rubric edits are the most common change — more common than prompt
   edits. Use the `eval_rubrics.py` → edit → `eval_rubrics_apply.py`
   cycle instead of writing one-off scripts.
@@ -410,13 +415,44 @@ $SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/agent_apply.py \
     --payload .codeer/agent_payload.json --out .codeer/agent_ids.json
 ```
 
-### Stage 5 — Build eval cases (one per scope category)
+### Stage 5 — Build eval cases (coverage + failures)
 
-Write `.codeer/eval_cases.json` with **one case per in-scope category**
-from stage 0, plus boundary cases for each hard rule and a
-hallucination-trap case for each out-of-scope category. Each case carries
-per-evaluator rubrics — Style/Tone judges *how*, Content Compliance
-judges *what*.
+Use two complementary sources for eval coverage:
+
+1. **Known failures.** Turn existing fail cases, flagged histories, user
+   feedback, spreadsheets, or QA notes into minimal judgeable questions.
+   Do not preserve the original wording by default; isolate the behavior
+   that failed and write the smallest input that tests it. Prefer inputs
+   that make the observed failure likely to recur. For example, if the
+   original user asked for matcha recommendations and the agent wrongly
+   recommended product A, do not keep "recommend matcha products" as the
+   eval input; ask "Does product A have a matcha flavor?" so the case
+   directly tests the mistaken association. The resulting case should be a
+   regression asset with a clear source, criterion, coverage purpose, and
+   stable server sync via `eval_cases_apply.py`.
+   The mapping does not have to be one failure → one case: if one
+   transcript reveals several distinct failure modes, split it into
+   several focused cases.
+   When helpful, use the optional case `note` to record provenance such
+   as source artifact, original failure summary, why the rewritten input
+   tests the failure, and canonical source URLs.
+
+2. **MECE coverage.** Inspect the agent settings, system prompt, KBs, and
+   tools. If user histories are available, use them too. Propose a MECE
+   category structure for the agent's expected work — for example product
+   Q&A, routing, ordering, policy boundaries, tool-backed actions, and
+   out-of-scope refusals. Confirm that structure with the user before
+   adding cases, then fill gaps with concrete eval inputs and rubrics.
+
+Write `.codeer/eval_cases.json` with cases that cover the confirmed
+categories, plus boundary cases for hard rules and hallucination traps for
+out-of-scope categories. Each case carries per-evaluator rubrics —
+Style/Tone judges *how*, Content Compliance judges *what*. In practice,
+prioritize the **Content Compliance Evaluator** unless the user explicitly
+cares about style. Its rubrics must be self-sufficient: the evaluator only
+has its system prompt and the rubric, not the agent's KB or tools. Avoid
+rubrics like "ensure the price is correct" unless the rubric itself states
+the correct price and any acceptable variants.
 
 ```bash
 $SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_cases_apply.py \
