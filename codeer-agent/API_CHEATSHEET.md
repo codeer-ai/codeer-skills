@@ -1,9 +1,7 @@
 # Codeer API cheatsheet — agent lifecycle
 
-> If the user is **deciding what to build** rather than executing a known
-> change, read **`DESIGN_GUIDE.md`** first — that's where capability,
-> tool-choice, and instruction-writing wisdom live. This file is the
-> request-shape reference.
+> This file is the request-shape reference for the Codeer API. For the
+> stage-by-stage execution workflow, read **`LIFECYCLE.md`**.
 
 The 9 stages below mirror the user-docs lifecycle (`agent-creation` →
 `optimization-loop` → `publish`). Every path is under `/api/v1/`. All endpoints
@@ -416,3 +414,28 @@ When pulling eval data manually, always:
 The reusable scripts (`eval_run.py`, `eval_rubrics.py`,
 `eval_rubrics_apply.py`) and the `get_case_rubrics()` helper all handle
 this iteration automatically. Prefer them over raw API calls.
+
+---
+
+## Keeping this cheatsheet accurate
+
+The canonical reference for Codeer's API and capabilities is the public
+documentation at **https://docs.codeer.ai**. Check it when this cheatsheet
+feels out of date.
+
+The backend + frontend enums this skill validates against live in:
+- `codeer/agents/types.py` — `UnifiedToolType`, `PublishState`, `HttpRequestConfig`.
+- `web/src/types/requestForm.ts` — `FormFieldType`, `FormField`.
+- `codeer/eval/types.py` — eval case/evaluator/rubric schemas.
+- `codeer/config/urls.py` + per-app `api.py` — routes.
+- `codeer/agents/api.py` — agent CRUD endpoint implementations.
+- `codeer/eval/api.py` — eval trigger/results/rubric endpoint implementations.
+- `codeer/knowledge/api.py` — KB node/file endpoints.
+
+**When uncertain about an API shape, parameter name, enum value, or
+backend behavior, check docs.codeer.ai first.** This cheatsheet is a
+summary that can lag behind the code.
+
+When a new tool type or field type is added, update
+`codeer_cli/constants.py` and add a Gotcha note here if the backend and
+frontend disagree (they have before).
