@@ -30,11 +30,8 @@ skill sharing is enabled by an owner.
 After uploading, make sure:
 
 - Code execution and file creation are enabled for Claude/Cowork.
-- `~/.codeer/session.env` exists on the computer where Cowork is running.
-- The relevant project provides `CODEER_WORKSPACE_ID` and
-  `CODEER_ORGANIZATION_ID`. In Claude Code this is usually done with
-  `.claude/settings.json`; in Cowork, provide those values in the working
-  project context or ask Cowork to use them before running Codeer API actions.
+- `CODEER_EXTERNAL_API_BASE` and `CODEER_API_KEY` are available in the
+  environment where Cowork is running.
 
 ### Claude Code
 
@@ -54,9 +51,7 @@ Once installed, Claude Code will automatically invoke the skill when your reques
 
 ## Prerequisites
 
-- **Python 3 with venv support** — skill wrappers create and reuse their own
-  virtualenv under `${TMPDIR:-/tmp}/codeer-skills/`.
-- **Codeer session credentials** in `~/.codeer/session.env` — see each skill's `SKILL.md` for setup details.
+- **Codeer external API credentials** — see each skill's `SKILL.md` for setup details.
 
 ## Repo structure
 
@@ -66,6 +61,5 @@ codeer-skills/
     ├── SKILL.md              ← orientation, setup, lifecycle walkthrough
     ├── DESIGN_GUIDE.md       ← agent design advice (tools, prompts, patterns)
     ├── API_CHEATSHEET.md     ← endpoint reference + gotchas
-    ├── examples/             ← reusable JSON payloads
-    └── scripts/              ← CLI wrapper + reusable Python scripts
+    └── examples/             ← reusable JSON payloads
 ```

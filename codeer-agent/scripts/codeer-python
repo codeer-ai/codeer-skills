@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-# Run a Python script using the Codeer skill's managed virtualenv.
-set -euo pipefail
-SELF="$(readlink -f "$0" 2>/dev/null || python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$0")"
-HERE="$(cd "$(dirname "$SELF")" && pwd)"
-source "$HERE/_venv_bootstrap.sh"
-exec "$CODEER_AGENT_PYTHON" "$@"

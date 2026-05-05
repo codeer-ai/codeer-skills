@@ -13,7 +13,7 @@ the `codeer-copilot` source repo if the user has access (ask them):
 - Tool type enum + field shapes: `codeer/agents/types.py`
 - Eval schemas: `codeer/eval/types.py`, `codeer/eval/api.py`
 - Endpoint implementations: `codeer/agents/api.py`, `codeer/knowledge/api.py`
-- Hard limits (mirrored in `codeer_cli/constants.py`): 10 tools / 5 call_agent / 1 memory per agent.
+- Hard limits: 10 tools / 5 call_agent / 1 memory per agent.
 
 **When uncertain about an API shape or backend behavior, check
 docs.codeer.ai or read the actual source file** — don't guess from the
@@ -477,10 +477,10 @@ swings to over-warning ("不要餵") on supplement questions → trips the
 "no negative verdicts" rubric.
 
 After every prompt change, **rerun the entire eval suite**, not just the
-case you targeted. `eval_run.py --latest-draft --diff-vs <prev_history_id>`
-prints a regression table — every case whose score moved up or down vs the
-previous version. The Tier-N regression list catches these side effects
-before publish.
+case you targeted. Trigger the new version with `POST /eval/runs`, read
+results with `POST /eval/results:batch`, and compare every case whose score
+moved up or down vs the previous version. The Tier-N regression list catches
+these side effects before publish.
 
 ### Pitfall 7 — "Don't say X" rubric without an alternative
 
@@ -554,11 +554,10 @@ happened up to that point.
 
 ### Practical tips
 
-- **Find the source conversation first.** Use
-  `histories.list_negative_feedback_turns()` or browse
-  `/histories/{id}/conversations` to identify the exact turn where the
-  failure occurred. Note the `history_id` and the `conversation_id` of
-  the turn you want to replace.
+- **Find the source conversation first.** Use `GET /histories` with an
+  improvement feedback filter, then browse `/histories/{id}/conversations`
+  to identify the exact turn where the failure occurred. Note the
+  `history_id` and the `conversation_id` of the turn you want to replace.
 - **Count turns carefully.** `previous_conversation_count` counts
   individual conversation rows (each user message and each assistant
   response is one), not round-trips. A 3-round exchange has 6 turns.
