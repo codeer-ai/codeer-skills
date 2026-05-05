@@ -70,8 +70,7 @@ filenames are opaque or the KB is large, this index is critical.
 
 ### Step 3 — Create agent
 
-Write `.codeer/agent_payload.json` (see `examples/donation_agent.json`
-for the shape). Pull allowed outcomes and boundaries from
+Write `.codeer/agent_payload.json`. Pull allowed outcomes and boundaries from
 `.codeer/scope.md`; attach KB node IDs from `.codeer/kb_ids.json`.
 
 ```bash
@@ -379,3 +378,22 @@ Only fall back to these when the scripts above can't express what you need:
   — score history of one case across every version.
 - `agents.get_latest_draft_history_id(agent_id)` — find the newest
   unpublished draft version.
+
+---
+
+## Common errors and recovery
+
+Run `$SKILL_DIR/scripts/codeer check` first — it catches most setup
+problems. For errors that happen during work:
+
+| Error | Cause | Fix |
+| --- | --- | --- |
+| HTTP 401 or 403 | Session cookie expired | Re-grab `sessionid` and `csrftoken` from Codeer UI -> devtools -> Application -> Cookies. Update `~/.codeer/session.env`. |
+| HTTP 403 "CSRF Failed" | CSRF token missing or mismatched | Ensure `CODEER_CSRF_TOKEN` in `session.env` matches the `csrftoken` cookie. Both must be the same value. |
+| HTTP 400 "Organization ID is required" | Using `/agents/all` without `oid` param | Pass both `wid` and `oid`. Look up org for workspace via `GET /accounts/me` -> `profile.workspace_organization_map`. |
+| KB upload returns `status: FAILED`, `node_id: null`, no error message | Wrong or missing Content-Type on the uploaded file | The `kb.upload_file()` helper handles this. If uploading manually, pass `(filename, file_handle, content_type)` as a 3-tuple. Image files (JPEG, PNG, etc.) are not accepted for KB uploads. |
+| KB upload returns HTTP 422 `"Field required"` on `form` | `parent_id` sent as a top-level form field instead of JSON-encoded `form` field | Use `kb.upload_files()` which handles the Django Ninja quirk. If calling manually, the multipart body needs `form: {"parent_id": "..."}` as a single JSON-encoded field. |
+| Agent saves but form fields render blank in UI | Invalid form field `type` value (e.g. `"text"`, `"email"`, `"select"`) | Valid types: `shortText`, `longText`, `number`, `dropdown`, `radio`, `checkbox`, `date`. Use `shortText` for email/text, `dropdown` for select. |
+| Eval results show `score: null` for some cases | Cases haven't been evaluated on that agent version yet | `null` means "not yet run", not "failed". Trigger eval for those cases, or check that the correct `agent_history_id` was passed. |
+| Changes land in the wrong workspace | `CODEER_WORKSPACE_ID` not set or wrong for this project | Set per-project in `.claude/settings.json` `env` block. Run `codeer check` to verify. |
+| `codeer check` can't find credentials | `~/.codeer/session.env` missing or empty | Create the file with `CODEER_API_BASE`, `CODEER_SESSION_ID`, `CODEER_CSRF_TOKEN`. See SKILL.md setup section. |

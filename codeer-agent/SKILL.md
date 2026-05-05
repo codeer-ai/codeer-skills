@@ -61,9 +61,9 @@ Claude Code exports these into every command run inside that project, so
 opening Claude Code in `~/customers/acme/` vs `~/customers/initech/`
 automatically pins each session to its own workspace.
 
-**At the start of any Codeer-skill session, call `GET /accounts/me`** and
-state the active workspace/org name to the user — this catches a missing or
-wrong per-project setting before any change lands in the wrong place.
+**At the start of any Codeer-skill session, run `$SKILL_DIR/scripts/codeer check`**
+to validate auth, workspace, and agent config. It prints the active identity
+and catches setup problems before any change lands in the wrong place.
 
 ## Invocation
 
@@ -123,7 +123,6 @@ codeer-agent/
 ├── SKILL.md                  <- you are here — setup, dispatch, orientation
 ├── LIFECYCLE.md              <- stage-by-stage execution, scripts reference, iteration loop
 ├── API_CHEATSHEET.md         <- endpoint reference + gotchas
-├── examples/                 <- reusable JSON payloads (donation_agent.json, eval cases)
 └── scripts/
     ├── codeer                <- shell wrapper for raw GET/POST against the API
     ├── codeer-python         <- managed-venv Python runner for reusable scripts

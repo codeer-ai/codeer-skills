@@ -38,7 +38,7 @@ customer's IDs from leaking into another's session when switching directories.
 | `PUT /agents/{id}` | Update — *auto-creates a new AgentHistory version* |
 | `DELETE /agents/{id}` | Delete |
 
-`unified_tools[]` fields (see `codeer/agents/types.py`): `type` ∈
+`unified_tools[]` fields: `type` ∈
 {`knowledge_base`, `web_search`, `call_agent`, `image_generation`,
 `request_form`, `payment`, `memory`, `http_request`}, plus type-specific fields
 like `knowledge_node_ids`, `domain`, `agent_id`, `http_request` config.
@@ -205,7 +205,7 @@ or the server returns `400 Organization ID is required`. Map workspace → org v
 
 ### 2. Form field `type` has a fixed enum — backend doesn't enforce it
 
-Valid values (from `web/src/types/requestForm.ts :: FormFieldType`):
+Valid values:
 `shortText`, `longText`, `number`, `dropdown`, `radio`, `checkbox`, `date`.
 
 There is **no** `"text" | "email" | "select"`. The backend validator accepts
@@ -420,22 +420,10 @@ this iteration automatically. Prefer them over raw API calls.
 ## Keeping this cheatsheet accurate
 
 The canonical reference for Codeer's API and capabilities is the public
-documentation at **https://docs.codeer.ai**. Check it when this cheatsheet
-feels out of date.
+documentation at **https://docs.codeer.ai**. When uncertain about an API
+shape, parameter name, or enum value, check docs.codeer.ai first — this
+cheatsheet is a summary that can lag behind.
 
-The backend + frontend enums this skill validates against live in:
-- `codeer/agents/types.py` — `UnifiedToolType`, `PublishState`, `HttpRequestConfig`.
-- `web/src/types/requestForm.ts` — `FormFieldType`, `FormField`.
-- `codeer/eval/types.py` — eval case/evaluator/rubric schemas.
-- `codeer/config/urls.py` + per-app `api.py` — routes.
-- `codeer/agents/api.py` — agent CRUD endpoint implementations.
-- `codeer/eval/api.py` — eval trigger/results/rubric endpoint implementations.
-- `codeer/knowledge/api.py` — KB node/file endpoints.
-
-**When uncertain about an API shape, parameter name, enum value, or
-backend behavior, check docs.codeer.ai first.** This cheatsheet is a
-summary that can lag behind the code.
-
-When a new tool type or field type is added, update
-`codeer_cli/constants.py` and add a Gotcha note here if the backend and
-frontend disagree (they have before).
+The enums and limits this skill validates against are mirrored in
+`codeer_cli/constants.py`. When a new tool type or field type is added,
+update that file and add a Gotcha note here if behavior is surprising.
