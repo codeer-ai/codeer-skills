@@ -1,9 +1,9 @@
 """Tiny curl-like CLI for one-off API calls while iterating.
 
     codeer get /agents/all
-    codeer get /agents/all --param wid=<workspace-id>
+    codeer get /agents/all
     codeer post /agents --json-file body.json
-    codeer stream post /chats/1/messages --json '{"message":"hi","agent_history_id":"..."}'
+    codeer stream post /chats/1/messages --json '{"message":"hi","version_id":"..."}'
 
 For anything repeated or scripted, import the typed helpers
 (`from codeer_cli import agents, kb, eval_, histories, chats`) instead.
@@ -18,7 +18,6 @@ from typing import Any
 
 from .client import AuthError, CodeerClient, CodeerError
 
-
 def _load_json(json_str: str | None, json_file: str | None) -> Any:
     if json_file:
         with open(json_file) as fh:
@@ -26,7 +25,6 @@ def _load_json(json_str: str | None, json_file: str | None) -> Any:
     if json_str:
         return json.loads(json_str)
     return None
-
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="codeer")
@@ -87,7 +85,6 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     finally:
         client.close()
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -1,6 +1,6 @@
 """Print per-(case, evaluator) rubrics for an agent.
 
-Reads rubrics directly via ``POST /eval/rubrics/batch`` — this is the same
+Reads rubrics directly via ``POST /eval/rubrics:batch`` — this is the same
 field ``set_rubric`` writes to (``CaseEvaluatorInfo.rubric``), so what you
 see is exactly what the judge sees. Use this when reviewing what an agent's
 eval suite is currently checking, or when designing new cases against the
@@ -27,15 +27,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from codeer_cli import CodeerClient  # noqa: E402
 from codeer_cli import eval_ as eval_mod  # noqa: E402
 
-
 def _log(msg: str) -> None:
     print(msg, file=sys.stderr, flush=True)
-
 
 def _truncate(s: str, n: int = 120) -> str:
     s = (s or "").replace("\n", " ").strip()
     return s[: n - 1] + "…" if len(s) > n else s
-
 
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -112,7 +109,6 @@ def main() -> int:
             Path(args.out).write_text(json.dumps(out, indent=2, ensure_ascii=False) + "\n")
 
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

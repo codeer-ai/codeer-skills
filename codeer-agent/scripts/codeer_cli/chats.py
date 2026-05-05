@@ -41,7 +41,7 @@ def send_message(
     ``agent_history_id`` is required — this is how you pin Live Test to a specific
     (possibly unpublished) agent version without affecting production users.
     """
-    body: dict[str, Any] = {"message": message, "agent_history_id": agent_history_id}
+    body: dict[str, Any] = {"message": message, "version_id": agent_history_id, "stream": stream}
     if attachment_ids:
         body["attachment_ids"] = attachment_ids
 

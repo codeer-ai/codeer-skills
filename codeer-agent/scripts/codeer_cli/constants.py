@@ -45,7 +45,7 @@ PUBLISH_STATES: frozenset[str] = frozenset({
     "public",
 })
 
-# ``AgentHistory.status`` values returned by ``GET /agents/{id}/histories``.
+# ``AgentHistory.status`` values returned by ``GET /agents/{id}/versions``.
 # Source: codeer/agents/types.py :: AgentHistoryStatus
 AGENT_HISTORY_STATUSES: frozenset[str] = frozenset({
     "draft",

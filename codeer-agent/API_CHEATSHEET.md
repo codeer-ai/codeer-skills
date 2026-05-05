@@ -6,16 +6,16 @@
 > request-shape reference.
 
 The 9 stages below mirror the user-docs lifecycle (`agent-creation` →
-`optimization-loop` → `publish`). Every path is under `/api/v1/`. All endpoints
-authenticate via session cookie (sessionid + csrftoken) for now.
+`optimization-loop` → `publish`). Every path is under `/external/v1/`. All endpoints
+authenticate via X-API-Key.
 
 Envelope: successful responses look like
-`{"error_code": 0, "message": "", "pagination": null, "data": <payload>}`.
+`{"request_id": "req_...", "data": <payload>}`.
 The client unwraps `data` automatically; errors raise `CodeerError`.
 
 **Session config split (2026-04+):**
 `~/.codeer/session.env` holds **auth only** — `CODEER_API_BASE`,
-`CODEER_SESSION_ID`, `CODEER_CSRF_TOKEN`. Per-customer scope —
+`CODEER_API_KEY`. Per-customer scope —
 `CODEER_WORKSPACE_ID`, `CODEER_ORGANIZATION_ID`, `CODEER_AGENT_ID` — lives in
 each project's `.claude/settings.json` `env` block. This prevents one
 customer's IDs from leaking into another's session when switching directories.
@@ -24,7 +24,7 @@ customer's IDs from leaking into another's session when switching directories.
 - `/histories` uses **`limit` + `offset`** (NOT `page` / `page_size`).
   Default in `histories.list()` is `limit=500`. Backend hard-cap may be
   lower — check the response length.
-- `/agents/{id}/histories`, `/eval/agents/{id}/cases`, `/eval/evaluators` all
+- `/agents/{id}/versions`, `/eval/agents/{id}/cases`, `/eval/evaluators` all
   return everything in one shot today (no pagination).
 - `order_by` defaults to `"desc"` (most recent first) on endpoints that
   support it.
@@ -34,10 +34,10 @@ customer's IDs from leaking into another's session when switching directories.
 | Method & path | Purpose |
 | --- | --- |
 | `POST /agents` | Create a new agent |
-| `GET /agents?wid=<ws>` | List agents in a workspace |
-| `GET /agents/all?wid=<ws>` or `?oid=<org>` | List across workspaces/org |
+| `GET /agents` | List agents in a workspace |
+| `GET /agents/all` | List across workspaces/org |
 | `GET /agents/{id}` | Read current state |
-| `PUT /agents/{id}` | Update — *auto-creates a new AgentHistory version* |
+| `PATCH /agents/{id}` | Update — *auto-creates a new AgentHistory version* |
 | `DELETE /agents/{id}` | Delete |
 
 `unified_tools[]` fields (see `codeer/agents/types.py`): `type` ∈
@@ -74,16 +74,16 @@ Attach KB files to an agent by listing their node IDs in the agent's
 | `POST /chats/{chat_id}/regenerate` | Re-run the last turn |
 | `POST /chats/{chat_id}/messages/{msg_id}/feedbacks` | Thumbs up/down on a reply |
 
-`POST /chats/.../messages` requires `agent_history_id` — this is the key hook
+`POST /chats/.../messages` requires `version_id` — this is the key hook
 for the apply → test → publish workflow. Pass the draft `AgentHistory.id` from
-`PUT /agents/{id}` to test an unpublished version.
+`PATCH /agents/{id}` to test an unpublished version.
 
 ## Stage 4 — Version management
 
 | Method & path | Purpose |
 | --- | --- |
-| `GET /agents/{id}/histories` | List every AgentHistory version, with `was_published` flags |
-| `GET /agents/{id}/histories/{history_id}` | Read a specific version |
+| `GET /agents/{id}/versions` | List every AgentHistory version, with `was_published` flags |
+| `GET /agents/{id}/versions/{history_id}` | Read a specific version |
 | `GET /agents/{id}/impact` | List downstream agents that `call_agent` this one |
 
 ## Stage 5 — Evaluation
@@ -96,30 +96,30 @@ for the apply → test → publish workflow. Pass the draft `AgentHistory.id` fr
 | `PUT /eval/cases/{case_id}` | Update |
 | `DELETE /eval/cases/{case_id}` | Delete |
 | `POST /eval/cases/upload-csv` | Bulk import |
-| `POST /eval/cases/bulk` | Bulk delete |
+| `POST /eval/cases:bulk-delete` | Bulk delete |
 | `POST /eval/evaluators` | Create evaluator (LLM-judge via `system_prompt_template`) |
-| `GET /eval/evaluators?wid=<ws>` | List evaluators |
+| `GET /eval/evaluators` | List evaluators |
 | `PUT /eval/evaluators/{id}` | Update |
 | `DELETE /eval/evaluators/{id}` | Delete |
-| `POST /eval/trigger` | Run a set of cases with evaluators, optionally pinned to `agent_history_id` |
-| `POST /eval/stop` | Cancel running case+evaluator combo |
-| `POST /eval/rubric` | Set/override the rubric for one (case, evaluator) — write-only |
-| `POST /eval/rubrics/batch` | **Read** rubrics for a batch of (case, evaluator) pairs |
+| `POST /eval/runs` | Run a set of cases with evaluators, optionally pinned to `version_id` |
+| `POST /eval/runs:stop` | Cancel running case+evaluator combo |
+| `PUT /eval/cases/{case_id}/rubrics/{evaluator_id}` | Set/override the rubric for one (case, evaluator) — write-only |
+| `PUT /eval/cases/{case_id}/rubrics/{evaluator_id}s/batch` | **Read** rubrics for a batch of (case, evaluator) pairs |
 
 ## Stage 6 — Diagnose + update
 
 | Method & path | Purpose |
 | --- | --- |
-| `POST /eval/results/batch` | Read per-case scores + `reason` + generated `output` + persisted tool trace for one `agent_history_id` |
-| `PUT /agents/{id}` | Apply the fix — creates the next AgentHistory draft |
+| `POST /eval/results:batch` | Read per-case scores + `reason` + generated `output` + persisted tool trace for one `version_id` |
+| `PATCH /agents/{id}` | Apply the fix — creates the next AgentHistory draft |
 
 Iterate: trigger → results → PUT → trigger again, staying on drafts.
 
-`POST /eval/results/batch` body shape:
+`POST /eval/results:batch` body shape:
 
 ```json
 {
-  "agent_history_id": "<uuid>",
+  "version_id": "<uuid>",
   "workspace_id":     "<uuid>",
   "case_ids":         ["<uuid>", ...],
   "evaluator_id":     "<uuid>",      // singular — NOT evaluator_ids
@@ -128,8 +128,8 @@ Iterate: trigger → results → PUT → trigger again, staying on drafts.
 }
 ```
 
-Both `agent_history_id` and `workspace_id` are required at the body level
-(passing `wid=...` as a query param doesn't count). Cases that haven't been
+Both `version_id` and `workspace_id` are required at the body level
+(legacy note) Cases that haven't been Cases that haven't been
 evaluated yet on that history come back with `score=null` rather than being
 omitted, so use `null`-checks instead of length comparisons.
 
@@ -157,8 +157,8 @@ in one shot, printing every case whose score moved up or down.
 
 | Method & path | Purpose |
 | --- | --- |
-| `POST /agents/{id}/publish-history` | Make a specific AgentHistory version the public one (also used for rollback) |
-| `POST /agents/{id}/publish` | Change `publish_state` (`private` / `in_organization` / `public`) |
+| `POST /agents/{id}/versions/{version_id}:publish` | Make a specific AgentHistory version the public one (also used for rollback) |
+| `POST /agents/{id}:set-publish-state` | Change `publish_state` (`private` / `in_organization` / `public`) |
 | `GET /agents/{id}/impact` | Always worth running first if other agents `call_agent` this one |
 
 ## Stage 8 — Post-release analysis
@@ -179,14 +179,14 @@ conversations and inspect tool-call messages yourself.
 
 ## Stage 9 — Rollback
 
-Reuse `POST /agents/{id}/publish-history` with an older `history_id`.
-Non-destructive: older versions stay in `GET /agents/{id}/histories`.
+Reuse `POST /agents/{id}/versions/{version_id}:publish` with an older `history_id`.
+Non-destructive: older versions stay in `GET /agents/{id}/versions`.
 
 ## Other useful endpoints
 
 | Method & path | Purpose |
 | --- | --- |
-| `GET /accounts/me` | Sanity-check session, read workspace_organization_map |
+| `GET /me` | Sanity-check session, read workspace_organization_map |
 | `GET /organizations` | List orgs visible to the user |
 | `GET /llm/models` | List available LLM model IDs to use as `llm_model` |
 | `GET /retrieval/...` | Shared retrieval helpers (file upload for attachments, markdown conversion) |
@@ -200,10 +200,8 @@ them client-side, but they're worth knowing when you're writing payloads by hand
 
 ### 1. `/agents` returns published only; `/agents/all` returns drafts too
 
-`GET /agents?wid=<ws>` filters to **published** agents. While iterating on a
-draft, use `GET /agents/all?wid=<ws>&oid=<org>` — **both** params are required,
-or the server returns `400 Organization ID is required`. Map workspace → org via
-`/accounts/me` → `profile.workspace_organization_map`.
+`GET /agents` filters to **published** agents. While iterating on a
+draft, use `GET /agents/all`.
 
 ### 2. Form field `type` has a fixed enum — backend doesn't enforce it
 
@@ -225,16 +223,16 @@ analytics/column name, `question` is the user-facing prompt.
 ### 3. The `Standard` shown in Test Suite is a per-(case, evaluator) rubric
 
 `POST /eval/cases` has a `rubric` field — this is NOT what the Test Suite's
-`Standard` column reads. That column is populated by `POST /eval/rubric` keyed
+`Standard` column reads. That column is populated by `PUT /eval/cases/{case_id}/rubrics/{evaluator_id}` keyed
 on `(evaluation_case_id, evaluator_id)`. Set it explicitly for each
 (case, evaluator) pair after creating the case, or use
 `codeer_cli.eval_.create_case_with_rubrics()` which does both in one call.
 
-To **read** rubrics back, use `POST /eval/rubrics/batch` with
+To **read** rubrics back, use `PUT /eval/cases/{case_id}/rubrics/{evaluator_id}s/batch` with
 `{case_ids: [...], evaluator_id}` — it returns the raw rubric strings out of
-`CaseEvaluatorInfo`, no `agent_history_id` required since rubrics are
+`CaseEvaluatorInfo`, no `version_id` required since rubrics are
 version-independent. Don't try to scrape rubrics out of past
-`/eval/results/batch` `reason` text: the judge paraphrases them, and a case
+`/eval/results:batch` `reason` text: the judge paraphrases them, and a case
 with a rubric set but never evaluated is indistinguishable from one with no
 rubric. Use `codeer_cli.eval_.get_case_rubrics()` (workspace-wide) or
 `get_rubrics_batch()` (one evaluator).
@@ -246,24 +244,22 @@ said (scope, factuality, tool-use rules).
 
 ### 4. Agent version pinning works everywhere — use it
 
-Both `POST /chats/{id}/messages` (`agent_history_id` required) and
-`POST /eval/trigger` (`agent_history_id` optional, null = live state) accept
+Both `POST /chats/{id}/messages` (`version_id` required) and
+`POST /eval/runs` (`version_id` optional, null = live state) accept
 the draft history id. The apply-→-test-→-publish loop:
 
-1. `PUT /agents/{id}` with your change → new `AgentHistory` with status=`draft`.
+1. `PATCH /agents/{id}` with your change → new `AgentHistory` with status=`draft`.
 2. Find its id in the response (`latest_version_number` + `histories`).
 3. Live-test and/or eval against that draft id.
-4. Only `POST /agents/{id}/publish-history` when you're happy.
+4. Only `POST /agents/{id}/versions/{version_id}:publish` when you're happy.
 
 Never test a change on the currently-published version by mutating it — every
 PUT already forks a new version for you.
 
-### 5. CSRF is required for every non-GET
+### 5. Authentication uses API key
 
 The `codeer` wrapper handles this (`X-CSRFToken` echoed from the cookie) but
-if you curl by hand, remember to pass both the `csrftoken` cookie **and** the
-same value as `X-CSRFToken: ...` header, or you'll get `403`. Session cookies
-also expire — re-grab from browser devtools when calls start 401/403'ing.
+if you curl by hand, include `X-API-Key: <CODEER_API_KEY>`. If calls start returning 401/403, verify key scope/rotation.
 
 ### 6. KB `POST /nodes` has no `type` field — and only ever creates folders
 
@@ -317,12 +313,12 @@ eval-case attachments, where images are allowed).
 - `node_type` in list responses is **uppercase** (`FOLDER`, `FILE`); the frontend / ingestion code often uses lowercase. Normalize with `.upper()` before comparing.
 - Indexing status transitions: `PENDING` → `INDEXING` → `READY`, or `FAILED` / `ERROR`. Poll `/files/status` with `{"node_ids": [...]}` until terminal. Small text files usually hit `READY` within 1–2 polls.
 
-### 12. Eval-case attachments come from `/retrieval/upload-file`; the id is `data.uuid`
+### 12. Eval-case attachments come from `/files`; the id is `data.uuid`
 
 To attach an image / PDF to an eval case (e.g. "owner uploaded a cat selfie
 instead of a report"):
 
-1. **Upload** via `POST /retrieval/upload-file` (multipart):
+1. **Upload** via `POST /files` (multipart):
    ```
    file: (filename, bytes, content_type)
    data: {"workspace_id": "...", "scope": "persistent", "is_evaluation_context": true}
@@ -402,7 +398,7 @@ can still recover structure. That skill's docs explain the full flow.
 
 ### 13. Eval results and rubrics are **per-evaluator** — always iterate all evaluators
 
-Both `POST /eval/results/batch` and `POST /eval/rubrics/batch` take a
+Both `POST /eval/results:batch` and `PUT /eval/cases/{case_id}/rubrics/{evaluator_id}s/batch` take a
 **singular** `evaluator_id`, not a list. Each call returns data for one
 evaluator only. A common mistake is to check results for one evaluator
 (e.g. Content Compliance), see a perfect score, and conclude the case is

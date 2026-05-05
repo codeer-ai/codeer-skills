@@ -38,7 +38,8 @@ def _guess_mime(filename: str) -> str:
 
 
 def _base(organization_id: str, workspace_id: str) -> str:
-    return f"/organizations/{organization_id}/workspaces/{workspace_id}/knowledge_bases"
+    del organization_id, workspace_id
+    return "/knowledge-bases"
 
 
 def list_nodes(
@@ -70,7 +71,7 @@ def create_kb(
     body: dict[str, Any] = {"name": name}
     if description is not None:
         body["description"] = description
-    return client.post(f"{_base(organization_id, workspace_id)}/nodes", json=body)
+    return client.post("/knowledge-bases", json=body)
 
 
 def create_folder(
@@ -96,7 +97,7 @@ def create_folder(
     body: dict[str, Any] = {"parent_id": parent_id, "name": name}
     if description is not None:
         body["description"] = description
-    return client.post(f"{_base(organization_id, workspace_id)}/nodes", json=body)
+    return client.post(f"/knowledge-bases/{parent_id}/folders", json={"name": name, "parent_id": parent_id})
 
 
 def create_node(
@@ -118,7 +119,9 @@ def create_node(
         body["parent_id"] = parent_id
     if description is not None:
         body["description"] = description
-    return client.post(f"{_base(organization_id, workspace_id)}/nodes", json=body)
+    if parent_id is None:
+        return client.post("/knowledge-bases", json=body)
+    return client.post(f"/knowledge-bases/{parent_id}/folders", json={"name": name, "parent_id": parent_id})
 
 
 def update_node(
@@ -132,7 +135,7 @@ def update_node(
     body: dict[str, Any] = {}
     if name is not None:
         body["name"] = name
-    return client.patch(f"{_base(organization_id, workspace_id)}/nodes/{node_id}", json=body)
+    return client.patch(f"/knowledge-bases/nodes/{node_id}", json=body)
 
 
 def delete_node(
@@ -142,7 +145,7 @@ def delete_node(
     workspace_id: str,
     node_id: str,
 ) -> Any:
-    return client.delete(f"{_base(organization_id, workspace_id)}/nodes/{node_id}")
+    return client.delete(f"/knowledge-bases/nodes/{node_id}")
 
 
 def upload_file(
@@ -201,11 +204,11 @@ def upload_files(
         if not p.is_file():
             raise FileNotFoundError(p)
 
-    url = f"{_base(organization_id, workspace_id)}/{kb_id}/files/upload"
+    url = f"/knowledge-bases/{kb_id}/files:upload"
     open_handles = [p.open("rb") for p in paths]
     try:
-        files = [("files", (p.name, fh, _guess_mime(p.name))) for p, fh in zip(paths, open_handles)]
-        data = {"form": json.dumps({"parent_id": parent_id})}
+        files = [("files[]", (p.name, fh, _guess_mime(p.name))) for p, fh in zip(paths, open_handles)]
+        data = {"parent_id": parent_id}
         return client.post(url, files=files, data=data)
     finally:
         for fh in open_handles:
@@ -221,7 +224,7 @@ def file_status(
 ) -> list[dict]:
     """Batch-check indexing status for KB file nodes."""
     return client.post(
-        f"{_base(organization_id, workspace_id)}/files/status",
+        "/knowledge-bases/files:status",
         json={"node_ids": node_ids},
     )
 
@@ -234,4 +237,4 @@ def read_file_content(
     kb_id: str,
     node_id: str,
 ) -> dict:
-    return client.get(f"{_base(organization_id, workspace_id)}/{kb_id}/nodes/{node_id}/content")
+    return client.get(f"/knowledge-bases/{kb_id}/files/{node_id}/content")

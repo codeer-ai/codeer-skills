@@ -14,12 +14,11 @@ import json
 import os
 import sys
 from dataclasses import asdict
-from http.cookiejar import CookieJar
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError
 from urllib.parse import urlencode
-from urllib.request import HTTPCookieProcessor, Request, build_opener
+from urllib.request import Request, build_opener
 
 
 _PARSE_SPEC = importlib.util.spec_from_file_location(
@@ -86,19 +85,14 @@ class Client:
         _load_env()
         missing = [
             key
-            for key in ("CODEER_API_BASE", "CODEER_SESSION_ID", "CODEER_CSRF_TOKEN")
+            for key in ("CODEER_API_BASE", "CODEER_API_KEY")
             if not os.environ.get(key)
         ]
         if missing:
             raise SystemExit(f"missing required env vars: {', '.join(missing)}")
         self.base = os.environ["CODEER_API_BASE"].rstrip("/")
-        self.csrf = os.environ["CODEER_CSRF_TOKEN"]
-        self.cookies = CookieJar()
-        self.opener = build_opener(HTTPCookieProcessor(self.cookies))
-        self.cookie_header = (
-            f"sessionid={os.environ['CODEER_SESSION_ID']}; "
-            f"csrftoken={os.environ['CODEER_CSRF_TOKEN']}"
-        )
+        self.api_key = os.environ["CODEER_API_KEY"]
+        self.opener = build_opener()
 
     def request(
         self,
@@ -109,17 +103,15 @@ class Client:
         body: Any = None,
     ) -> Any:
         query = f"?{urlencode(params)}" if params else ""
-        url = f"{self.base}/api/v1{path if path.startswith('/') else '/' + path}{query}"
+        url = f"{self.base}/api/v1/external{path if path.startswith('/') else '/' + path}{query}"
         data = None
         headers = {
             "Accept": "application/json",
-            "Cookie": self.cookie_header,
-            "Referer": self.base,
+            "X-API-Key": self.api_key,
         }
         if body is not None:
             data = json.dumps(body, ensure_ascii=False).encode("utf-8")
             headers["Content-Type"] = "application/json"
-            headers["X-CSRFToken"] = self.csrf
         req = Request(url, data=data, headers=headers, method=method.upper())
         try:
             with self.opener.open(req, timeout=60) as resp:
@@ -128,9 +120,10 @@ class Client:
             detail = e.read().decode("utf-8", "replace")
             raise SystemExit(f"HTTP {e.code} for {method} {path}: {detail}") from e
         payload = json.loads(text) if text else None
-        if isinstance(payload, dict) and "error_code" in payload and "data" in payload:
-            if payload.get("error_code") not in (0, None):
-                raise SystemExit(f"Codeer error: {payload.get('message') or payload}")
+        if isinstance(payload, dict) and "error" in payload:
+            err = payload.get("error") or {}
+            raise SystemExit(f"Codeer error: {err.get('message') or payload}")
+        if isinstance(payload, dict) and "data" in payload:
             return payload["data"]
         return payload
 
@@ -208,11 +201,11 @@ def main() -> int:
     if args.evaluators:
         evaluators = [c.get(f"/eval/evaluators/{eid}") for eid in _ids(args.evaluators) or []]
     else:
-        evaluators = c.get("/eval/evaluators", params={"wid": args.workspace})
+        evaluators = c.get("/eval/evaluators")
     if not evaluators:
         raise SystemExit("no evaluators matched")
 
-    versions = c.get(f"/agents/{args.agent}/histories")
+    versions = c.get(f"/agents/{args.agent}/versions")
     history = _pick_history(versions, args)
 
     rows: list[dict[str, Any]] = []
@@ -221,16 +214,15 @@ def main() -> int:
     for evaluator in evaluators:
         evaluator_id = evaluator["id"]
         rubrics = c.post(
-            "/eval/rubrics/batch",
+            "/eval/rubrics:batch",
             body={"case_ids": case_ids, "evaluator_id": evaluator_id},
         )
         results = c.post(
-            "/eval/results/batch",
+            "/eval/results:batch",
             body={
                 "case_ids": case_ids,
                 "evaluator_id": evaluator_id,
-                "agent_history_id": history["id"],
-                "workspace_id": args.workspace,
+                "version_id": history["id"],
                 "include_output": True,
                 "include_reasoning_steps": True,
             },

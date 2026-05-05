@@ -12,7 +12,6 @@ from typing import Any, List, Optional
 from ._validate import validate_unified_tools
 from .client import CodeerClient
 
-
 def create(
     client: CodeerClient,
     *,
@@ -30,10 +29,8 @@ def create(
     validated_tools = validate_unified_tools(unified_tools)
     body: dict[str, Any] = {
         "name": name,
-        "workspace_id": workspace_id,
         "system_prompt": system_prompt,
-        "unified_tools": validated_tools,
-        "primary_object_ids": primary_object_ids or [],
+        "tools": validated_tools,
         "attachment_ids": attachment_ids or [],
         "use_search": use_search,
         "suggested_questions": suggested_questions or [],
@@ -41,9 +38,8 @@ def create(
     if description is not None:
         body["description"] = description
     if llm_model is not None:
-        body["llm_model"] = llm_model
+        body["model"] = llm_model
     return client.post("/agents", json=body)
-
 
 def update(
     client: CodeerClient,
@@ -65,8 +61,7 @@ def update(
     body: dict[str, Any] = {
         "name": name,
         "system_prompt": system_prompt,
-        "unified_tools": validated_tools,
-        "primary_object_ids": primary_object_ids or [],
+        "tools": validated_tools,
         "attachment_ids": attachment_ids or [],
         "use_search": use_search,
         "version_note": version_note,
@@ -75,13 +70,11 @@ def update(
     if description is not None:
         body["description"] = description
     if llm_model is not None:
-        body["llm_model"] = llm_model
-    return client.put(f"/agents/{agent_id}", json=body)
-
+        body["model"] = llm_model
+    return client.patch(f"/agents/{agent_id}", json=body)
 
 def get(client: CodeerClient, agent_id: str) -> dict:
     return client.get(f"/agents/{agent_id}")
-
 
 def get_default(client: CodeerClient) -> dict:
     """Read whichever agent ``CODEER_AGENT_ID`` points to (project env block).
@@ -98,7 +91,6 @@ def get_default(client: CodeerClient) -> dict:
         )
     return get(client, client.agent_id)
 
-
 def get_latest_draft_history_id(client: CodeerClient, agent_id: str) -> Optional[str]:
     """Return the id of the most recent unpublished AgentHistory, or None.
 
@@ -113,15 +105,14 @@ def get_latest_draft_history_id(client: CodeerClient, agent_id: str) -> Optional
     drafts.sort(key=lambda v: v.get("version_number") or 0, reverse=True)
     return drafts[0].get("id")
 
-
 def list_in_workspace(client: CodeerClient, workspace_id: str) -> list[dict]:
     """List **published** agents in a workspace (drafts are hidden).
 
     If you need drafts too — which is almost always the case while iterating
     on an agent — use :func:`list_all` with both workspace_id and organization_id.
     """
-    return client.get("/agents", params={"wid": workspace_id})
-
+    del workspace_id
+    return client.get("/agents")
 
 def list_all(
     client: CodeerClient,
@@ -133,35 +124,32 @@ def list_all(
 
     Both IDs are required — ``GET /agents/all`` returns 400 ``Organization ID
     is required`` if you omit ``oid``. Look up the org for a workspace via
-    ``/accounts/me`` → ``profile.workspace_organization_map``.
+    ``/me`` → ``profile.workspace_organization_map``.
     """
-    return client.get("/agents/all", params={"wid": workspace_id, "oid": organization_id})
-
+    del workspace_id, organization_id
+    return client.get("/agents/all")
 
 def delete(client: CodeerClient, agent_id: str) -> Any:
     return client.delete(f"/agents/{agent_id}")
 
-
 def list_versions(client: CodeerClient, agent_id: str) -> list[dict]:
-    return client.get(f"/agents/{agent_id}/histories")
-
+    return client.get(f"/agents/{agent_id}/versions")
 
 def get_version(client: CodeerClient, agent_id: str, history_id: str) -> dict:
-    return client.get(f"/agents/{agent_id}/histories/{history_id}")
-
+    versions = list_versions(client, agent_id)
+    for version in versions:
+        if version.get("id") == history_id:
+            return version
+    raise ValueError(f"version not found: {history_id}")
 
 def check_impact(client: CodeerClient, agent_id: str) -> dict:
     """List downstream agents that call this one. Call before publishing breaking changes."""
     return client.get(f"/agents/{agent_id}/impact")
 
-
 def publish_version(client: CodeerClient, agent_id: str, history_id: str) -> dict:
     """Make a specific AgentHistory version the public one. Works for rollback too."""
-    return client.post(f"/agents/{agent_id}/publish-history", json={"history_id": history_id})
-
+    return client.post(f"/agents/{agent_id}/versions/{history_id}:publish", json={"publish_state": "private"})
 
 def set_publish_state(client: CodeerClient, agent_id: str, publish_state: str) -> dict:
     """publish_state is 'private' | 'in_organization' | 'public'."""
-    return client.post(f"/agents/{agent_id}/publish", json={"publish_state": publish_state})
-
-
+    return client.post(f"/agents/{agent_id}:set-publish-state", json={"publish_state": publish_state})

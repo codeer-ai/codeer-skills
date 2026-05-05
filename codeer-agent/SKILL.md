@@ -7,7 +7,7 @@ description: Build, evaluate, publish, and analyze Codeer agents over the Codeer
 
 Everything you need to build, evaluate, and improve a Codeer agent against
 whatever files the user has in their current directory. Authenticates as the
-user via a session cookie, so whatever the user can do in the Codeer UI, this
+user via a API key, so whatever the user can do in the Codeer UI, this
 skill can do over the API.
 
 ## Working pattern with the user (read this first)
@@ -42,12 +42,11 @@ Concretely:
 1. Create `~/.codeer/session.env` with **auth only**:
    ```
    CODEER_API_BASE=http://localhost:8000         # or your staging/prod base
-   CODEER_SESSION_ID=<from browser devtools>
-   CODEER_CSRF_TOKEN=<from browser devtools>
+   CODEER_API_KEY=<external api key>
    ```
 2. `chmod 600 ~/.codeer/session.env`
-3. Cookies are found in the Codeer UI's devtools → Application → Cookies, after logging in.
-4. Sessions expire. If calls start returning 401/403, re-grab the cookies.
+3. API keys are managed in Codeer external API key settings.
+4. If calls start returning 401/403, verify or rotate the API key.
 
 The skill's wrappers manage their own Python virtualenv under
 `${TMPDIR:-/tmp}/codeer-skills/codeer-agent-venv` by default, installing
@@ -87,7 +86,7 @@ to a different Codeer account, set `CODEER_ENV_FILE=~/.codeer/<alt>.env` in
 that project's `.claude/settings.json` env block and put a full alternate
 auth set there.
 
-**At the start of any Codeer-skill session, call `GET /accounts/me`** and
+**At the start of any Codeer-skill session, call `GET /me`** and
 state the active workspace/org name to the user — this catches a missing or
 wrong per-project setting before any KB upload or agent edit lands in the
 wrong place.
@@ -102,10 +101,10 @@ otherwise ask the user for the actual path.
 The wrapper at `scripts/codeer` inside this skill works from any CWD:
 
 ```bash
-$SKILL_DIR/scripts/codeer get /accounts/me
-$SKILL_DIR/scripts/codeer get /agents/all --param wid=<ws> --param oid=<org>
+$SKILL_DIR/scripts/codeer get /me
+$SKILL_DIR/scripts/codeer get /agents/all
 $SKILL_DIR/scripts/codeer post /agents --json-file ./my_agent.json
-$SKILL_DIR/scripts/codeer stream post /chats/42/messages --json '{"message":"hi","agent_history_id":"..."}'
+$SKILL_DIR/scripts/codeer stream post /chats/42/messages --json '{"message":"hi","version_id":"..."}'
 ```
 
 Claude: always use the resolved absolute path; the wrapper keeps the caller's
@@ -191,7 +190,7 @@ $SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_reconcile.py \
 Per-project env (set once in `.claude/settings.json` `env` block) makes
 `<ws_id>` and `<agent_id>` injectable so you don't re-pass them every call:
 `CODEER_WORKSPACE_ID`, `CODEER_ORGANIZATION_ID`, `CODEER_AGENT_ID`. Only auth
-(`CODEER_API_BASE`, `CODEER_SESSION_ID`, `CODEER_CSRF_TOKEN`) lives globally
+(`CODEER_API_BASE`, `CODEER_API_KEY`) lives globally
 in `~/.codeer/session.env`.
 
 Run `eval_reconcile.py` before and after larger eval-suite edits. It catches
@@ -236,7 +235,7 @@ captures the non-obvious traps.
 1. **`/agents` is published-only.** Use `/agents/all` with both `wid` **and**
    `oid` while iterating on drafts. Server returns `400 Organization ID is
    required` if you omit `oid`. Look up org-for-workspace via
-   `/accounts/me` → `profile.workspace_organization_map`.
+   `/me` → `profile.workspace_organization_map`.
 
 2. **Form field `type` has a fixed enum.** Valid: `shortText`, `longText`,
    `number`, `dropdown`, `radio`, `checkbox`, `date`. There is **no** `text`,
@@ -252,15 +251,13 @@ captures the non-obvious traps.
    evaluators should get differently-worded rubrics (Style/Tone judges **how**;
    Content Compliance judges **what**).
 
-4. **Apply (PUT) already forks a new version.** Every `PUT /agents/{id}`
+4. **Apply (PUT) already forks a new version.** Every `PATCH /agents/{id}`
    auto-creates a new `AgentHistory` with status=`draft`. Test that draft via
    `chats.send_message(agent_history_id=<draft id>)` or
    `eval_mod.trigger(agent_history_id=<draft id>)` — never by mutating the
    live version.
 
-5. **CSRF is enforced on every non-GET.** The wrapper and client handle this,
-   but if you curl by hand, send both the `csrftoken` cookie **and** the same
-   value as an `X-CSRFToken` header.
+5. **API key is required on every request.** The wrapper/client handle this; if you curl by hand, include `X-API-Key: <CODEER_API_KEY>`.
 
 6. **KB `POST /nodes` has no `type` field.** `parent_id=null` creates a KB root;
    `parent_id=<id>` creates a folder under it. Files never come through this
@@ -537,7 +534,7 @@ the backend + frontend enums this skill validates against live in:
 backend behavior, check docs.codeer.ai or read the actual source file
 before guessing.** The cheatsheet and this skill doc are summaries that
 can lag behind the code. For example, if you're unsure whether
-`POST /eval/results/batch` takes `evaluator_id` (singular) or
+`POST /eval/results:batch` takes `evaluator_id` (singular) or
 `evaluator_ids` (plural), check `codeer/eval/api.py` — the function
 signature is the ground truth.
 

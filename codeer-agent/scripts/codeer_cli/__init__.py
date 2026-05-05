@@ -11,7 +11,7 @@ Per-project env convention: set CODEER_WORKSPACE_ID, CODEER_ORGANIZATION_ID
 and CODEER_AGENT_ID in ``.claude/settings.json`` (env block) so scripts in a
 customer's directory don't have to re-pass these args. The global
 ``~/.codeer/session.env`` should hold only auth (CODEER_API_BASE,
-CODEER_SESSION_ID, CODEER_CSRF_TOKEN). See ``API_CHEATSHEET.md`` → "Session
+CODEER_API_KEY). See ``API_CHEATSHEET.md`` → "Session
 config" for the rationale.
 """
 

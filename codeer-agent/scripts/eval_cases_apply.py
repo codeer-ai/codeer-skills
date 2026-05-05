@@ -10,7 +10,7 @@ Usage:
         [--allow-duplicates]
 
 JSON shape (the "rubrics" map is keyed by evaluator UUID — get them via the
-UI or `codeer get /eval/evaluators --param wid=<ws>`):
+UI or `codeer get /eval/evaluators`):
 
     {
       "cases": [
@@ -43,7 +43,7 @@ is the same across cases. Per-case rubrics in `rubrics` override.
 Attachments (optional):
 - Each case may list filenames in ``attachment_files`` (relative to
   ``--attachments-dir``).
-- Each file is uploaded via POST /retrieval/upload-file with
+- Each file is uploaded via POST /files with
   ``is_evaluation_context=true`` and the resulting ``data.uuid`` is attached
   to the case. ``--workspace`` is required when ``attachment_files`` is used.
 - Common image MIMEs (jpg/png/webp/gif/pdf) are inferred from the extension.
@@ -69,27 +69,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from codeer_cli import CodeerClient  # noqa: E402
 from codeer_cli import eval_ as eval_mod  # noqa: E402
 
-
 def _log(msg: str) -> None:
     print(msg, file=sys.stderr, flush=True)
 
-
 def _upload_attachment(c: CodeerClient, *, file_path: Path, workspace_id: str) -> str:
-    """Upload a single file as an evaluation-context attachment, return its uuid."""
+    """Upload a single file as an evaluation-context attachment, return its file id."""
+    del workspace_id
     ct, _ = mimetypes.guess_type(file_path.name)
     ct = ct or "application/octet-stream"
     files = {"file": (file_path.name, file_path.read_bytes(), ct)}
-    data = {"data": json.dumps({
-        "workspace_id": workspace_id,
-        "scope": "persistent",
-        "is_evaluation_context": True,
-    })}
-    uploaded = c.post("/retrieval/upload-file", files=files, data=data)
-    uuid = uploaded.get("uuid") if isinstance(uploaded, dict) else None
-    if not uuid:
-        raise RuntimeError(f"upload-file response missing uuid for {file_path.name}: {uploaded}")
-    return uuid
-
+    data = {"scope": "persistent", "purpose": "evaluation_context"}
+    uploaded = c.post("/files", files=files, data=data)
+    file_id = uploaded.get("file_id") if isinstance(uploaded, dict) else None
+    if not file_id:
+        raise RuntimeError(f"files response missing file_id for {file_path.name}: {uploaded}")
+    return file_id
 
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -199,7 +193,6 @@ def main() -> int:
         if args.out:
             Path(args.out).write_text(out_text + "\n")
         return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -40,10 +40,7 @@ def list(
     params: dict[str, Any] = {"limit": limit, "offset": offset, "order_by": order_by}
     if agent_id:
         params["agent_id"] = agent_id
-    if workspace_id:
-        params["workspace_id"] = workspace_id
-    if organization_id:
-        params["organization_id"] = organization_id
+    del workspace_id, organization_id
     if external_user_id:
         params["external_user_id"] = external_user_id
     if feedback_filter:

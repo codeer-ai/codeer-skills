@@ -1,11 +1,9 @@
-"""HTTP client for the Codeer API.
+"""HTTP client for the Codeer External API.
 
-Auth is session-cookie based: we ride the same sessionid + csrftoken a browser
-would send after logging in. For every non-GET request, Django's CSRF middleware
-requires the csrftoken cookie to be echoed in an X-CSRFToken header.
+Auth is API-key based via the ``X-API-Key`` header.
 
-Credentials come from environment variables (CODEER_SESSION_ID, CODEER_CSRF_TOKEN,
-CODEER_API_BASE). Resolution order for a dotenv file:
+Credentials come from environment variables (CODEER_API_BASE, CODEER_API_KEY).
+Resolution order for a dotenv file:
 
   1. $CODEER_ENV_FILE (explicit override)
   2. ~/.codeer/session.env (user-level, permission-locked — recommended)
@@ -21,6 +19,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Optional
+from uuid import uuid4
 
 import httpx
 
@@ -35,7 +34,7 @@ class CodeerError(RuntimeError):
 
 
 class AuthError(CodeerError):
-    """Raised when the session cookie is missing, expired, or rejected."""
+    """Raised when the API key is missing, expired, or rejected."""
 
 
 def _load_dotenv(path: Path) -> None:
@@ -65,15 +64,14 @@ def _candidate_env_files() -> list[Path]:
 
 @dataclass
 class CodeerClient:
-    """Thin wrapper around httpx.Client with Codeer auth + CSRF handling.
+    """Thin wrapper around httpx.Client with Codeer External API auth.
 
     Construct via ``CodeerClient.from_env()`` so your script picks up credentials
     from .env and environment without hardcoding them.
     """
 
     base_url: str
-    session_id: str
-    csrf_token: str
+    api_key: str
     workspace_id: Optional[str] = None
     organization_id: Optional[str] = None
     agent_id: Optional[str] = None
@@ -83,10 +81,8 @@ class CodeerClient:
         self._client = httpx.Client(
             base_url=self.base_url.rstrip("/"),
             timeout=self.timeout,
-            cookies={"sessionid": self.session_id, "csrftoken": self.csrf_token},
             headers={
-                "X-CSRFToken": self.csrf_token,
-                "Referer": self.base_url,
+                "X-API-Key": self.api_key,
                 "Accept": "application/json",
             },
         )
@@ -103,20 +99,17 @@ class CodeerClient:
 
         try:
             base_url = overrides.pop("base_url", None) or os.environ["CODEER_API_BASE"]
-            session_id = overrides.pop("session_id", None) or os.environ["CODEER_SESSION_ID"]
-            csrf_token = overrides.pop("csrf_token", None) or os.environ["CODEER_CSRF_TOKEN"]
+            api_key = overrides.pop("api_key", None) or os.environ["CODEER_API_KEY"]
         except KeyError as e:
             raise AuthError(
                 0,
                 f"Missing required env var {e.args[0]}. Expected ~/.codeer/session.env "
-                "(chmod 600), or export CODEER_API_BASE / CODEER_SESSION_ID / "
-                "CODEER_CSRF_TOKEN directly.",
+                "(chmod 600), or export CODEER_API_BASE / CODEER_API_KEY directly.",
             ) from None
 
         return cls(
             base_url=base_url,
-            session_id=session_id,
-            csrf_token=csrf_token,
+            api_key=api_key,
             workspace_id=overrides.pop("workspace_id", None) or os.environ.get("CODEER_WORKSPACE_ID") or None,
             organization_id=overrides.pop("organization_id", None) or os.environ.get("CODEER_ORGANIZATION_ID") or None,
             agent_id=overrides.pop("agent_id", None) or os.environ.get("CODEER_AGENT_ID") or None,
@@ -142,8 +135,11 @@ class CodeerClient:
         files: Any = None,
         data: Any = None,
     ) -> Any:
-        url = path if path.startswith("http") else f"/api/v1{path if path.startswith('/') else '/' + path}"
-        r = self._client.request(method, url, params=params, json=json, files=files, data=data)
+        url = path if path.startswith("http") else f"/api/v1/external{path if path.startswith('/') else '/' + path}"
+        headers: dict[str, str] = {}
+        if _needs_idempotency_key(method=method, path=path):
+            headers["Idempotency-Key"] = str(uuid4())
+        r = self._client.request(method, url, params=params, json=json, files=files, data=data, headers=headers or None)
         return self._parse(r)
 
     def get(self, path: str, **kwargs: Any) -> Any:
@@ -173,7 +169,7 @@ class CodeerClient:
 
         Each event is a dict like ``{"event": "message", "data": <parsed-json-or-str>}``.
         """
-        url = path if path.startswith("http") else f"/api/v1{path if path.startswith('/') else '/' + path}"
+        url = path if path.startswith("http") else f"/api/v1/external{path if path.startswith('/') else '/' + path}"
         with self._client.stream(method, url, params=params, json=json) as r:
             if r.status_code >= 400:
                 body = r.read().decode("utf-8", "replace")
@@ -208,12 +204,11 @@ class CodeerClient:
         if r.status_code >= 400:
             self._raise_for_error(r.status_code, payload)
 
-        # Ninja responses follow {error_code, message, data, pagination}. Unwrap `data`
-        # when present and the envelope indicates success, but return the full envelope
-        # if callers need the pagination cursor or error_code detail.
-        if isinstance(payload, dict) and "error_code" in payload and "data" in payload:
-            if payload.get("error_code") not in (0, None):
-                raise CodeerError(r.status_code, payload.get("message") or "error", payload)
+        # External API responses follow {request_id, data} or {request_id, error}.
+        if isinstance(payload, dict) and "error" in payload:
+            err = payload.get("error") or {}
+            raise CodeerError(r.status_code, err.get("message") or "error", payload)
+        if isinstance(payload, dict) and "data" in payload:
             return payload["data"]
         return payload
 
@@ -222,7 +217,7 @@ class CodeerClient:
         if status in (401, 403):
             raise AuthError(
                 status,
-                f"{message or 'auth rejected'}. Session may have expired — re-grab sessionid/csrftoken from browser devtools.",
+                f"{message or 'auth rejected'}. API key may be invalid or revoked.",
                 payload,
             )
         raise CodeerError(status, message or f"HTTP {status}", payload)
@@ -233,3 +228,10 @@ def _maybe_json(raw: str) -> Any:
         return json_lib.loads(raw)
     except (ValueError, TypeError):
         return raw
+
+
+def _needs_idempotency_key(*, method: str, path: str) -> bool:
+    if method.upper() != "POST":
+        return False
+    clean = path.split("?", 1)[0]
+    return clean in ("/agents", "/chats", "/knowledge-bases", "/eval/runs")

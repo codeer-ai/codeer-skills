@@ -11,7 +11,6 @@ from typing import Any, List, Optional
 
 from .client import CodeerClient
 
-
 # --- cases ----------------------------------------------------------------
 
 def create_case(
@@ -28,7 +27,7 @@ def create_case(
 
     IMPORTANT: the case-level ``rubric`` is a default and is NOT what the Test
     Suite's ``Standard`` column displays. That column reads the per-evaluator
-    rubric set via ``POST /eval/rubric`` (:func:`set_rubric`). If you want a
+    rubric set via ``PUT /eval/cases/{case_id}/rubrics/{evaluator_id}`` (:func:`set_rubric`). If you want a
     case to show a Standard for a given evaluator, also call :func:`set_rubric`
     for that (case, evaluator) pair — or use :func:`create_case_with_rubrics`
     which does both in one shot.
@@ -44,14 +43,11 @@ def create_case(
         body["meta"] = meta
     return client.post("/eval/cases", json=body)
 
-
 def list_cases(client: CodeerClient, agent_id: str) -> list[dict]:
     return client.get(f"/eval/agents/{agent_id}/cases")
 
-
 def get_case(client: CodeerClient, case_id: str) -> dict:
     return client.get(f"/eval/cases/{case_id}")
-
 
 def update_case(
     client: CodeerClient,
@@ -76,14 +72,11 @@ def update_case(
         body["meta"] = meta
     return client.put(f"/eval/cases/{case_id}", json=body)
 
-
 def delete_case(client: CodeerClient, case_id: str) -> Any:
     return client.delete(f"/eval/cases/{case_id}")
 
-
 def bulk_delete_cases(client: CodeerClient, case_ids: List[str]) -> Any:
-    return client.post("/eval/cases/bulk", json={"case_ids": case_ids})
-
+    return client.post("/eval/cases:bulk-delete", json={"case_ids": case_ids})
 
 # --- evaluators -----------------------------------------------------------
 
@@ -95,23 +88,18 @@ def create_evaluator(
     system_prompt_template: str,
     description: Optional[str] = None,
 ) -> dict:
-    body: dict[str, Any] = {
-        "workspace_id": workspace_id,
-        "name": name,
-        "system_prompt_template": system_prompt_template,
-    }
+    del workspace_id
+    body: dict[str, Any] = {"name": name, "system_prompt_template": system_prompt_template}
     if description is not None:
         body["description"] = description
     return client.post("/eval/evaluators", json=body)
 
-
 def list_evaluators(client: CodeerClient, workspace_id: str) -> list[dict]:
-    return client.get("/eval/evaluators", params={"wid": workspace_id})
-
+    del workspace_id
+    return client.get("/eval/evaluators")
 
 def get_evaluator(client: CodeerClient, evaluator_id: str) -> dict:
     return client.get(f"/eval/evaluators/{evaluator_id}")
-
 
 def update_evaluator(
     client: CodeerClient,
@@ -133,10 +121,8 @@ def update_evaluator(
         body["agent_ids"] = agent_ids
     return client.put(f"/eval/evaluators/{evaluator_id}", json=body)
 
-
 def delete_evaluator(client: CodeerClient, evaluator_id: str) -> Any:
     return client.delete(f"/eval/evaluators/{evaluator_id}")
-
 
 # --- runs + results -------------------------------------------------------
 
@@ -154,13 +140,11 @@ def trigger(
     """
     body: dict[str, Any] = {"case_ids": case_ids, "evaluator_ids": evaluator_ids}
     if agent_history_id is not None:
-        body["agent_history_id"] = agent_history_id
-    return client.post("/eval/trigger", json=body)
-
+        body["version_id"] = agent_history_id
+    return client.post("/eval/runs", json=body)
 
 def stop(client: CodeerClient, *, case_id: str, evaluator_id: str) -> Any:
-    return client.post("/eval/stop", json={"case_id": case_id, "evaluator_id": evaluator_id})
-
+    return client.post("/eval/runs:stop", json={"case_id": case_id, "evaluator_id": evaluator_id})
 
 def get_results(
     client: CodeerClient,
@@ -174,34 +158,24 @@ def get_results(
 ) -> list[dict]:
     """Fetch scored results for a batch of cases under one evaluator + agent version."""
     return client.post(
-        "/eval/results/batch",
+        "/eval/results:batch",
         json={
             "case_ids": case_ids,
             "evaluator_id": evaluator_id,
-            "agent_history_id": agent_history_id,
-            "workspace_id": workspace_id,
+            "version_id": agent_history_id,
             "include_output": include_output,
             "include_reasoning_steps": include_reasoning_steps,
         },
     )
 
-
 def set_rubric(client: CodeerClient, *, evaluation_case_id: str, evaluator_id: str, rubric: str) -> Any:
     """Set the per-evaluator rubric (the ``Standard`` the UI displays) for a case."""
-    return client.post(
-        "/eval/rubric",
-        json={
-            "evaluation_case_id": evaluation_case_id,
-            "evaluator_id": evaluator_id,
-            "rubric": rubric,
-        },
-    )
-
+    return client.put(f"/eval/cases/{evaluation_case_id}/rubrics/{evaluator_id}", json={"rubric": rubric})
 
 # --- reading rubrics back -------------------------------------------------
 #
 # Rubrics are per-(case, evaluator) and version-independent. The proper read
-# endpoint is ``POST /eval/rubrics/batch`` — it returns the rubric string
+# endpoint is ``PUT /eval/cases/{case_id}/rubrics/{evaluator_id}s/batch`` — it returns the rubric string
 # directly out of the ``CaseEvaluatorInfo`` table (the same row that
 # ``set_rubric`` writes to). It does NOT require an ``agent_history_id``.
 #
@@ -225,10 +199,9 @@ def get_rubrics_batch(
     ``rubric == ""`` — they're not omitted from the response.
     """
     return client.post(
-        "/eval/rubrics/batch",
+        "/eval/rubrics:batch",
         json={"case_ids": case_ids, "evaluator_id": evaluator_id},
     )
-
 
 def get_case_rubrics(
     client: CodeerClient,
@@ -264,7 +237,6 @@ def get_case_rubrics(
                 out[cid][ev_id] = row.get("rubric") or ""
     return out
 
-
 def list_runs_for_case(
     client: CodeerClient,
     *,
@@ -277,8 +249,8 @@ def list_runs_for_case(
     """Score history for ONE case across every version of the agent.
 
     Use this when investigating regressions: "this case scored 1.0 on v38 but
-    0 on v42 — when did it break?". Iterates ``/agents/{id}/histories`` and
-    asks ``/eval/results/batch`` per version, keeping only the rows that match
+    0 on v42 — when did it break?". Iterates ``/agents/{id}/versions`` and
+    asks ``/eval/results:batch`` per version, keeping only the rows that match
     ``case_id``. Returns most-recent version first.
 
     Returns a list of dicts:
@@ -298,7 +270,7 @@ def list_runs_for_case(
     rather than being omitted — useful for spotting "we forgot to add this
     case to the run" alongside true regressions.
     """
-    versions = client.get(f"/agents/{agent_id}/histories")
+    versions = client.get(f"/agents/{agent_id}/versions")
     if not versions:
         return []
     out: list[dict] = []
@@ -338,7 +310,6 @@ def list_runs_for_case(
         })
     return out
 
-
 def list_results_across_versions(
     client: CodeerClient,
     *,
@@ -349,16 +320,16 @@ def list_results_across_versions(
 ) -> list[dict]:
     """Fetch every eval result for an agent across ALL of its versions.
 
-    ``/eval/results/batch`` is per-version (``agent_history_id`` is required),
+    ``/eval/results:batch`` is per-version (``agent_history_id`` is required),
     so this helper iterates every version of the agent and concatenates the
     results. Use it when you want score history over time or want to find a
     specific past judge ``reason`` — NOT for fetching current rubrics
     (use :func:`get_case_rubrics` instead, which goes through the proper
-    ``/eval/rubrics/batch`` endpoint).
+    ``/eval/rubrics:batch`` endpoint).
 
     If ``case_ids`` is omitted, fetches results for every case under the agent.
     """
-    versions = client.get(f"/agents/{agent_id}/histories")
+    versions = client.get(f"/agents/{agent_id}/versions")
     if case_ids is None:
         case_ids = [c["id"] for c in list_cases(client, agent_id)]
     if not case_ids or not versions:
@@ -380,7 +351,6 @@ def list_results_across_versions(
             out.extend(rows)
     return out
 
-
 def set_rubric_bulk(
     client: CodeerClient,
     *,
@@ -392,7 +362,6 @@ def set_rubric_bulk(
         set_rubric(client, evaluation_case_id=evaluation_case_id, evaluator_id=ev_id, rubric=r)
         for ev_id, r in rubrics_by_evaluator.items()
     ]
-
 
 def create_case_with_rubrics(
     client: CodeerClient,
@@ -410,7 +379,7 @@ def create_case_with_rubrics(
     is filled in for every evaluator it will be judged by.
 
     ``rubrics_by_evaluator`` maps ``evaluator_id → rubric_text``. Each entry
-    becomes a ``POST /eval/rubric`` call after the case is created. Use
+    becomes a ``PUT /eval/cases/{case_id}/rubrics/{evaluator_id}`` call after the case is created. Use
     different rubric wording per evaluator when the evaluators judge different
     aspects (e.g. Style/Tone vs Content Compliance).
     """
