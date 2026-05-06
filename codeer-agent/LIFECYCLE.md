@@ -38,8 +38,8 @@ eval case design.
    exposes them to the agent).
 2. Upload to Codeer:
    ```bash
-   $SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/kb_upload.py \
-       --kb-dir kb/ --name "<KB display name>" \
+   $SKILL_DIR/scripts/codeer kb upload \
+       --dir kb/ --name "<KB display name>" \
        --workspace <ws_id> --org <org_id> --out .codeer/kb_ids.json
    ```
 3. `.codeer/kb_ids.json` now contains `kb_id`, `node_ids`, `name_to_id` —
@@ -74,7 +74,7 @@ Write `.codeer/agent_payload.json`. Pull allowed outcomes and boundaries from
 `.codeer/scope.md`; attach KB node IDs from `.codeer/kb_ids.json`.
 
 ```bash
-$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/agent_apply.py \
+$SKILL_DIR/scripts/codeer agent apply \
     --payload .codeer/agent_payload.json --out .codeer/agent_ids.json
 ```
 
@@ -101,14 +101,14 @@ ensure the eval suite covers the agent's full scope:
    has its system prompt and the rubric, not the agent's KB or tools.
 
 ```bash
-$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_cases_apply.py \
+$SKILL_DIR/scripts/codeer eval cases-apply \
     --cases .codeer/eval_cases.json --agent <agent_id> --out .codeer/case_ids.json
 ```
 
 ### Step 5 — Run eval, fix, repeat
 
 ```bash
-$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_run.py \
+$SKILL_DIR/scripts/codeer eval run \
     --agent <agent_id> --latest-draft --workspace <ws_id> \
     --out .codeer/eval_results.json
 ```
@@ -128,7 +128,7 @@ Only after explicit user go-ahead on eval results.
 
 ```bash
 # Check downstream impact first if other agents call this one
-$SKILL_DIR/scripts/codeer get /agents/<agent_id>/impact
+$SKILL_DIR/scripts/codeer api get /agents/<agent_id>/impact
 ```
 
 Use `agents.publish_version()` to promote the draft.
@@ -147,7 +147,7 @@ Conversation history is the primary source of truth.
 
 ```bash
 # Pull conversation histories (filter by feedback if available)
-$SKILL_DIR/scripts/codeer get /histories \
+$SKILL_DIR/scripts/codeer api get /histories \
     --param agent_id=<id> --param wid=<ws>
 
 # Surface turns flagged with negative feedback
@@ -186,11 +186,11 @@ verify the fix worked.
   the specific behavior being tested.
 
 ```bash
-$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_cases_apply.py \
+$SKILL_DIR/scripts/codeer eval cases-apply \
     --cases .codeer/eval_cases.json --agent <agent_id> --out .codeer/case_ids.json
 ```
 
-Use `meta.previous_conversations` in `eval_cases_apply.py` when the
+Use `meta.previous_conversations` in `codeer eval cases-apply` when the
 failure requires multi-turn context.
 
 ### Step 4 — Run eval (baseline)
@@ -199,21 +199,22 @@ Run eval against the **current published version** to establish a baseline.
 New failure cases should fail; protection cases should pass.
 
 ```bash
-$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_run.py \
-    --agent <agent_id> --workspace <ws_id> --out .codeer/eval_baseline.json
+$SKILL_DIR/scripts/codeer eval run \
+    --agent <agent_id> --history <published_history_id> --workspace <ws_id> \
+    --out .codeer/eval_baseline.json
 ```
 
 ### Step 5 — Apply the fix
 
 Make the smallest change that addresses the findings:
-- Prompt change → `agent_apply.py` (auto-forks a new draft)
-- KB update → `kb_upload.py`
-- Rubric edit → `eval_rubrics_apply.py`
+- Prompt change → `codeer agent apply` (auto-forks a new draft)
+- KB update → `codeer kb upload`
+- Rubric edit → `codeer eval rubrics-apply`
 
 ### Step 6 — Re-run ALL eval cases
 
 ```bash
-$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_run.py \
+$SKILL_DIR/scripts/codeer eval run \
     --agent <agent_id> --latest-draft --workspace <ws_id> \
     --diff-vs <prev_history_id> --out .codeer/eval_results.json
 ```
@@ -342,25 +343,25 @@ inline so the judge has anchors:
 
 ---
 
-## Scripts reference
+## Command reference
 
 All generated files go under **`.codeer/`** in the project root.
 Only `kb/` (source content for upload) stays at root level.
 
-| Script | Purpose |
+| Command | Purpose |
 | --- | --- |
-| `kb_upload.py` | Create/reuse KB + upload files + poll until indexed |
-| `agent_apply.py` | POST (create) or PUT (update, auto-forks draft) agent from JSON |
-| `eval_cases_apply.py` | Bulk-create eval cases with per-evaluator rubrics |
-| `eval_run.py` | Trigger eval, poll, print non-perfect analysis, `--diff-vs` regression |
-| `agent_diff.py` | Unified diff of system_prompt + tools between two versions |
-| `eval_table_export.py` | Stdlib-only full eval table export (no httpx needed) |
-| `eval_rubrics.py` | Read per-(case, evaluator) rubrics |
-| `eval_rubrics_apply.py` | Apply rubric edits (pairs with eval_rubrics.py) |
-| `eval_reconcile.py` | Read-only audit: compare local manifest vs server state |
+| `codeer check` | Validate auth, workspace, and agent config |
+| `codeer agent list\|get\|apply\|diff\|publish` | Agent CRUD, versioning, publishing |
+| `codeer kb upload` | Create/reuse KB + upload files + poll until indexed |
+| `codeer eval run` | Trigger eval, poll, print non-perfect analysis, `--diff-vs` regression |
+| `codeer eval export` | Full eval table export (CSV + JSON + summary MD) |
+| `codeer eval cases-apply` | Bulk-create eval cases with per-evaluator rubrics |
+| `codeer eval rubrics` | Read per-(case, evaluator) rubrics |
+| `codeer eval rubrics-apply` | Apply rubric edits (pairs with `eval rubrics`) |
+| `codeer eval reconcile` | Read-only audit: compare local manifest vs server state |
+| `codeer api get\|post\|put\|patch\|delete\|stream` | Raw API escape hatch |
 
-All scripts run via `$SKILL_DIR/scripts/codeer-python <script>`. The
-stdlib-only `eval_table_export.py` runs via `python3` directly.
+All commands run via `$SKILL_DIR/scripts/codeer <noun> <verb>`.
 
 Per-project env (set in `.claude/settings.json` `env` block) makes
 workspace and agent IDs injectable: `CODEER_WORKSPACE_ID`,
@@ -368,7 +369,7 @@ workspace and agent IDs injectable: `CODEER_WORKSPACE_ID`,
 
 ### Common helpers (for ad-hoc Python)
 
-Only fall back to these when the scripts above can't express what you need:
+Only fall back to these when the CLI commands above can't express what you need:
 
 - `histories.list_production(agent_id, internal_user_emails=...)` — filter
   out internal testing accounts.
@@ -383,7 +384,7 @@ Only fall back to these when the scripts above can't express what you need:
 
 ## Common errors and recovery
 
-Run `$SKILL_DIR/scripts/codeer check` first — it catches most setup
+Run `codeer check` first — it catches most setup
 problems. For errors that happen during work:
 
 | Error | Cause | Fix |

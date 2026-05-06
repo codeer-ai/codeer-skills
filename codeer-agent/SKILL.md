@@ -61,7 +61,7 @@ Claude Code exports these into every command run inside that project, so
 opening Claude Code in `~/customers/acme/` vs `~/customers/initech/`
 automatically pins each session to its own workspace.
 
-**At the start of any Codeer-skill session, run `$SKILL_DIR/scripts/codeer check`**
+**At the start of any Codeer-skill session, run `codeer check`**
 to validate auth, workspace, and agent config. It prints the active identity
 and catches setup problems before any change lands in the wrong place.
 
@@ -71,21 +71,21 @@ All paths use `$SKILL_DIR` to refer to this skill's installation directory.
 Resolve this once at the start of a session.
 
 ```bash
-# Raw API calls via the shell wrapper
-$SKILL_DIR/scripts/codeer get /accounts/me
-$SKILL_DIR/scripts/codeer get /agents/all --param wid=<ws> --param oid=<org>
-$SKILL_DIR/scripts/codeer post /agents --json-file ./my_agent.json
-$SKILL_DIR/scripts/codeer stream post /chats/42/messages --json '{"message":"hi","agent_history_id":"..."}'
+# Domain commands
+$SKILL_DIR/scripts/codeer agent list --workspace <ws> --org <org>
+$SKILL_DIR/scripts/codeer eval run --agent <id> --latest-draft --workspace <ws>
+$SKILL_DIR/scripts/codeer kb upload --dir kb/ --name "My KB" --workspace <ws> --org <org>
 
-# Python scripts via the managed-venv runner
-$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/kb_upload.py --help
-$SKILL_DIR/scripts/codeer-python $SKILL_DIR/scripts/eval_run.py --help
+# Raw API escape hatch
+$SKILL_DIR/scripts/codeer api get /accounts/me
+$SKILL_DIR/scripts/codeer api post /agents --json-file ./my_agent.json
+$SKILL_DIR/scripts/codeer api stream post /chats/42/messages --json '{"message":"hi"}'
 ```
 
 Always use the resolved absolute path; the wrapper keeps the caller's CWD so
 `--json-file` and upload paths resolve relative to the user's project.
 
-For the full script reference with invocation examples, see **LIFECYCLE.md**.
+For the full command reference, see **LIFECYCLE.md**.
 
 ## Two-phase lifecycle
 
@@ -121,24 +121,16 @@ For detailed step-by-step instructions, see **LIFECYCLE.md**.
 ```
 codeer-agent/
 ├── SKILL.md                  <- you are here — setup, dispatch, orientation
-├── LIFECYCLE.md              <- stage-by-stage execution, scripts reference, iteration loop
+├── LIFECYCLE.md              <- stage-by-stage execution, command reference, iteration loop
 ├── API_CHEATSHEET.md         <- endpoint reference + gotchas
 └── scripts/
-    ├── codeer                <- shell wrapper for raw GET/POST against the API
-    ├── codeer-python         <- managed-venv Python runner for reusable scripts
+    ├── codeer                <- unified CLI: codeer <noun> <verb>
+    ├── codeer-python         <- managed-venv runner (used internally by codeer)
     ├── _venv_bootstrap.sh    <- shared virtualenv bootstrap
-    ├── kb_upload.py          <- build KB + upload + poll
-    ├── agent_apply.py        <- POST or PUT agent from JSON payload
-    ├── eval_cases_apply.py   <- bulk-create eval cases with rubrics
-    ├── eval_run.py           <- trigger eval, print non-perfect analysis
-    ├── agent_diff.py         <- compare system_prompt + tools between two versions
-    ├── eval_table_export.py  <- stdlib-only full eval table export
-    ├── eval_rubrics.py       <- read per-(case, evaluator) rubrics
-    ├── eval_rubrics_apply.py <- apply rubric edits (pairs with eval_rubrics.py)
-    ├── eval_reconcile.py     <- compare local eval manifest with server state
-    └── codeer_cli/           <- Python package, importable
+    └── codeer_cli/           <- Python package
         ├── client.py  constants.py  _validate.py
         ├── agents.py  kb.py  chats.py  eval_.py  histories.py
         ├── parse.py          <- typed views over response shapes
-        └── cli.py
+        ├── cli.py            <- dispatcher
+        └── commands/         <- agent, kb, eval, check, api subcommands
 ```

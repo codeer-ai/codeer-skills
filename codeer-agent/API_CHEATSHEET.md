@@ -135,7 +135,7 @@ Pass `include_reasoning_steps=true` to include persisted tool/reasoning steps.
 The rows then include `reasoning_steps[]` with `id`, `type`, `args`, `result`,
 `start_at`, and `end_at` when available. The skill preserves these as
 normalized `tool_calls`, `tool_calls_summary`, and `tool_total_duration_ms`;
-`eval_table_export.py` also writes `tool_calls_json` and keeps untouched rows
+`codeer eval export` also writes `tool_calls_json` and keeps untouched rows
 in `eval_table_full.json`. Per-tool time is computed from `start_at/end_at`.
 
 **`evaluator_id` is singular — one call returns results for one evaluator
@@ -143,13 +143,13 @@ only.** To see the full picture for a case, you must call this endpoint
 once per evaluator. A case might score 1.0 on Style/Tone but 0.3 on
 Content Compliance — checking only one evaluator hides the other failure.
 Always iterate all evaluators in the workspace (or at least all evaluators
-the agent's cases are judged by). `eval_run.py` and `eval_rubrics.py`
+the agent's cases are judged by). `codeer eval run` and `codeer eval rubrics`
 handle this automatically; if calling the API directly, loop over
 `eval_mod.list_evaluators(workspace_id)` and call `get_results()` for each.
 
 Regression workflow (apply prompt change → re-run all cases → spot side
-effects): `eval_run.py --latest-draft --diff-vs <prev_history_id>` does this
-in one shot, printing every case whose score moved up or down.
+effects): `codeer eval run --latest-draft --diff-vs <prev_history_id>` does
+this in one shot, printing every case whose score moved up or down.
 
 ## Stage 7 — Publish
 
@@ -345,8 +345,8 @@ instead of a report"):
    eval_mod.update_case(c, case_id, attachment_ids=[uuid])
    ```
 
-For bulk creation, `eval_cases_apply.py --attachments-dir <dir>` reads each
-case's `attachment_files: ["x.jpg"]` array, uploads, and attaches in one
+For bulk creation, `codeer eval cases-apply --attachments-dir <dir>` reads
+each case's `attachment_files: ["x.jpg"]` array, uploads, and attaches in one
 pass. Passing `--workspace` (or having `CODEER_WORKSPACE_ID` set) is required
 since the upload needs a workspace scope.
 
@@ -411,8 +411,8 @@ When pulling eval data manually, always:
 2. Call `get_results()` or `get_rubrics_batch()` once **per evaluator**.
 3. Join the results by `case_id` to get the full (case × evaluator) matrix.
 
-The reusable scripts (`eval_run.py`, `eval_rubrics.py`,
-`eval_rubrics_apply.py`) and the `get_case_rubrics()` helper all handle
+The CLI commands (`codeer eval run`, `codeer eval rubrics`,
+`codeer eval rubrics-apply`) and the `get_case_rubrics()` helper all handle
 this iteration automatically. Prefer them over raw API calls.
 
 ---
