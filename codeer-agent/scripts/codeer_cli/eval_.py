@@ -23,6 +23,7 @@ def create_case(
     rubric: Optional[str] = None,
     attachment_ids: Optional[List[str]] = None,
     meta: Optional[dict] = None,
+    note: Optional[str] = None,
 ) -> dict:
     """Create an eval case.
 
@@ -42,6 +43,8 @@ def create_case(
         body["attachment_ids"] = attachment_ids
     if meta:
         body["meta"] = meta
+    if note is not None:
+        body["note"] = note
     return client.post("/eval/cases", json=body)
 
 
@@ -62,6 +65,7 @@ def update_case(
     rubric: Optional[str] = None,
     attachment_ids: Optional[List[str]] = None,
     meta: Optional[dict] = None,
+    note: Optional[str] = None,
 ) -> dict:
     body: dict[str, Any] = {}
     if input is not None:
@@ -74,6 +78,8 @@ def update_case(
         body["attachment_ids"] = attachment_ids
     if meta is not None:
         body["meta"] = meta
+    if note is not None:
+        body["note"] = note
     return client.put(f"/eval/cases/{case_id}", json=body)
 
 
@@ -403,6 +409,7 @@ def create_case_with_rubrics(
     expected_output: Optional[str] = None,
     attachment_ids: Optional[List[str]] = None,
     meta: Optional[dict] = None,
+    note: Optional[str] = None,
 ) -> dict:
     """Create a case AND populate the per-evaluator rubrics in one step.
 
@@ -421,6 +428,7 @@ def create_case_with_rubrics(
         expected_output=expected_output,
         attachment_ids=attachment_ids,
         meta=meta,
+        note=note,
     )
     set_rubric_bulk(
         client,

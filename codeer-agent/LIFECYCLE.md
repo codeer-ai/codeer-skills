@@ -149,9 +149,6 @@ Conversation history is the primary source of truth.
 # Pull conversation histories (filter by feedback if available)
 $SKILL_DIR/scripts/codeer api get /histories \
     --param agent_id=<id> --param wid=<ws>
-
-# Surface turns flagged with negative feedback
-# (where feedback exists)
 ```
 
 Use `histories.list_production()` to filter out internal testing accounts.
@@ -351,8 +348,11 @@ Only `kb/` (source content for upload) stays at root level.
 | Command | Purpose |
 | --- | --- |
 | `codeer check` | Validate auth, workspace, and agent config |
-| `codeer agent list\|get\|apply\|diff\|publish` | Agent CRUD, versioning, publishing |
+| `codeer agent list\|get\|apply\|diff\|versions\|publish` | Agent CRUD, versioning, publishing |
+| `codeer kb list` | List knowledge bases in workspace |
 | `codeer kb upload` | Create/reuse KB + upload files + poll until indexed |
+| `codeer eval list` | List eval cases for an agent |
+| `codeer eval evaluators` | List evaluators in workspace |
 | `codeer eval run` | Trigger eval, poll, print non-perfect analysis, `--diff-vs` regression |
 | `codeer eval export` | Full eval table export (CSV + JSON + summary MD) |
 | `codeer eval cases-apply` | Bulk-create eval cases with per-evaluator rubrics |

@@ -30,6 +30,16 @@ def register(subparsers):
     ev = subparsers.add_parser("eval", help="Eval suite operations")
     sub = ev.add_subparsers(dest="action", required=True)
 
+    # codeer eval list
+    p = sub.add_parser("list", help="List eval cases for an agent")
+    p.add_argument("--agent", required=True)
+    p.set_defaults(func=run_list)
+
+    # codeer eval evaluators
+    p = sub.add_parser("evaluators", help="List evaluators in workspace")
+    p.add_argument("--workspace", default=None)
+    p.set_defaults(func=run_evaluators)
+
     # codeer eval run
     p = sub.add_parser("run", help="Trigger eval run, poll for results, print scores")
     p.add_argument("--agent", required=True)
@@ -93,6 +103,30 @@ def register(subparsers):
     p.add_argument("--force", action="store_true", help="Write all rubrics even if unchanged")
     p.add_argument("--out", default=None)
     p.set_defaults(func=run_rubrics_apply)
+
+
+# ---------------------------------------------------------------------------
+# eval list
+# ---------------------------------------------------------------------------
+
+def run_list(args, client) -> int:
+    cases = eval_mod.list_cases(client, args.agent)
+    print(json.dumps(cases, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# eval evaluators
+# ---------------------------------------------------------------------------
+
+def run_evaluators(args, client) -> int:
+    ws = args.workspace or os.environ.get("CODEER_WORKSPACE_ID")
+    if not ws:
+        log("error: --workspace required (or set CODEER_WORKSPACE_ID)")
+        return 2
+    evaluators = eval_mod.list_evaluators(client, ws)
+    print(json.dumps(evaluators, ensure_ascii=False, indent=2, default=str))
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -348,6 +382,7 @@ def run_export(args, client) -> int:
                 "order": order,
                 "case_id": case_id,
                 "input": case.get("input") or "",
+                "note": case.get("note") or "",
                 "evaluator_id": evaluator_id,
                 "evaluator_name": evaluator.get("name") or evaluator_id,
                 "score": result.get("score"),
@@ -387,9 +422,10 @@ def run_export(args, client) -> int:
         json.dumps(full, ensure_ascii=False, indent=2) + "\n")
     with (out_dir / "eval_table.csv").open("w", newline="") as fh:
         fields = [
-            "order", "case_id", "input", "evaluator_name", "score", "reason",
-            "output", "rubric", "tool_call_count", "tool_calls_summary",
-            "tool_total_duration_ms", "tool_calls_json", "evaluator_id",
+            "order", "case_id", "input", "note", "evaluator_name", "score",
+            "reason", "output", "rubric", "tool_call_count",
+            "tool_calls_summary", "tool_total_duration_ms", "tool_calls_json",
+            "evaluator_id",
         ]
         writer = csv.DictWriter(fh, fieldnames=fields)
         writer.writeheader()
@@ -683,12 +719,13 @@ def run_cases_apply(args, client) -> int:
         if existing is not None:
             case_id = existing["id"]
             log(f"reusing existing case: {label} ({case_id[:8]})")
-            if case.get("expected_output") is not None or attachment_ids or case.get("meta") is not None:
+            if case.get("expected_output") is not None or attachment_ids or case.get("meta") is not None or case.get("note") is not None:
                 eval_mod.update_case(
                     client, case_id,
                     expected_output=case.get("expected_output"),
                     attachment_ids=attachment_ids or None,
                     meta=case.get("meta"),
+                    note=case.get("note"),
                 )
             for ev_id, rubric in rubrics.items():
                 eval_mod.set_rubric(client, evaluation_case_id=case_id,
@@ -704,6 +741,7 @@ def run_cases_apply(args, client) -> int:
             expected_output=case.get("expected_output"),
             attachment_ids=attachment_ids or None,
             rubrics_by_evaluator=rubrics, meta=case.get("meta"),
+            note=case.get("note"),
         )
         case_ids.append(result["id"])
         labels.append(label)

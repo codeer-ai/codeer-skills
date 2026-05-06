@@ -44,6 +44,11 @@ def register(subparsers):
     p.add_argument("--field", choices=("system_prompt", "tools", "all"), default="all")
     p.set_defaults(func=run_diff)
 
+    # codeer agent versions --agent <id>
+    p = sub.add_parser("versions", help="List version history for an agent")
+    p.add_argument("--agent", required=True)
+    p.set_defaults(func=run_versions)
+
     # codeer agent publish --agent <id> --history <hid>
     p = sub.add_parser("publish", help="Publish a specific agent version")
     p.add_argument("--agent", required=True)
@@ -124,6 +129,12 @@ def run_apply(args, client) -> int:
     print(out_text)
     if args.out:
         Path(args.out).write_text(out_text + "\n")
+    return 0
+
+
+def run_versions(args, client) -> int:
+    versions = agents_mod.list_versions(client, args.agent)
+    print(json.dumps(versions, ensure_ascii=False, indent=2, default=str))
     return 0
 
 

@@ -73,8 +73,12 @@ Resolve this once at the start of a session.
 ```bash
 # Domain commands
 $SKILL_DIR/scripts/codeer agent list --workspace <ws> --org <org>
-$SKILL_DIR/scripts/codeer eval run --agent <id> --latest-draft --workspace <ws>
+$SKILL_DIR/scripts/codeer agent versions --agent <id>
+$SKILL_DIR/scripts/codeer kb list --workspace <ws> --org <org>
 $SKILL_DIR/scripts/codeer kb upload --dir kb/ --name "My KB" --workspace <ws> --org <org>
+$SKILL_DIR/scripts/codeer eval list --agent <id>
+$SKILL_DIR/scripts/codeer eval evaluators --workspace <ws>
+$SKILL_DIR/scripts/codeer eval run --agent <id> --latest-draft --workspace <ws>
 
 # Raw API escape hatch
 $SKILL_DIR/scripts/codeer api get /accounts/me

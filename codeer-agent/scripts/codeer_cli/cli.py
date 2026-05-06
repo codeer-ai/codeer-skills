@@ -1,9 +1,9 @@
 """Codeer CLI — unified interface for agent lifecycle operations.
 
     codeer check
-    codeer agent list|get|apply|diff|publish
-    codeer kb upload
-    codeer eval run|export|reconcile|cases-apply|rubrics|rubrics-apply
+    codeer agent list|get|apply|diff|versions|publish
+    codeer kb list|upload
+    codeer eval list|evaluators|run|export|reconcile|cases-apply|rubrics|rubrics-apply
     codeer api get|post|put|patch|delete|stream   # raw escape hatch
 """
 

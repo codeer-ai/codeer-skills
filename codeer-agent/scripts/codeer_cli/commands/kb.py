@@ -15,6 +15,12 @@ def register(subparsers):
     k = subparsers.add_parser("kb", help="Knowledge base operations")
     sub = k.add_subparsers(dest="action", required=True)
 
+    # codeer kb list
+    p = sub.add_parser("list", help="List knowledge bases in workspace")
+    p.add_argument("--workspace", required=True, help="Workspace UUID")
+    p.add_argument("--org", required=True, help="Organization UUID")
+    p.set_defaults(func=run_list)
+
     p = sub.add_parser("upload", help="Create/reuse KB and upload files from a directory")
     p.add_argument("--dir", required=True, help="Directory containing files to upload")
     p.add_argument("--name", required=True, help="KB display name (idempotent on name)")
@@ -25,6 +31,12 @@ def register(subparsers):
     p.add_argument("--out", default=None, help="Write result JSON to this file too")
     p.add_argument("--poll-timeout", type=int, default=POLL_TIMEOUT)
     p.set_defaults(func=run_upload)
+
+
+def run_list(args, client) -> int:
+    nodes = kb_mod.list_nodes(client, organization_id=args.org, workspace_id=args.workspace)
+    print(json.dumps(nodes, ensure_ascii=False, indent=2, default=str))
+    return 0
 
 
 def run_upload(args, client) -> int:
