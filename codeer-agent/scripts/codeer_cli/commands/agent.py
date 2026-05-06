@@ -59,7 +59,7 @@ def run_list(args, client) -> int:
         log("error: --workspace required (or set CODEER_WORKSPACE_ID)")
         return 2
     if org:
-        result = agents_mod.list_all(client, ws, org)
+        result = agents_mod.list_all(client, workspace_id=ws, organization_id=org)
     else:
         result = agents_mod.list_in_workspace(client, ws)
     print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
