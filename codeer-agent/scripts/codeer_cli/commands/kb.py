@@ -19,7 +19,15 @@ def register(subparsers):
     p = sub.add_parser("list", help="List knowledge bases in workspace")
     p.add_argument("--workspace", required=True, help="Workspace UUID")
     p.add_argument("--org", required=True, help="Organization UUID")
+    p.add_argument("--parent-id", default=None, help="List children of this node (omit for top-level KBs)")
     p.set_defaults(func=run_list)
+
+    # codeer kb files
+    p = sub.add_parser("files", help="List files inside a knowledge base")
+    p.add_argument("--kb-id", required=True, help="KB node UUID to list files from")
+    p.add_argument("--workspace", required=True, help="Workspace UUID")
+    p.add_argument("--org", required=True, help="Organization UUID")
+    p.set_defaults(func=run_files)
 
     p = sub.add_parser("upload", help="Create/reuse KB and upload files from a directory")
     p.add_argument("--dir", required=True, help="Directory containing files to upload")
@@ -34,7 +42,19 @@ def register(subparsers):
 
 
 def run_list(args, client) -> int:
-    nodes = kb_mod.list_nodes(client, organization_id=args.org, workspace_id=args.workspace)
+    nodes = kb_mod.list_nodes(
+        client, organization_id=args.org, workspace_id=args.workspace,
+        parent_id=getattr(args, "parent_id", None),
+    )
+    print(json.dumps(nodes, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+
+def run_files(args, client) -> int:
+    nodes = kb_mod.list_nodes(
+        client, organization_id=args.org, workspace_id=args.workspace,
+        parent_id=args.kb_id,
+    )
     print(json.dumps(nodes, ensure_ascii=False, indent=2, default=str))
     return 0
 
