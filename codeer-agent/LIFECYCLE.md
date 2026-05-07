@@ -80,29 +80,57 @@ $SKILL_DIR/scripts/codeer agent apply \
 
 ### Step 4 — Build eval cases
 
-This is where coverage quality is decided. Use MECE categorization to
-ensure the eval suite covers the agent's full scope:
+This is where coverage quality is decided. Work **one category at a time**
+so the user can review a manageable batch instead of being overwhelmed by
+dozens of cases at once.
 
-1. **MECE category structure.** Inspect the agent's settings, system
-   prompt, KBs, and tools. Propose a set of mutually exclusive,
-   collectively exhaustive categories for the agent's expected work — for
-   example: product Q&A, routing, ordering, policy boundaries, tool-backed
-   actions, and out-of-scope refusals. Confirm the structure with the user
-   before writing cases.
+#### Step 4a — MECE categories
 
-2. **One case per category minimum.** Each in-scope category from the
-   scope doc gets at least one eval case. Add boundary cases for hard
-   rules and hallucination traps for out-of-scope categories.
+Inspect the agent's settings, system prompt, KBs, and tools. Propose a
+set of mutually exclusive, collectively exhaustive categories for the
+agent's expected work — for example: product Q&A, routing, ordering,
+policy boundaries, tool-backed actions, and out-of-scope refusals.
+Aim for 3-6 categories. **Confirm the category structure with the user
+before writing any cases.**
 
-3. **Per-evaluator rubrics.** Each case carries rubrics per evaluator —
-   Style/Tone judges *how*, Content Compliance judges *what*. Prioritize
-   the **Content Compliance Evaluator** unless the user explicitly cares
-   about style. Its rubrics must be self-sufficient: the evaluator only
-   has its system prompt and the rubric, not the agent's KB or tools.
+#### Step 4b — Category loop
+
+For each category (user picks which to tackle first, or go sequentially):
+
+1. **Decide case count.** Judge the appropriate number of cases for this
+   category based on its complexity, boundary conditions, and
+   hallucination risk. State the count and rationale — the user can
+   adjust.
+2. **Generate cases + rubrics.** Write cases for this category only.
+   Each case carries per-evaluator rubrics — Style/Tone judges *how*,
+   Content Compliance judges *what*. Prioritize the **Content Compliance
+   Evaluator** unless the user explicitly cares about style. Its rubrics
+   must be self-sufficient: the evaluator only has its system prompt and
+   the rubric, not the agent's KB or tools.
+3. **Present for review.** Show the cases to the user. Keep the batch
+   small enough to be mentally manageable.
+4. **Apply.** After user approves (with any adjustments):
+   ```bash
+   $SKILL_DIR/scripts/codeer eval cases-apply \
+       --cases .codeer/eval_cases.json --agent <agent_id> --out .codeer/case_ids.json
+   ```
+   Then output the eval-cases link so the user can verify on the server
+   (see **Server links** section below).
+5. **Optionally test this batch.** If the user wants, run eval on just
+   the new cases, diagnose and fix issues before moving to the next
+   category. This catches problems early without waiting for the full
+   suite.
+6. **Next category.** Repeat from step 1 for the next category.
+
+#### Step 4c — Full sweep
+
+After all categories are covered, run eval across ALL cases as a final
+regression check:
 
 ```bash
-$SKILL_DIR/scripts/codeer eval cases-apply \
-    --cases .codeer/eval_cases.json --agent <agent_id> --out .codeer/case_ids.json
+$SKILL_DIR/scripts/codeer eval run \
+    --agent <agent_id> --latest-draft --workspace <ws_id> \
+    --out .codeer/eval_results.json
 ```
 
 ### Step 5 — Run eval, fix, repeat
@@ -156,7 +184,7 @@ Use `histories.list_negative_feedback_turns()` to surface flagged turns
 where feedback is available. For channels without feedback, read
 conversation histories directly via `histories.get_conversations()`.
 
-### Step 2 — Analyze
+### Step 2 — Analyze and categorize
 
 Read through production conversations and classify findings:
 
@@ -168,7 +196,15 @@ Read through production conversations and classify findings:
   conversion or user satisfaction. These need protection from future
   regressions.
 
-### Step 3 — Build eval cases FIRST
+**Map each finding to an existing MECE category** from the eval suite
+(the categories established in Phase 1 Step 4a). If a finding doesn't
+fit any existing category, propose a new one — this is a coverage gap.
+
+Present the categorized findings to the user with a recommendation of
+which categories need new or updated cases. Let the user pick which
+categories to work on and in what order.
+
+### Step 3 — Build eval cases FIRST (one category at a time)
 
 **Before making any fix**, turn each finding into an eval case. The eval
 case defines what "fixed" or "protected" means — without it, you can't
@@ -182,10 +218,19 @@ verify the fix worked.
   objectively judgeable. Don't copy production messages verbatim — isolate
   the specific behavior being tested.
 
+**Work one category at a time** — same loop as Phase 1 Step 4b:
+generate cases for one category → present for review → user approves →
+apply → optionally test just those cases → next category. This keeps
+each review batch manageable and lets the user focus on one problem area
+at a time.
+
 ```bash
 $SKILL_DIR/scripts/codeer eval cases-apply \
     --cases .codeer/eval_cases.json --agent <agent_id> --out .codeer/case_ids.json
 ```
+
+After applying, output the eval-cases link so the user can verify on
+the server (see **Server links** section).
 
 Use `meta.previous_conversations` in `codeer eval cases-apply` when the
 failure requires multi-turn context.
@@ -379,6 +424,23 @@ Only fall back to these when the CLI commands above can't express what you need:
   — score history of one case across every version.
 - `agents.get_latest_draft_history_id(agent_id)` — find the newest
   unpublished draft version.
+
+---
+
+## Server links
+
+After any step that creates or modifies server state, output the relevant
+Codeer web link so the user can verify visually. Construct URLs from
+`CODEER_API_BASE` (the same origin as the API).
+
+| After… | Link |
+| --- | --- |
+| Creating or updating an agent | `{CODEER_API_BASE}/workspaces/{workspace_id}/agents/{agent_id}` |
+| Applying eval cases or rubrics | `{CODEER_API_BASE}/workspaces/{workspace_id}/agents/{agent_id}?tab=evaluation` |
+| Running eval | `{CODEER_API_BASE}/workspaces/{workspace_id}/agents/{agent_id}?tab=evaluation` |
+| Viewing a conversation history | `{CODEER_API_BASE}/workspaces/{workspace_id}/histories/{history_id}` |
+| Listing agents in workspace | `{CODEER_API_BASE}/workspaces/{workspace_id}?tab=edit-agents` |
+| KB uploads | `{CODEER_API_BASE}/knowledge-base` |
 
 ---
 
