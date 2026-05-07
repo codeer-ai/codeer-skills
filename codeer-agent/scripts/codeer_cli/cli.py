@@ -54,7 +54,7 @@ def main(argv: list[str] | None = None) -> int:
     except AuthError as e:
         if args.group == "check":
             print(f"FAIL  Auth: {e}", file=sys.stderr)
-            print("      Create ~/.codeer/session.env with CODEER_API_BASE, CODEER_SESSION_ID, CODEER_CSRF_TOKEN", file=sys.stderr)
+            print("      Create ~/.codeer/session.env or repo-root session.env with CODEER_API_BASE, CODEER_SESSION_ID, CODEER_CSRF_TOKEN", file=sys.stderr)
             return 1
         print(f"auth error: {e}", file=sys.stderr)
         return 2

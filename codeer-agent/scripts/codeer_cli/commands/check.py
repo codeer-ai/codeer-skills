@@ -34,7 +34,7 @@ def run(args, client) -> int:
 
     if not ws_id:
         errors.append("FAIL  Workspace: CODEER_WORKSPACE_ID not set")
-        errors.append("      Set it in .claude/settings.json env block for this project")
+        errors.append("      Set it in .claude/settings.json, session.env, or the current shell")
     else:
         ws_name = None
         for ws in profile.get("workspaces", []):

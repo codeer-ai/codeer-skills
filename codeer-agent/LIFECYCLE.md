@@ -365,7 +365,9 @@ All commands run via `$SKILL_DIR/scripts/codeer <noun> <verb>`.
 
 Per-project env (set in `.claude/settings.json` `env` block) makes
 workspace and agent IDs injectable: `CODEER_WORKSPACE_ID`,
-`CODEER_ORGANIZATION_ID`, `CODEER_AGENT_ID`.
+`CODEER_ORGANIZATION_ID`, `CODEER_AGENT_ID`. In Cowork, pass these as CLI
+flags, add them to `session.env` for a single-workspace session, or export
+them in the bash call.
 
 ### Common helpers (for ad-hoc Python)
 
@@ -389,12 +391,12 @@ problems. For errors that happen during work:
 
 | Error | Cause | Fix |
 | --- | --- | --- |
-| HTTP 401 or 403 | Session cookie expired | Re-grab `sessionid` and `csrftoken` from Codeer UI -> devtools -> Application -> Cookies. Update `~/.codeer/session.env`. |
+| HTTP 401 or 403 | Session cookie expired | Re-grab `sessionid` and `csrftoken` from Codeer UI -> devtools -> Application -> Cookies. Update `~/.codeer/session.env` or repo-root `session.env`. |
 | HTTP 403 "CSRF Failed" | CSRF token missing or mismatched | Ensure `CODEER_CSRF_TOKEN` in `session.env` matches the `csrftoken` cookie. Both must be the same value. |
 | HTTP 400 "Organization ID is required" | Using `/agents/all` without `oid` param | Pass both `wid` and `oid`. Look up org for workspace via `GET /accounts/me` -> `profile.workspace_organization_map`. |
 | KB upload returns `status: FAILED`, `node_id: null`, no error message | Wrong or missing Content-Type on the uploaded file | The `kb.upload_file()` helper handles this. If uploading manually, pass `(filename, file_handle, content_type)` as a 3-tuple. Image files (JPEG, PNG, etc.) are not accepted for KB uploads. |
 | KB upload returns HTTP 422 `"Field required"` on `form` | `parent_id` sent as a top-level form field instead of JSON-encoded `form` field | Use `kb.upload_files()` which handles the Django Ninja quirk. If calling manually, the multipart body needs `form: {"parent_id": "..."}` as a single JSON-encoded field. |
 | Agent saves but form fields render blank in UI | Invalid form field `type` value (e.g. `"text"`, `"email"`, `"select"`) | Valid types: `shortText`, `longText`, `number`, `dropdown`, `radio`, `checkbox`, `date`. Use `shortText` for email/text, `dropdown` for select. |
 | Eval results show `score: null` for some cases | Cases haven't been evaluated on that agent version yet | `null` means "not yet run", not "failed". Trigger eval for those cases, or check that the correct `agent_history_id` was passed. |
-| Changes land in the wrong workspace | `CODEER_WORKSPACE_ID` not set or wrong for this project | Set per-project in `.claude/settings.json` `env` block. Run `codeer check` to verify. |
-| `codeer check` can't find credentials | `~/.codeer/session.env` missing or empty | Create the file with `CODEER_API_BASE`, `CODEER_SESSION_ID`, `CODEER_CSRF_TOKEN`. See SKILL.md setup section. |
+| Changes land in the wrong workspace | `CODEER_WORKSPACE_ID` not set or wrong for this project | Set per-project in `.claude/settings.json`, pass `--workspace`, or set it in the current Cowork bash environment. Run `codeer check` to verify. |
+| `codeer check` can't find credentials | `~/.codeer/session.env` and repo-root `session.env` are missing or empty | Create a credential file with `CODEER_API_BASE`, `CODEER_SESSION_ID`, `CODEER_CSRF_TOKEN`. See SKILL.md setup section. |

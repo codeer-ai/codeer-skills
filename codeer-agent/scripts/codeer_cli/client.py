@@ -9,7 +9,8 @@ CODEER_API_BASE). Resolution order for a dotenv file:
 
   1. $CODEER_ENV_FILE (explicit override)
   2. ~/.codeer/session.env (user-level, permission-locked — recommended)
-  3. ./.env in the caller's CWD (per-project fallback)
+  3. <repo-root>/session.env (Cowork workspace fallback)
+  4. ./.env in the caller's CWD (per-project fallback)
 
 Skip the file entirely by exporting the vars directly.
 """
@@ -52,6 +53,11 @@ def _load_dotenv(path: Path) -> None:
             os.environ[key] = value
 
 
+def _repo_root_env_file() -> Path:
+    """Return the repo-root session.env path for this skill checkout."""
+    return Path(__file__).resolve().parent.parent.parent.parent / "session.env"
+
+
 def _candidate_env_files() -> list[Path]:
     """Return dotenv candidates in preferred order; first that exists wins."""
     out: list[Path] = []
@@ -59,6 +65,7 @@ def _candidate_env_files() -> list[Path]:
     if explicit:
         out.append(Path(explicit).expanduser())
     out.append(Path.home() / ".codeer" / "session.env")
+    out.append(_repo_root_env_file())
     out.append(Path.cwd() / ".env")
     return out
 
@@ -108,9 +115,9 @@ class CodeerClient:
         except KeyError as e:
             raise AuthError(
                 0,
-                f"Missing required env var {e.args[0]}. Expected ~/.codeer/session.env "
-                "(chmod 600), or export CODEER_API_BASE / CODEER_SESSION_ID / "
-                "CODEER_CSRF_TOKEN directly.",
+                f"Missing required env var {e.args[0]}. Expected ~/.codeer/session.env, "
+                "repo-root session.env, or exported CODEER_API_BASE / "
+                "CODEER_SESSION_ID / CODEER_CSRF_TOKEN.",
             ) from None
 
         return cls(
