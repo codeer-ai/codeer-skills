@@ -12,11 +12,14 @@ Envelope: successful responses look like
 The client unwraps `data` automatically; errors raise `CodeerError`.
 
 **Session config split (2026-04+):**
-`~/.codeer/session.env` holds **auth only** — `CODEER_API_BASE`,
-`CODEER_SESSION_ID`, `CODEER_CSRF_TOKEN`. Per-customer scope —
-`CODEER_WORKSPACE_ID`, `CODEER_ORGANIZATION_ID`, `CODEER_AGENT_ID` — lives in
-each project's `.claude/settings.json` `env` block. This prevents one
-customer's IDs from leaking into another's session when switching directories.
+`~/.codeer/session.env` holds **auth only** in Claude Code. In Cowork, a
+repo-root `session.env` is also supported when this repo is mounted as the
+workspace. Auth means `CODEER_API_BASE`, `CODEER_SESSION_ID`, and
+`CODEER_CSRF_TOKEN`. Per-customer scope — `CODEER_WORKSPACE_ID`,
+`CODEER_ORGANIZATION_ID`, `CODEER_AGENT_ID` — lives in each project's
+`.claude/settings.json` `env` block, explicit CLI flags, or the current
+Cowork bash environment. This prevents one customer's IDs from leaking into
+another's session when switching directories.
 
 **Pagination conventions:**
 - `/histories` uses **`limit` + `offset`** (NOT `page` / `page_size`).

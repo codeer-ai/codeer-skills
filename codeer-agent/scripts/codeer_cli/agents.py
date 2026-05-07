@@ -84,17 +84,17 @@ def get(client: CodeerClient, agent_id: str) -> dict:
 
 
 def get_default(client: CodeerClient) -> dict:
-    """Read whichever agent ``CODEER_AGENT_ID`` points to (project env block).
+    """Read whichever agent ``CODEER_AGENT_ID`` points to (project env).
 
     Per-project convention is to set CODEER_WORKSPACE_ID, CODEER_ORGANIZATION_ID
-    and CODEER_AGENT_ID together in ``.claude/settings.json`` so scripts in a
+    and CODEER_AGENT_ID as environment variables so scripts in a
     customer's directory don't have to re-pass these args every call. Raises
     if no ``agent_id`` is in scope.
     """
     if not client.agent_id:
         raise ValueError(
-            "No agent_id in scope. Set CODEER_AGENT_ID in .claude/settings.json "
-            "(env block) or pass agent_id explicitly to from_env()."
+            "No agent_id in scope. Set CODEER_AGENT_ID in .claude/settings.json, "
+            "session.env, or your shell, or pass agent_id explicitly to from_env()."
         )
     return get(client, client.agent_id)
 
@@ -163,5 +163,4 @@ def publish_version(client: CodeerClient, agent_id: str, history_id: str) -> dic
 def set_publish_state(client: CodeerClient, agent_id: str, publish_state: str) -> dict:
     """publish_state is 'private' | 'in_organization' | 'public'."""
     return client.post(f"/agents/{agent_id}/publish", json={"publish_state": publish_state})
-
 

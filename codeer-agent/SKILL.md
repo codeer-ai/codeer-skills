@@ -28,13 +28,13 @@ Read-only calls (GET, listing, exporting, diffing) do not need confirmation.
 
 ## Setup (one time, per user)
 
-1. Create `~/.codeer/session.env` with **auth only**:
+1. Create a `session.env` file with **auth only**:
    ```
    CODEER_API_BASE=http://localhost:8000         # or your staging/prod base
    CODEER_SESSION_ID=<from browser devtools>
    CODEER_CSRF_TOKEN=<from browser devtools>
    ```
-2. `chmod 600 ~/.codeer/session.env`
+2. `chmod 600 <path-to>/session.env`
 3. Cookies are found in the Codeer UI's devtools -> Application -> Cookies, after logging in.
 4. Sessions expire. If calls start returning 401/403, re-grab the cookies.
 
@@ -42,11 +42,29 @@ The skill's wrappers manage their own Python virtualenv under
 `${TMPDIR:-/tmp}/codeer-skills/codeer-agent-venv` by default, installing
 `httpx` on first use. Set `CODEER_AGENT_VENV` to override the venv location.
 
+### Where to place `session.env`
+
+The client resolves credentials in this order:
+
+| Priority | Path | Best for |
+| --- | --- | --- |
+| 1 | `$CODEER_ENV_FILE` | Explicit override for any environment |
+| 2 | `~/.codeer/session.env` | Claude Code user-level credentials |
+| 3 | `<repo-root>/session.env` | Cowork workspace checkout |
+| 4 | `./.env` in CWD | Per-project fallback |
+
+For Claude Code, prefer `~/.codeer/session.env`. For Cowork, if this repo is
+mounted as a workspace folder, put `session.env` at the repo root:
+`codeer-skills/session.env`. The wrapper detects it when no user-level
+`~/.codeer/session.env` exists.
+
 ### Per-project workspace / org
 
 `CODEER_WORKSPACE_ID` and `CODEER_ORGANIZATION_ID` do **not** live in the
 global `session.env` — that would make concurrent sessions on different orgs
-collide. Instead, set them per project in `.claude/settings.json`:
+collide.
+
+For Claude Code, set them per project in `.claude/settings.json`:
 
 ```json
 {
@@ -61,6 +79,10 @@ Claude Code exports these into every command run inside that project, so
 opening Claude Code in `~/customers/acme/` vs `~/customers/initech/`
 automatically pins each session to its own workspace.
 
+For Cowork, pass `--workspace` and `--org` explicitly, add the IDs to
+`session.env` when you are working on one workspace, or export them in the
+specific bash call.
+
 **At the start of any Codeer-skill session, run `codeer check`**
 to validate auth, workspace, and agent config. It prints the active identity
 and catches setup problems before any change lands in the wrong place.
@@ -68,7 +90,8 @@ and catches setup problems before any change lands in the wrong place.
 ## Invocation
 
 All paths use `$SKILL_DIR` to refer to this skill's installation directory.
-Resolve this once at the start of a session.
+Resolve this once at the start of a session. In Cowork, each bash call is
+independent, so use absolute paths and pass any needed env values in that call.
 
 ```bash
 # Domain commands
