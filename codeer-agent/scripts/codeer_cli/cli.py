@@ -1,10 +1,11 @@
 """Codeer CLI — unified interface for agent lifecycle operations.
 
     codeer check
-    codeer agent list|get|apply|diff|versions|publish
-    codeer kb list|upload
+    codeer agent list|get|apply|diff|versions
+    codeer kb list|files|upload
     codeer eval list|evaluators|run|export|reconcile|cases-apply|rubrics|rubrics-apply
-    codeer api get|post|put|patch|delete|stream   # raw escape hatch
+    codeer history list|get|conversations|negative-feedback
+    codeer api get|stream   # read-only API calls
 """
 
 from __future__ import annotations
@@ -40,6 +41,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         from .commands import eval_cmd
         eval_cmd.register(sub)
+    except ImportError:
+        pass
+
+    try:
+        from .commands import history as history_cmd
+        history_cmd.register(sub)
     except ImportError:
         pass
 

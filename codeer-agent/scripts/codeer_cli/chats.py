@@ -59,16 +59,3 @@ def list_chats(client: CodeerClient) -> list[dict]:
     return client.get("/chats")
 
 
-def leave_message_feedback(
-    client: CodeerClient,
-    *,
-    chat_id: int,
-    message_id: int,
-    rating: str,
-    content: Optional[str] = None,
-) -> Any:
-    """Thumbs up/down on a single assistant message."""
-    body: dict[str, Any] = {"rating": rating}
-    if content is not None:
-        body["content"] = content
-    return client.post(f"/chats/{chat_id}/messages/{message_id}/feedbacks", json=body)

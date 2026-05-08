@@ -16,8 +16,6 @@ from typing import Any, Iterable, Optional
 
 from .client import CodeerClient
 
-DEFAULT_INTERNAL_EMAILS: tuple[str, ...] = ()
-
 
 def list(
     client: CodeerClient,
@@ -27,11 +25,16 @@ def list(
     organization_id: Optional[str] = None,
     external_user_id: Optional[str] = None,
     feedback_filter: Optional[str] = None,
+    exclude_users: Iterable[str] = (),
     limit: int = 500,
     offset: int = 0,
     order_by: str = "desc",
 ) -> list[dict]:
     """List conversation histories, optionally filtered by agent and feedback state.
+
+    ``exclude_users`` filters out histories whose ``external_user_id`` matches
+    any of the given values (case-insensitive). Use this to exclude internal
+    testing accounts from production analysis.
 
     feedback_filter values are defined by FeedbackFilterType in the backend —
     typical values include 'positive' / 'negative' / 'any'. Check the current
@@ -48,43 +51,11 @@ def list(
         params["external_user_id"] = external_user_id
     if feedback_filter:
         params["feedback_filter"] = feedback_filter
-    return client.get("/histories", params=params)
-
-
-def list_production(
-    client: CodeerClient,
-    *,
-    agent_id: str,
-    workspace_id: Optional[str] = None,
-    organization_id: Optional[str] = None,
-    internal_user_emails: Iterable[str] = DEFAULT_INTERNAL_EMAILS,
-    limit: int = 500,
-) -> list[dict]:
-    """Return only "real" external-user conversations, filtering out internal testing.
-
-    Why this exists: widget chats arrive with ``creator.email = wsk-XXXX@codeer.ai``
-    (a per-session key, not a real user identity). The actual visitor lives in
-    ``external_user_id``. Filtering on ``creator.email`` therefore hides nothing.
-
-    ``internal_user_emails`` lists ``external_user_id`` values to exclude —
-    defaults to empty. Pass team and customer staff emails to filter out
-    internal testing traffic.
-    """
-    drop = {e.lower() for e in internal_user_emails}
-    rows = list(
-        client,
-        agent_id=agent_id,
-        workspace_id=workspace_id,
-        organization_id=organization_id,
-        limit=limit,
-    )
-    out = []
-    for h in rows:
-        ext = (h.get("external_user_id") or "").lower()
-        if ext and ext in drop:
-            continue
-        out.append(h)
-    return out
+    rows = client.get("/histories", params=params)
+    drop = {e.lower() for e in exclude_users}
+    if drop:
+        rows = [h for h in rows if (h.get("external_user_id") or "").lower() not in drop]
+    return rows
 
 
 def list_negative_feedback_turns(
@@ -93,7 +64,7 @@ def list_negative_feedback_turns(
     agent_id: str,
     workspace_id: Optional[str] = None,
     organization_id: Optional[str] = None,
-    internal_user_emails: Iterable[str] = DEFAULT_INTERNAL_EMAILS,
+    exclude_users: Iterable[str] = (),
     feedback_types: Iterable[str] = ("sys_improve",),
     limit: int = 500,
     user_excerpt_chars: int = 200,
@@ -128,18 +99,18 @@ def list_negative_feedback_turns(
     in ``feedback_types``.
 
     Cost: O(N histories) network calls — one ``/histories/{id}/conversations``
-    per history. Filter aggressively via ``internal_user_emails`` and ``limit``
+    per history. Filter aggressively via ``exclude_users`` and ``limit``
     before invoking on a busy agent.
     """
     from .parse import strip_tool_markers  # local import to avoid cycle
 
     type_set = {t.lower() for t in feedback_types}
-    histories = list_production(
+    histories = list(
         client,
         agent_id=agent_id,
         workspace_id=workspace_id,
         organization_id=organization_id,
-        internal_user_emails=internal_user_emails,
+        exclude_users=exclude_users,
         limit=limit,
     )
     out: list[dict] = []
@@ -188,27 +159,3 @@ def get_conversations(client: CodeerClient, history_id: int) -> list[dict]:
     return client.get(f"/histories/{history_id}/conversations")
 
 
-def leave_feedback(
-    client: CodeerClient,
-    *,
-    history_id: int,
-    conversation_id: str,
-    content: str,
-    rating: Optional[str] = None,
-) -> Any:
-    """Attach freeform improvement feedback to a conversation."""
-    body: dict[str, Any] = {"content": content}
-    if rating is not None:
-        body["rating"] = rating
-    return client.post(f"/histories/{history_id}/conversations/{conversation_id}/feedbacks", json=body)
-
-
-def set_score(client: CodeerClient, *, history_id: int, conversation_id: str, score: float) -> Any:
-    return client.post(
-        f"/histories/{history_id}/conversations/{conversation_id}/score",
-        json={"score": score},
-    )
-
-
-def delete(client: CodeerClient, history_id: int) -> Any:
-    return client.delete(f"/histories/{history_id}")

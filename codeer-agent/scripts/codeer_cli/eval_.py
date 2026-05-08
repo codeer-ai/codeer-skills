@@ -83,13 +83,6 @@ def update_case(
     return client.put(f"/eval/cases/{case_id}", json=body)
 
 
-def delete_case(client: CodeerClient, case_id: str) -> Any:
-    return client.delete(f"/eval/cases/{case_id}")
-
-
-def bulk_delete_cases(client: CodeerClient, case_ids: List[str]) -> Any:
-    return client.post("/eval/cases/bulk", json={"case_ids": case_ids})
-
 
 # --- evaluators -----------------------------------------------------------
 
@@ -139,9 +132,6 @@ def update_evaluator(
         body["agent_ids"] = agent_ids
     return client.put(f"/eval/evaluators/{evaluator_id}", json=body)
 
-
-def delete_evaluator(client: CodeerClient, evaluator_id: str) -> Any:
-    return client.delete(f"/eval/evaluators/{evaluator_id}")
 
 
 # --- runs + results -------------------------------------------------------

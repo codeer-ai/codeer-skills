@@ -49,11 +49,6 @@ def register(subparsers):
     p.add_argument("--agent", required=True)
     p.set_defaults(func=run_versions)
 
-    # codeer agent publish --agent <id> --history <hid>
-    p = sub.add_parser("publish", help="Publish a specific agent version")
-    p.add_argument("--agent", required=True)
-    p.add_argument("--history", required=True, help="AgentHistory ID to publish")
-    p.set_defaults(func=run_publish)
 
 
 def run_list(args, client) -> int:
@@ -137,12 +132,6 @@ def run_versions(args, client) -> int:
     print(json.dumps(versions, ensure_ascii=False, indent=2, default=str))
     return 0
 
-
-def run_publish(args, client) -> int:
-    result = agents_mod.publish_version(client, args.agent, args.history)
-    print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
-    log(f"published agent {args.agent} history {args.history}")
-    return 0
 
 
 # --- diff helpers ---

@@ -60,7 +60,7 @@ def update(
     primary_object_ids: Optional[List[int]] = None,
     attachment_ids: Optional[List[str]] = None,
 ) -> dict:
-    """PUT creates a new AgentHistory snapshot (draft); use publish_version to promote."""
+    """PUT creates a new AgentHistory snapshot (draft)."""
     validated_tools = validate_unified_tools(unified_tools)
     body: dict[str, Any] = {
         "name": name,
@@ -138,10 +138,6 @@ def list_all(
     return client.get("/agents/all", params={"wid": workspace_id, "oid": organization_id})
 
 
-def delete(client: CodeerClient, agent_id: str) -> Any:
-    return client.delete(f"/agents/{agent_id}")
-
-
 def list_versions(client: CodeerClient, agent_id: str) -> list[dict]:
     return client.get(f"/agents/{agent_id}/histories")
 
@@ -155,12 +151,4 @@ def check_impact(client: CodeerClient, agent_id: str) -> dict:
     return client.get(f"/agents/{agent_id}/impact")
 
 
-def publish_version(client: CodeerClient, agent_id: str, history_id: str) -> dict:
-    """Make a specific AgentHistory version the public one. Works for rollback too."""
-    return client.post(f"/agents/{agent_id}/publish-history", json={"history_id": history_id})
-
-
-def set_publish_state(client: CodeerClient, agent_id: str, publish_state: str) -> dict:
-    """publish_state is 'private' | 'in_organization' | 'public'."""
-    return client.post(f"/agents/{agent_id}/publish", json={"publish_state": publish_state})
 
