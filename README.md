@@ -10,27 +10,29 @@ Claude skills for building, evaluating, and managing [Codeer](https://codeer.ai)
 
 ## Installation
 
+Install and authenticate the CLI separately from the skill. During development,
+install the root-level CLI package in editable mode:
+
+```bash
+cd /path/to/codeer-skills/codeer-cli
+uv tool install --editable .
+codeer check
+```
+
+The CLI is intentionally separate from the skill so credentials and runtime
+dependencies are maintained outside the LLM-readable skill package.
+
 ### Claude Cowork
 
-There are two supported Cowork setups.
-
-If Cowork is using this repo as a workspace folder, open or mount the
-`codeer-skills/` directory and create `session.env` at the repo root:
-
-```bash
-CODEER_API_BASE=https://api.codeer.ai
-CODEER_SESSION_ID=<from browser devtools>
-CODEER_CSRF_TOKEN=<from browser devtools>
-```
-
-The `codeer-agent/scripts/codeer` wrapper auto-detects that file, so no manual
-`export` is needed. Use absolute paths from Cowork bash calls, for example:
+Cowork should provide an installed `codeer` binary plus credentials from the
+runtime environment or an external CLI credential store. Do not place
+`session.env` or `.env` files in the skill workspace.
 
 ```bash
-/path/to/codeer-skills/codeer-agent/scripts/codeer check
+codeer check
 ```
 
-If you prefer uploading the skill, package the skill folder itself:
+Package the skill folder itself:
 
 ```bash
 zip -r codeer-agent.zip codeer-agent
@@ -47,12 +49,11 @@ skill sharing is enabled by an owner.
 After uploading, make sure:
 
 - Code execution and file creation are enabled for Claude/Cowork.
-- `~/.codeer/session.env`, repo-root `session.env`, or `CODEER_ENV_FILE`
-  provides Codeer credentials.
+- The external `codeer` CLI is installed and `codeer check` passes.
 - The relevant project provides `CODEER_WORKSPACE_ID` and
   `CODEER_ORGANIZATION_ID`. In Claude Code this is usually done with
-  `.claude/settings.json`; in Cowork, pass them as CLI flags, add them to
-  `session.env`, or ask Cowork to use them before running Codeer API actions.
+  `.claude/settings.json`; in Cowork, pass them as CLI flags or ask Cowork to
+  use them before running Codeer API actions.
 
 ### Claude Code
 
@@ -72,19 +73,20 @@ Once installed, Claude Code will automatically invoke the skill when your reques
 
 ## Prerequisites
 
-- **Python 3 with venv support** — skill wrappers create and reuse their own
-  virtualenv under `${TMPDIR:-/tmp}/codeer-skills/`.
-- **Codeer session credentials** in `~/.codeer/session.env` or repo-root
-  `session.env` — see each skill's `SKILL.md` for setup details.
+- **Codeer CLI** — installed from `codeer-cli/`, preferably with editable
+  install while it is changing quickly.
+- **Codeer session credentials** — configured outside the skill workspace so
+  `codeer check` succeeds.
 
 ## Repo structure
 
 ```
 codeer-skills/
+├── codeer-cli/               ← standalone CLI package
 └── codeer-agent/
     ├── SKILL.md              ← orientation, setup, lifecycle walkthrough
     ├── DESIGN_GUIDE.md       ← agent design advice (tools, prompts, patterns)
     ├── API_CHEATSHEET.md     ← endpoint reference + gotchas
     ├── examples/             ← reusable JSON payloads
-    └── scripts/              ← CLI wrapper + reusable Python scripts
+    └── scripts/              ← legacy bundled CLI scripts
 ```
