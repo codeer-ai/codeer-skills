@@ -26,43 +26,24 @@ Read-only calls (GET, listing, exporting, diffing) do not need confirmation.
 | Execute a lifecycle stage (create, upload, eval, publish, iterate) | **LIFECYCLE.md** |
 | Look up an endpoint shape, field enum, or gotcha | **API_CHEATSHEET.md** |
 
-## Setup (one time, per user)
+## Setup (one time, outside this skill)
 
-1. Create a `session.env` file with **auth only**:
-   ```
-   CODEER_API_BASE=http://localhost:8000         # or your staging/prod base
-   CODEER_SESSION_ID=<from browser devtools>
-   CODEER_CSRF_TOKEN=<from browser devtools>
-   ```
-2. `chmod 600 <path-to>/session.env`
-3. Cookies are found in the Codeer UI's devtools -> Application -> Cookies, after logging in.
-4. Sessions expire. If calls start returning 401/403, re-grab the cookies.
+The `codeer` CLI must already be installed and authenticated before this skill
+uses it. Do not create or read credential files inside the skill workspace.
 
-The skill's wrappers manage their own Python virtualenv under
-`${TMPDIR:-/tmp}/codeer-skills/codeer-agent-venv` by default, installing
-`httpx` on first use. Set `CODEER_AGENT_VENV` to override the venv location.
+For local development of the CLI from this monorepo, use an editable install:
 
-### Where to place `session.env`
-
-The client resolves credentials in this order:
-
-| Priority | Path | Best for |
-| --- | --- | --- |
-| 1 | `$CODEER_ENV_FILE` | Explicit override for any environment |
-| 2 | `~/.codeer/session.env` | Claude Code user-level credentials |
-| 3 | `<repo-root>/session.env` | Cowork workspace checkout |
-| 4 | `./.env` in CWD | Per-project fallback |
-
-For Claude Code, prefer `~/.codeer/session.env`. For Cowork, if this repo is
-mounted as a workspace folder, put `session.env` at the repo root:
-`codeer-skills/session.env`. The wrapper detects it when no user-level
-`~/.codeer/session.env` exists.
+```bash
+cd /path/to/codeer-skills/codeer-cli
+uv tool install --editable .
+```
 
 ### Per-project workspace / org
 
 `CODEER_WORKSPACE_ID` and `CODEER_ORGANIZATION_ID` do **not** live in the
-global `session.env` — that would make concurrent sessions on different orgs
-collide.
+global auth config — that would make concurrent sessions on different orgs
+collide. They are non-secret scope values and can be passed as CLI flags or
+set in the command environment.
 
 For Claude Code, set them per project in `.claude/settings.json`:
 
@@ -79,9 +60,10 @@ Claude Code exports these into every command run inside that project, so
 opening Claude Code in `~/customers/acme/` vs `~/customers/initech/`
 automatically pins each session to its own workspace.
 
-For Cowork, pass `--workspace` and `--org` explicitly, add the IDs to
-`session.env` when you are working on one workspace, or export them in the
-specific bash call.
+For Cowork, pass `--workspace` and `--org` explicitly or export them in the
+specific bash call. Credentials should be supplied by the Cowork/runtime
+environment or by an external CLI credential store, not by files in the skill
+workspace.
 
 **At the start of any Codeer-skill session, run `codeer check`**
 to validate auth, workspace, and agent config. It prints the active identity
@@ -89,28 +71,24 @@ and catches setup problems before any change lands in the wrong place.
 
 ## Invocation
 
-All paths use `$SKILL_DIR` to refer to this skill's installation directory.
-Resolve this once at the start of a session. In Cowork, each bash call is
-independent, so use absolute paths and pass any needed env values in that call.
+Use the installed `codeer` binary. In Cowork, each bash call is independent, so
+pass any needed workspace/org values in that call.
 
 ```bash
 # Domain commands
-$SKILL_DIR/scripts/codeer agent list --workspace <ws> --org <org>
-$SKILL_DIR/scripts/codeer agent versions --agent <id>
-$SKILL_DIR/scripts/codeer kb list --workspace <ws> --org <org>
-$SKILL_DIR/scripts/codeer kb upload --dir kb/ --name "My KB" --workspace <ws> --org <org>
-$SKILL_DIR/scripts/codeer eval list --agent <id>
-$SKILL_DIR/scripts/codeer eval evaluators --workspace <ws>
-$SKILL_DIR/scripts/codeer eval run --agent <id> --latest-draft --workspace <ws>
+codeer agent list --workspace <ws> --org <org>
+codeer agent versions --agent <id>
+codeer kb list --workspace <ws> --org <org>
+codeer kb upload --dir kb/ --name "My KB" --workspace <ws> --org <org>
+codeer eval list --agent <id>
+codeer eval evaluators --workspace <ws>
+codeer eval run --agent <id> --latest-draft --workspace <ws>
 
 # Raw API escape hatch
-$SKILL_DIR/scripts/codeer api get /accounts/me
-$SKILL_DIR/scripts/codeer api post /agents --json-file ./my_agent.json
-$SKILL_DIR/scripts/codeer api stream post /chats/42/messages --json '{"message":"hi"}'
+codeer api get /accounts/me
+codeer api post /agents --json-file ./my_agent.json
+codeer api stream post /chats/42/messages --json '{"message":"hi"}'
 ```
-
-Always use the resolved absolute path; the wrapper keeps the caller's CWD so
-`--json-file` and upload paths resolve relative to the user's project.
 
 For the full command reference, see **LIFECYCLE.md**.
 
