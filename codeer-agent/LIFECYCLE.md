@@ -150,6 +150,35 @@ The fix loop within Phase 1:
 3. Review — check that targeted cases improved without regressing others
 4. Repeat until satisfied
 
+#### Prompt change discipline
+
+Do not optimize the agent prompt to make one eval case pass. Eval cases
+are coverage probes, not training examples. A prompt change is acceptable
+only when it fixes a general behavior that should hold across the agent's
+real operating scope.
+
+Before proposing a prompt change, compare these options:
+- No change — the failure is acceptable or evaluator noise
+- Rubric edit — the judge is asking for the wrong thing
+- Eval case edit — the case is underspecified or not representative
+- KB update — the source material is missing or stale
+- KB `invocation_instruction` update — retrieval trigger/querying is the issue
+- Minimal prompt edit — the agent needs a broader behavioral rule
+
+For any prompt edit, state:
+- The exact behavioral defect being fixed
+- Why this is not case-specific overfitting
+- The smallest prompt diff that could fix it
+- Which existing categories might regress
+- Which full-batch eval run will verify the change
+
+Avoid:
+- Adding phrases copied from a failing eval case
+- Adding answer templates for one scenario
+- Adding long new policy sections for narrow failures
+- Changing unrelated style, tone, or workflow rules
+- Treating eval cases as the full product requirement
+
 ### Step 6 — Publish
 
 Only after explicit user go-ahead on eval results.
@@ -252,6 +281,10 @@ Make the smallest change that addresses the findings:
 - Prompt change → `codeer agent apply` (auto-forks a new draft)
 - KB update → `codeer kb upload`
 - Rubric edit → `codeer eval rubrics-apply`
+
+For prompt changes, use the **Prompt change discipline** from Phase 1.
+The target is better general behavior across the coverage map, not a
+case-specific patch that only improves the current eval failures.
 
 ### Step 6 — Re-run ALL eval cases
 

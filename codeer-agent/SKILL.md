@@ -102,7 +102,7 @@ For the full command reference, see **LIFECYCLE.md**.
 | 2. KB | Prepare content files, upload to Codeer |
 | 3. Agent | Create agent (prompt + tools + KB) |
 | 4. Eval cases | MECE categorize usage scenarios, build cases with rubrics |
-| 5. Eval + fix | Run eval -> fix failures -> re-run ALL with regression check -> repeat |
+| 5. Eval + fix | Run eval -> diagnose failures -> apply the smallest generalizable fix -> re-run ALL with regression check -> repeat |
 | 6. Publish | After explicit user go-ahead |
 
 ### Phase 2: Improve (agent has production traffic)
@@ -113,7 +113,7 @@ For the full command reference, see **LIFECYCLE.md**.
 | 2. Analyze | Classify: failures, improvement opportunities, successful patterns to protect |
 | 3. Eval cases FIRST | Turn each finding into an eval case BEFORE making any fix |
 | 4. Baseline | Run eval on current version (failures should fail, good patterns should pass) |
-| 5. Fix | Apply smallest change (prompt, KB, or rubric) |
+| 5. Fix | Apply the smallest generalizable change (prompt, KB, or rubric) |
 | 6. Re-run ALL | `--diff-vs` regression check: targeted cases pass, nothing else regressed |
 | 7. Decide | User reviews results -> publish, iterate more, or roll back |
 
