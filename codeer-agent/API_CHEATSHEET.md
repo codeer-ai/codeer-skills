@@ -12,10 +12,10 @@ Envelope: successful responses look like
 The client unwraps `data` automatically; errors raise `CodeerError`.
 
 **Session config split (2026-04+):**
-`~/.codeer/session.env` holds **auth only** in Claude Code. In Cowork, a
-repo-root `session.env` is also supported when this repo is mounted as the
-workspace. Auth means `CODEER_API_BASE`, `CODEER_SESSION_ID`, and
-`CODEER_CSRF_TOKEN`. Per-customer scope — `CODEER_WORKSPACE_ID`,
+`~/.codeer/session.env` holds **auth only** in Claude Code. In Cowork, provide
+credentials through the runtime environment or an explicit `CODEER_ENV_FILE`.
+Auth means `CODEER_API_BASE`, `CODEER_SESSION_ID`, and `CODEER_CSRF_TOKEN`.
+Per-customer scope — `CODEER_WORKSPACE_ID`,
 `CODEER_ORGANIZATION_ID`, `CODEER_AGENT_ID` — lives in each project's
 `.claude/settings.json` `env` block, explicit CLI flags, or the current
 Cowork bash environment. This prevents one customer's IDs from leaking into
@@ -196,8 +196,9 @@ Non-destructive: older versions stay in `GET /agents/{id}/histories`.
 
 ## Gotchas (read this before your first dogfood run)
 
-These are traps we hit in practice; `codeer_cli/_validate.py` catches most of
-them client-side, but they're worth knowing when you're writing payloads by hand.
+These are traps we hit in practice; `codeer-cli/src/codeer_cli/_validate.py`
+catches most of them client-side, but they're worth knowing when you're
+writing payloads by hand.
 
 ### 1. `/agents` returns published only; `/agents/all` returns drafts too
 
@@ -228,8 +229,8 @@ analytics/column name, `question` is the user-facing prompt.
 `POST /eval/cases` has a `rubric` field — this is NOT what the Test Suite's
 `Standard` column reads. That column is populated by `POST /eval/rubric` keyed
 on `(evaluation_case_id, evaluator_id)`. Set it explicitly for each
-(case, evaluator) pair after creating the case, or use
-`codeer_cli.eval_.create_case_with_rubrics()` which does both in one call.
+(case, evaluator) pair after creating the case, or use the eval helpers in
+`codeer-cli/src/codeer_cli/eval_.py` which do both in one call.
 
 To **read** rubrics back, use `POST /eval/rubrics/batch` with
 `{case_ids: [...], evaluator_id}` — it returns the raw rubric strings out of
@@ -237,8 +238,7 @@ To **read** rubrics back, use `POST /eval/rubrics/batch` with
 version-independent. Don't try to scrape rubrics out of past
 `/eval/results/batch` `reason` text: the judge paraphrases them, and a case
 with a rubric set but never evaluated is indistinguishable from one with no
-rubric. Use `codeer_cli.eval_.get_case_rubrics()` (workspace-wide) or
-`get_rubrics_batch()` (one evaluator).
+rubric. Use the eval helpers in `codeer-cli/src/codeer_cli/eval_.py`.
 
 Different evaluators should usually get differently-worded rubrics: a
 Style/Tone evaluator should judge **how** the agent responded (language,
@@ -428,5 +428,5 @@ shape, parameter name, or enum value, check docs.codeer.ai first — this
 cheatsheet is a summary that can lag behind.
 
 The enums and limits this skill validates against are mirrored in
-`codeer_cli/constants.py`. When a new tool type or field type is added,
-update that file and add a Gotcha note here if behavior is surprising.
+`codeer-cli/src/codeer_cli/constants.py`. When a new tool type or field type is
+added, update that file and add a Gotcha note here if behavior is surprising.

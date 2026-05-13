@@ -38,7 +38,7 @@ eval case design.
    exposes them to the agent).
 2. Upload to Codeer:
    ```bash
-   $SKILL_DIR/scripts/codeer kb upload \
+   codeer kb upload \
        --dir kb/ --name "<KB display name>" \
        --workspace <ws_id> --org <org_id> --out .codeer/kb_ids.json
    ```
@@ -74,7 +74,7 @@ Write `.codeer/agent_payload.json`. Pull allowed outcomes and boundaries from
 `.codeer/scope.md`; attach KB node IDs from `.codeer/kb_ids.json`.
 
 ```bash
-$SKILL_DIR/scripts/codeer agent apply \
+codeer agent apply \
     --payload .codeer/agent_payload.json --out .codeer/agent_ids.json
 ```
 
@@ -111,7 +111,7 @@ For each category (user picks which to tackle first, or go sequentially):
    small enough to be mentally manageable.
 4. **Apply.** After user approves (with any adjustments):
    ```bash
-   $SKILL_DIR/scripts/codeer eval cases-apply \
+   codeer eval cases-apply \
        --cases .codeer/eval_cases.json --agent <agent_id> --out .codeer/case_ids.json
    ```
    Then output the eval-cases link so the user can verify on the server
@@ -128,7 +128,7 @@ After all categories are covered, run eval across ALL cases as a final
 regression check:
 
 ```bash
-$SKILL_DIR/scripts/codeer eval run \
+codeer eval run \
     --agent <agent_id> --latest-draft --workspace <ws_id> \
     --out .codeer/eval_results.json
 ```
@@ -136,7 +136,7 @@ $SKILL_DIR/scripts/codeer eval run \
 ### Step 5 — Run eval, fix, repeat
 
 ```bash
-$SKILL_DIR/scripts/codeer eval run \
+codeer eval run \
     --agent <agent_id> --latest-draft --workspace <ws_id> \
     --out .codeer/eval_results.json
 ```
@@ -185,7 +185,7 @@ Only after explicit user go-ahead on eval results.
 
 ```bash
 # Check downstream impact first if other agents call this one
-$SKILL_DIR/scripts/codeer api get /agents/<agent_id>/impact
+codeer api get /agents/<agent_id>/impact
 ```
 
 Use `agents.publish_version()` to promote the draft.
@@ -204,7 +204,7 @@ Conversation history is the primary source of truth.
 
 ```bash
 # Pull conversation histories (filter by feedback if available)
-$SKILL_DIR/scripts/codeer api get /histories \
+codeer api get /histories \
     --param agent_id=<id> --param wid=<ws>
 ```
 
@@ -254,7 +254,7 @@ each review batch manageable and lets the user focus on one problem area
 at a time.
 
 ```bash
-$SKILL_DIR/scripts/codeer eval cases-apply \
+codeer eval cases-apply \
     --cases .codeer/eval_cases.json --agent <agent_id> --out .codeer/case_ids.json
 ```
 
@@ -270,7 +270,7 @@ Run eval against the **current published version** to establish a baseline.
 New failure cases should fail; protection cases should pass.
 
 ```bash
-$SKILL_DIR/scripts/codeer eval run \
+codeer eval run \
     --agent <agent_id> --history <published_history_id> --workspace <ws_id> \
     --out .codeer/eval_baseline.json
 ```
@@ -289,7 +289,7 @@ case-specific patch that only improves the current eval failures.
 ### Step 6 — Re-run ALL eval cases
 
 ```bash
-$SKILL_DIR/scripts/codeer eval run \
+codeer eval run \
     --agent <agent_id> --latest-draft --workspace <ws_id> \
     --diff-vs <prev_history_id> --out .codeer/eval_results.json
 ```
@@ -439,13 +439,12 @@ Only `kb/` (source content for upload) stays at root level.
 | `codeer eval reconcile` | Read-only audit: compare local manifest vs server state |
 | `codeer api get\|post\|put\|patch\|delete\|stream` | Raw API escape hatch |
 
-All commands run via `$SKILL_DIR/scripts/codeer <noun> <verb>`.
+All commands run via the separately installed `codeer` CLI.
 
 Per-project env (set in `.claude/settings.json` `env` block) makes
 workspace and agent IDs injectable: `CODEER_WORKSPACE_ID`,
 `CODEER_ORGANIZATION_ID`, `CODEER_AGENT_ID`. In Cowork, pass these as CLI
-flags, add them to `session.env` for a single-workspace session, or export
-them in the bash call.
+flags or export them in the bash call.
 
 ### Common helpers (for ad-hoc Python)
 
@@ -486,7 +485,7 @@ problems. For errors that happen during work:
 
 | Error | Cause | Fix |
 | --- | --- | --- |
-| HTTP 401 or 403 | Session cookie expired | Re-grab `sessionid` and `csrftoken` from Codeer UI -> devtools -> Application -> Cookies. Update `~/.codeer/session.env` or repo-root `session.env`. |
+| HTTP 401 or 403 | Session cookie expired | Re-grab `sessionid` and `csrftoken` from Codeer UI -> devtools -> Application -> Cookies. Update `~/.codeer/session.env` or the file pointed to by `CODEER_ENV_FILE`. |
 | HTTP 403 "CSRF Failed" | CSRF token missing or mismatched | Ensure `CODEER_CSRF_TOKEN` in `session.env` matches the `csrftoken` cookie. Both must be the same value. |
 | HTTP 400 "Organization ID is required" | Using `/agents/all` without `oid` param | Pass both `wid` and `oid`. Look up org for workspace via `GET /accounts/me` -> `profile.workspace_organization_map`. |
 | KB upload returns `status: FAILED`, `node_id: null`, no error message | Wrong or missing Content-Type on the uploaded file | The `kb.upload_file()` helper handles this. If uploading manually, pass `(filename, file_handle, content_type)` as a 3-tuple. Image files (JPEG, PNG, etc.) are not accepted for KB uploads. |
@@ -494,4 +493,4 @@ problems. For errors that happen during work:
 | Agent saves but form fields render blank in UI | Invalid form field `type` value (e.g. `"text"`, `"email"`, `"select"`) | Valid types: `shortText`, `longText`, `number`, `dropdown`, `radio`, `checkbox`, `date`. Use `shortText` for email/text, `dropdown` for select. |
 | Eval results show `score: null` for some cases | Cases haven't been evaluated on that agent version yet | `null` means "not yet run", not "failed". Trigger eval for those cases, or check that the correct `agent_history_id` was passed. |
 | Changes land in the wrong workspace | `CODEER_WORKSPACE_ID` not set or wrong for this project | Set per-project in `.claude/settings.json`, pass `--workspace`, or set it in the current Cowork bash environment. Run `codeer check` to verify. |
-| `codeer check` can't find credentials | `~/.codeer/session.env` and repo-root `session.env` are missing or empty | Create a credential file with `CODEER_API_BASE`, `CODEER_SESSION_ID`, `CODEER_CSRF_TOKEN`. See SKILL.md setup section. |
+| `codeer check` can't find credentials | `~/.codeer/session.env` is missing or empty and `CODEER_ENV_FILE` is unset | Create a credential file with `CODEER_API_BASE`, `CODEER_SESSION_ID`, `CODEER_CSRF_TOKEN`. See SKILL.md setup section. |

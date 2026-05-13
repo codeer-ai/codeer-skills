@@ -127,15 +127,5 @@ For detailed step-by-step instructions, see **LIFECYCLE.md**.
 codeer-agent/
 ├── SKILL.md                  <- you are here — setup, dispatch, orientation
 ├── LIFECYCLE.md              <- stage-by-stage execution, command reference, iteration loop
-├── API_CHEATSHEET.md         <- endpoint reference + gotchas
-└── scripts/
-    ├── codeer                <- unified CLI: codeer <noun> <verb>
-    ├── codeer-python         <- managed-venv runner (used internally by codeer)
-    ├── _venv_bootstrap.sh    <- shared virtualenv bootstrap
-    └── codeer_cli/           <- Python package
-        ├── client.py  constants.py  _validate.py
-        ├── agents.py  kb.py  chats.py  eval_.py  histories.py
-        ├── parse.py          <- typed views over response shapes
-        ├── cli.py            <- dispatcher
-        └── commands/         <- agent, kb, eval, check, api subcommands
+└── API_CHEATSHEET.md         <- endpoint reference + gotchas
 ```

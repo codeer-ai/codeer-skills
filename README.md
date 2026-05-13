@@ -86,7 +86,5 @@ codeer-skills/
 └── codeer-agent/
     ├── SKILL.md              ← orientation, setup, lifecycle walkthrough
     ├── DESIGN_GUIDE.md       ← agent design advice (tools, prompts, patterns)
-    ├── API_CHEATSHEET.md     ← endpoint reference + gotchas
-    ├── examples/             ← reusable JSON payloads
-    └── scripts/              ← legacy bundled CLI scripts
+    └── API_CHEATSHEET.md     ← endpoint reference + gotchas
 ```
