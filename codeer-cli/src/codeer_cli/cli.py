@@ -5,7 +5,6 @@
     codeer kb list|files|upload
     codeer eval list|evaluators|run|export|reconcile|cases-apply|rubrics|rubrics-apply
     codeer history list|get|conversations|negative-feedback
-    codeer api get|stream   # read-only API calls
 """
 
 from __future__ import annotations
@@ -15,7 +14,7 @@ import json
 import sys
 
 from .client import AuthError, CodeerClient, CodeerError
-from .commands import check, api
+from .commands import check
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -23,7 +22,6 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="group")
 
     check.register(sub)
-    api.register(sub)
 
     # Phase 2-4: agent, kb, eval commands will register here
     try:
@@ -61,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     except AuthError as e:
         if args.group == "check":
             print(f"FAIL  Auth: {e}", file=sys.stderr)
-            print("      Configure CODEER_API_BASE, CODEER_SESSION_ID, and CODEER_CSRF_TOKEN via process env, CODEER_ENV_FILE, or ~/.codeer/session.env", file=sys.stderr)
+            print("      Configure CODEER_API_KEY in the process environment", file=sys.stderr)
             return 1
         print(f"auth error: {e}", file=sys.stderr)
         return 2

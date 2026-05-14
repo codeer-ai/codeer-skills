@@ -37,7 +37,6 @@ def register(subparsers):
 
     # codeer eval evaluators
     p = sub.add_parser("evaluators", help="List evaluators in workspace")
-    p.add_argument("--workspace", default=None)
     p.set_defaults(func=run_evaluators)
 
     # codeer eval run
@@ -47,7 +46,6 @@ def register(subparsers):
     g.add_argument("--history", default=None, help="History UUID to pin the run to")
     g.add_argument("--latest-draft", action="store_true",
                    help="Auto-select the newest unpublished AgentHistory")
-    p.add_argument("--workspace", required=True)
     p.add_argument("--cases", default=None, help="Comma-separated case UUIDs (default: all)")
     p.add_argument("--evaluators", default=None, help="Comma-separated evaluator UUIDs (default: all)")
     p.add_argument("--diff-vs", default=None,
@@ -59,7 +57,6 @@ def register(subparsers):
     # codeer eval export
     p = sub.add_parser("export", help="Export eval table (CSV + JSON + summary MD)")
     p.add_argument("--agent", default=None)
-    p.add_argument("--workspace", default=None)
     g = p.add_mutually_exclusive_group()
     g.add_argument("--version", type=int, help="AgentHistory version_number")
     g.add_argument("--published", action="store_true", help="Use the published history")
@@ -72,7 +69,6 @@ def register(subparsers):
     p = sub.add_parser("reconcile", help="Audit local manifest vs server eval suite (read-only)")
     p.add_argument("--manifest", default=".codeer/eval_cases.json")
     p.add_argument("--agent", default=None)
-    p.add_argument("--workspace", default=None)
     p.add_argument("--evaluators", default=None, help="Comma-separated evaluator UUIDs")
     p.add_argument("--out", default=None)
     p.set_defaults(func=run_reconcile)
@@ -81,7 +77,6 @@ def register(subparsers):
     p = sub.add_parser("cases-apply", help="Create/update eval cases from JSON manifest")
     p.add_argument("--cases", required=True, help="Path to eval_cases.json")
     p.add_argument("--agent", required=True)
-    p.add_argument("--workspace", default=None)
     p.add_argument("--attachments-dir", default=None, dest="attachments_dir")
     p.add_argument("--allow-duplicates", action="store_true")
     p.add_argument("--out", default=None)
@@ -90,7 +85,6 @@ def register(subparsers):
     # codeer eval rubrics
     p = sub.add_parser("rubrics", help="Read per-(case, evaluator) rubrics")
     p.add_argument("--agent", required=True)
-    p.add_argument("--workspace", required=True)
     p.add_argument("--evaluators", default=None, help="Comma-separated evaluator UUIDs")
     p.add_argument("--cases", default=None, help="Comma-separated case UUIDs")
     p.add_argument("--out", default=None)
@@ -120,10 +114,7 @@ def run_list(args, client) -> int:
 # ---------------------------------------------------------------------------
 
 def run_evaluators(args, client) -> int:
-    ws = args.workspace or os.environ.get("CODEER_WORKSPACE_ID")
-    if not ws:
-        log("error: --workspace required (or set CODEER_WORKSPACE_ID)")
-        return 2
+    ws, _ = client.resolve_scope()
     evaluators = eval_mod.list_evaluators(client, ws)
     print(json.dumps(evaluators, ensure_ascii=False, indent=2, default=str))
     return 0
@@ -134,6 +125,7 @@ def run_evaluators(args, client) -> int:
 # ---------------------------------------------------------------------------
 
 def run_run(args, client) -> int:
+    workspace_id, _ = client.resolve_scope()
     if args.latest_draft:
         history_id = agents_mod.get_latest_draft_history_id(client, args.agent)
         if not history_id:
@@ -162,7 +154,7 @@ def run_run(args, client) -> int:
         evaluator_ids = _ids(args.evaluators) or []
         evaluators = [eval_mod.get_evaluator(client, eid) for eid in evaluator_ids]
     else:
-        evaluators = eval_mod.list_evaluators(client, args.workspace)
+        evaluators = eval_mod.list_evaluators(client, workspace_id)
         evaluator_ids = [e["id"] for e in evaluators]
     if not evaluator_ids:
         log("error: no evaluators in workspace")
@@ -184,7 +176,7 @@ def run_run(args, client) -> int:
         for ev_id in evaluator_ids:
             rows = eval_mod.get_results(
                 client, case_ids=case_ids, evaluator_id=ev_id,
-                agent_history_id=args.history, workspace_id=args.workspace,
+                agent_history_id=args.history, workspace_id=workspace_id,
                 include_output=True, include_reasoning_steps=True,
             )
             results_by_eval[ev_id] = rows
@@ -249,7 +241,7 @@ def run_run(args, client) -> int:
             try:
                 prev_rows = eval_mod.get_results(
                     client, case_ids=case_ids, evaluator_id=ev_id,
-                    agent_history_id=args.diff_vs, workspace_id=args.workspace,
+                    agent_history_id=args.diff_vs, workspace_id=workspace_id,
                     include_output=False, include_reasoning_steps=False,
                 )
             except Exception as e:
@@ -321,12 +313,9 @@ def _pick_history(versions: list[dict], args) -> dict:
 
 def run_export(args, client) -> int:
     agent_id = args.agent or client.agent_id or os.environ.get("CODEER_AGENT_ID")
-    workspace_id = args.workspace or client.workspace_id or os.environ.get("CODEER_WORKSPACE_ID")
+    workspace_id, _ = client.resolve_scope()
     if not agent_id:
         log("error: --agent is required or set CODEER_AGENT_ID")
-        return 2
-    if not workspace_id:
-        log("error: --workspace is required or set CODEER_WORKSPACE_ID")
         return 2
 
     cases = eval_mod.list_cases(client, agent_id)
@@ -513,12 +502,9 @@ def run_reconcile(args, client) -> int:
     local_by_input = _by_input(local_cases)
 
     agent_id = args.agent or client.agent_id or os.environ.get("CODEER_AGENT_ID")
-    workspace_id = args.workspace or client.workspace_id or os.environ.get("CODEER_WORKSPACE_ID")
+    workspace_id, _ = client.resolve_scope()
     if not agent_id:
         log("error: --agent or CODEER_AGENT_ID is required")
-        return 2
-    if not workspace_id:
-        log("error: --workspace or CODEER_WORKSPACE_ID is required")
         return 2
 
     server_cases = eval_mod.list_cases(client, agent_id)
@@ -679,10 +665,7 @@ def run_cases_apply(args, client) -> int:
         log(f"error: --attachments-dir does not exist or is not a directory: {attach_dir}")
         return 2
 
-    workspace_id = args.workspace or client.workspace_id or os.environ.get("CODEER_WORKSPACE_ID")
-    if needs_attach and not workspace_id:
-        log("error: attachment uploads require --workspace or CODEER_WORKSPACE_ID")
-        return 2
+    workspace_id, _ = client.resolve_scope()
 
     existing_by_input: dict[str, dict] = {}
     if not args.allow_duplicates:
@@ -760,6 +743,7 @@ def run_cases_apply(args, client) -> int:
 # ---------------------------------------------------------------------------
 
 def run_rubrics(args, client) -> int:
+    workspace_id, _ = client.resolve_scope()
     cases = eval_mod.list_cases(client, args.agent)
     if args.cases:
         wanted = set(_ids(args.cases) or [])
@@ -774,7 +758,7 @@ def run_rubrics(args, client) -> int:
         evaluator_ids = _ids(args.evaluators) or []
         evaluators = [eval_mod.get_evaluator(client, eid) for eid in evaluator_ids]
     else:
-        evaluators = eval_mod.list_evaluators(client, args.workspace)
+        evaluators = eval_mod.list_evaluators(client, workspace_id)
         evaluator_ids = [e["id"] for e in evaluators]
     evaluator_name = {e["id"]: e.get("name", e["id"]) for e in evaluators}
     if not evaluator_ids:
@@ -784,7 +768,7 @@ def run_rubrics(args, client) -> int:
     log(f"reading {len(case_ids)} cases x {len(evaluator_ids)} evaluators...")
 
     rubrics = eval_mod.get_case_rubrics(
-        client, agent_id=args.agent, workspace_id=args.workspace,
+        client, agent_id=args.agent, workspace_id=workspace_id,
         evaluator_ids=evaluator_ids, case_ids=case_ids,
     )
 
@@ -804,7 +788,7 @@ def run_rubrics(args, client) -> int:
 
     out = {
         "agent_id": args.agent,
-        "workspace_id": args.workspace,
+        "workspace_id": workspace_id,
         "evaluators": [{"id": e["id"], "name": e.get("name")} for e in evaluators],
         "cases": [
             {
@@ -836,7 +820,7 @@ def run_rubrics_apply(args, client) -> int:
         return 2
 
     agent_id = payload.get("agent_id")
-    workspace_id = payload.get("workspace_id")
+    workspace_id, _ = client.resolve_scope()
 
     all_case_ids = [c["case_id"] for c in cases]
     all_evaluator_ids: set[str] = set()
@@ -854,13 +838,11 @@ def run_rubrics_apply(args, client) -> int:
         if invalid_case_ids:
             log(f"warning: {len(invalid_case_ids)} case IDs are not part of agent {agent_id}")
 
-    resolved_workspace_id = workspace_id or client.workspace_id
-    if resolved_workspace_id:
-        known_evaluator_ids = {e["id"] for e in eval_mod.list_evaluators(client, resolved_workspace_id)}
-        invalid_evaluator_ids = valid_evaluator_ids - known_evaluator_ids
-        valid_evaluator_ids &= known_evaluator_ids
-        if invalid_evaluator_ids:
-            log(f"warning: {len(invalid_evaluator_ids)} evaluator IDs not in workspace {resolved_workspace_id}")
+    known_evaluator_ids = {e["id"] for e in eval_mod.list_evaluators(client, workspace_id)}
+    invalid_evaluator_ids = valid_evaluator_ids - known_evaluator_ids
+    valid_evaluator_ids &= known_evaluator_ids
+    if invalid_evaluator_ids:
+        log(f"warning: {len(invalid_evaluator_ids)} evaluator IDs not in workspace {workspace_id}")
 
     current: dict[str, dict[str, str]] = {}
     if not args.force:
@@ -869,7 +851,7 @@ def run_rubrics_apply(args, client) -> int:
         else:
             log(f"reading current rubrics for {len(valid_case_ids)} cases x {len(valid_evaluator_ids)} evaluators...")
             current = eval_mod.get_case_rubrics(
-                client, agent_id=agent_id or "", workspace_id=resolved_workspace_id or "",
+                client, agent_id=agent_id or "", workspace_id=workspace_id,
                 evaluator_ids=list(valid_evaluator_ids), case_ids=list(valid_case_ids),
             )
 

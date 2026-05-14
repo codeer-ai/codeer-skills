@@ -15,8 +15,6 @@ def register(subparsers):
     # codeer history list
     p = sub.add_parser("list", help="List conversation histories")
     p.add_argument("--agent", default=None)
-    p.add_argument("--workspace", default=None)
-    p.add_argument("--org", default=None)
     p.add_argument("--user", default=None, help="Filter by external_user_id")
     p.add_argument("--feedback", default=None, help="positive / negative / any")
     p.add_argument("--exclude-users", default=None,
@@ -40,8 +38,6 @@ def register(subparsers):
     # codeer history negative-feedback
     p = sub.add_parser("negative-feedback", help="Surface assistant turns with negative feedback")
     p.add_argument("--agent", required=True)
-    p.add_argument("--workspace", default=None)
-    p.add_argument("--org", default=None)
     p.add_argument("--exclude-users", default=None,
                    help="Comma-separated external_user_ids to exclude")
     p.add_argument("--limit", type=int, default=500)
@@ -79,6 +75,7 @@ def _version_window(client, agent_id: str, version_number: int) -> tuple[str | N
 def run_list(args, client) -> int:
     agent_id = args.agent or os.environ.get("CODEER_AGENT_ID")
     exclude = _parse_exclude(args.exclude_users)
+    workspace_id, organization_id = client.resolve_scope()
 
     if args.version is not None and not agent_id:
         log("error: --version requires --agent")
@@ -87,8 +84,8 @@ def run_list(args, client) -> int:
     rows = hist_mod.list(
         client,
         agent_id=agent_id,
-        workspace_id=args.workspace or os.environ.get("CODEER_WORKSPACE_ID"),
-        organization_id=args.org or os.environ.get("CODEER_ORGANIZATION_ID"),
+        workspace_id=workspace_id,
+        organization_id=organization_id,
         external_user_id=args.user,
         feedback_filter=args.feedback,
         exclude_users=exclude,
@@ -130,11 +127,12 @@ def run_conversations(args, client) -> int:
 
 def run_negative_feedback(args, client) -> int:
     exclude = _parse_exclude(args.exclude_users)
+    workspace_id, organization_id = client.resolve_scope()
     rows = hist_mod.list_negative_feedback_turns(
         client,
         agent_id=args.agent,
-        workspace_id=args.workspace or os.environ.get("CODEER_WORKSPACE_ID"),
-        organization_id=args.org or os.environ.get("CODEER_ORGANIZATION_ID"),
+        workspace_id=workspace_id,
+        organization_id=organization_id,
         exclude_users=exclude,
         limit=args.limit,
     )

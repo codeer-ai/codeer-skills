@@ -17,8 +17,6 @@ def register(subparsers):
 
     # codeer agent list
     p = sub.add_parser("list", help="List agents in workspace")
-    p.add_argument("--workspace", default=None)
-    p.add_argument("--org", default=None)
     p.set_defaults(func=run_list)
 
     # codeer agent get <id>
@@ -52,16 +50,8 @@ def register(subparsers):
 
 
 def run_list(args, client) -> int:
-    import os
-    ws = args.workspace or client.workspace_id or os.environ.get("CODEER_WORKSPACE_ID")
-    org = args.org or client.organization_id or os.environ.get("CODEER_ORGANIZATION_ID")
-    if not ws:
-        log("error: --workspace required (or set CODEER_WORKSPACE_ID)")
-        return 2
-    if org:
-        result = agents_mod.list_all(client, workspace_id=ws, organization_id=org)
-    else:
-        result = agents_mod.list_in_workspace(client, ws)
+    ws, org = client.resolve_scope()
+    result = agents_mod.list_all(client, workspace_id=ws, organization_id=org)
     print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
     return 0
 
@@ -94,8 +84,7 @@ def run_apply(args, client) -> int:
         log(f"PUT /agents/{agent_id} ok")
     else:
         if not body.get("workspace_id"):
-            log("error: payload missing workspace_id (required for create)")
-            return 2
+            body["workspace_id"] = client.resolve_scope()[0]
         agent = agents_mod.create(
             client,
             workspace_id=body["workspace_id"],

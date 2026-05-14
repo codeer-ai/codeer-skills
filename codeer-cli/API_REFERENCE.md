@@ -1,25 +1,26 @@
-# Codeer API cheatsheet — agent lifecycle
+# Codeer API reference — CLI maintainers
 
-> This file is the request-shape reference for the Codeer API. For the
-> stage-by-stage execution workflow, read **`LIFECYCLE.md`**.
+> This file is the request-shape reference for maintaining `codeer-cli`.
 
 The 9 stages below mirror the user-docs lifecycle (`agent-creation` →
 `optimization-loop` → `publish`). Every path is under `/api/v1/`. All endpoints
-authenticate via session cookie (sessionid + csrftoken) for now.
+authenticate via `x-api-key` from `CODEER_API_KEY`.
 
 Envelope: successful responses look like
 `{"error_code": 0, "message": "", "pagination": null, "data": <payload>}`.
 The client unwraps `data` automatically; errors raise `CodeerError`.
 
-**Session config split (2026-04+):**
-`~/.codeer/session.env` holds **auth only** in Claude Code. In Cowork, provide
-credentials through the runtime environment or an explicit `CODEER_ENV_FILE`.
-Auth means `CODEER_API_BASE`, `CODEER_SESSION_ID`, and `CODEER_CSRF_TOKEN`.
-Per-customer scope — `CODEER_WORKSPACE_ID`,
-`CODEER_ORGANIZATION_ID`, `CODEER_AGENT_ID` — lives in each project's
-`.claude/settings.json` `env` block, explicit CLI flags, or the current
-Cowork bash environment. This prevents one customer's IDs from leaking into
-another's session when switching directories.
+**Environment config split:**
+Auth means `CODEER_API_KEY`; it comes from the process environment only.
+`CODEER_API_BASE` defaults to `https://api.codeer.ai` and is only needed for
+local, beta, or preview. Do not store API keys in repo files or paste them into
+agent chat.
+
+Workspace and organization scope come from the workspace API-key virtual user's
+profile (`default_workspace_id` and `default_organization_id`). The CLI does
+not use `--workspace`, `--org`, `CODEER_WORKSPACE_ID`, or
+`CODEER_ORGANIZATION_ID`. `CODEER_AGENT_ID` is still optional for commands that
+need a default agent.
 
 **Pagination conventions:**
 - `/histories` uses **`limit` + `offset`** (NOT `page` / `page_size`).
@@ -259,12 +260,11 @@ the draft history id. The apply-→-test-→-publish loop:
 Never test a change on the currently-published version by mutating it — every
 PUT already forks a new version for you.
 
-### 5. CSRF is required for every non-GET
+### 5. API-key auth is required for every request
 
-The `codeer` wrapper handles this (`X-CSRFToken` echoed from the cookie) but
-if you curl by hand, remember to pass both the `csrftoken` cookie **and** the
-same value as `X-CSRFToken: ...` header, or you'll get `403`. Session cookies
-also expire — re-grab from browser devtools when calls start 401/403'ing.
+The `codeer` wrapper sends `CODEER_API_KEY` as `x-api-key`. If you curl by
+hand, include that header and never print or paste the key into agent-visible
+logs.
 
 ### 6. KB `POST /nodes` has no `type` field — and only ever creates folders
 
@@ -350,8 +350,7 @@ instead of a report"):
 
 For bulk creation, `codeer eval cases-apply --attachments-dir <dir>` reads
 each case's `attachment_files: ["x.jpg"]` array, uploads, and attaches in one
-pass. Passing `--workspace` (or having `CODEER_WORKSPACE_ID` set) is required
-since the upload needs a workspace scope.
+pass. Workspace scope is inferred from the API-key virtual user profile.
 
 ### 11. Tool args + outputs are NOT persisted in history reads
 
@@ -416,11 +415,11 @@ When pulling eval data manually, always:
 
 The CLI commands (`codeer eval run`, `codeer eval rubrics`,
 `codeer eval rubrics-apply`) and the `get_case_rubrics()` helper all handle
-this iteration automatically. Prefer them over raw API calls.
+this iteration automatically. Prefer them for normal operations.
 
 ---
 
-## Keeping this cheatsheet accurate
+## Keeping this reference accurate
 
 The canonical reference for Codeer's API and capabilities is the public
 documentation at **https://docs.codeer.ai**. When uncertain about an API

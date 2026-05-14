@@ -4,7 +4,9 @@ Two phases: **Build** (zero to first publish) and **Improve** (continuous
 iteration on a live agent). The tools are the same; the entry point and
 source of truth differ.
 
-For endpoint shapes and gotchas, read **API_CHEATSHEET.md**.
+Use registered `codeer` domain commands only. If an operation is not supported
+by the CLI, say that it is not supported by the CLI and stop for user
+direction.
 
 ---
 
@@ -40,15 +42,14 @@ eval case design.
    ```bash
    codeer kb upload \
        --dir kb/ --name "<KB display name>" \
-       --workspace <ws_id> --org <org_id> --out .codeer/kb_ids.json
+       --out .codeer/kb_ids.json
    ```
 3. `.codeer/kb_ids.json` now contains `kb_id`, `node_ids`, `name_to_id` —
    feed these into the agent payload.
 
 KB planning decisions to confirm with the user:
 - One KB or several? (default: one per agent)
-- Flat root or one level of folders? (KB UI only renders one level — see
-  API_CHEATSHEET.md gotcha #10)
+- Flat root or one level of folders? (KB UI only renders one level)
 - Naming convention — descriptive `NN_topic.md` vs. opaque IDs
 
 **KB query hints in the system prompt.** The agent queries KB content
@@ -129,7 +130,7 @@ regression check:
 
 ```bash
 codeer eval run \
-    --agent <agent_id> --latest-draft --workspace <ws_id> \
+    --agent <agent_id> --latest-draft \
     --out .codeer/eval_results.json
 ```
 
@@ -137,7 +138,7 @@ codeer eval run \
 
 ```bash
 codeer eval run \
-    --agent <agent_id> --latest-draft --workspace <ws_id> \
+    --agent <agent_id> --latest-draft \
     --out .codeer/eval_results.json
 ```
 
@@ -184,11 +185,13 @@ Avoid:
 Only after explicit user go-ahead on eval results.
 
 ```bash
-# Check downstream impact first if other agents call this one
-codeer api get /agents/<agent_id>/impact
+codeer agent versions --agent <agent_id>
 ```
 
-Use `agents.publish_version()` to promote the draft.
+Downstream impact checks are not supported by the CLI. If the user asks for
+that check, say it is not supported by the CLI and stop for direction. Use the
+registered publish command when available; if publishing is not exposed by the
+CLI, say it is not supported by the CLI.
 
 ---
 
@@ -203,15 +206,12 @@ Not all users or channels provide explicit feedback (thumbs up/down).
 Conversation history is the primary source of truth.
 
 ```bash
-# Pull conversation histories (filter by feedback if available)
-codeer api get /histories \
-    --param agent_id=<id> --param wid=<ws>
+codeer history list --agent <agent_id>
 ```
 
-Use `histories.list_production()` to filter out internal testing accounts.
-Use `histories.list_negative_feedback_turns()` to surface flagged turns
-where feedback is available. For channels without feedback, read
-conversation histories directly via `histories.get_conversations()`.
+Use `codeer history negative-feedback --agent <agent_id>` to surface flagged
+turns where feedback is available. For channels without feedback, use
+`codeer history conversations <history_id>` after listing histories.
 
 ### Step 2 — Analyze and categorize
 
@@ -271,7 +271,7 @@ New failure cases should fail; protection cases should pass.
 
 ```bash
 codeer eval run \
-    --agent <agent_id> --history <published_history_id> --workspace <ws_id> \
+    --agent <agent_id> --history <published_history_id> \
     --out .codeer/eval_baseline.json
 ```
 
@@ -290,7 +290,7 @@ case-specific patch that only improves the current eval failures.
 
 ```bash
 codeer eval run \
-    --agent <agent_id> --latest-draft --workspace <ws_id> \
+    --agent <agent_id> --latest-draft \
     --diff-vs <prev_history_id> --out .codeer/eval_results.json
 ```
 
@@ -310,7 +310,7 @@ or down vs the previous version. Check that:
 ### Step 8 — Publish or roll back
 
 Publish promotes a draft. Rollback re-publishes an older version.
-Both use the same endpoint — non-destructive, older versions are preserved.
+Both are non-destructive; older versions are preserved.
 
 Then loop back to Step 1 with new production data.
 
@@ -437,14 +437,12 @@ Only `kb/` (source content for upload) stays at root level.
 | `codeer eval rubrics` | Read per-(case, evaluator) rubrics |
 | `codeer eval rubrics-apply` | Apply rubric edits (pairs with `eval rubrics`) |
 | `codeer eval reconcile` | Read-only audit: compare local manifest vs server state |
-| `codeer api get\|post\|put\|patch\|delete\|stream` | Raw API escape hatch |
 
 All commands run via the separately installed `codeer` CLI.
 
-Per-project env (set in `.claude/settings.json` `env` block) makes
-workspace and agent IDs injectable: `CODEER_WORKSPACE_ID`,
-`CODEER_ORGANIZATION_ID`, `CODEER_AGENT_ID`. In Cowork, pass these as CLI
-flags or export them in the bash call.
+Workspace and organization scope come from the workspace API-key virtual user's
+profile. The optional `CODEER_AGENT_ID` can live in `.claude/settings.json`
+when a project has one default agent.
 
 ### Common helpers (for ad-hoc Python)
 
@@ -485,12 +483,11 @@ problems. For errors that happen during work:
 
 | Error | Cause | Fix |
 | --- | --- | --- |
-| HTTP 401 or 403 | Session cookie expired | Re-grab `sessionid` and `csrftoken` from Codeer UI -> devtools -> Application -> Cookies. Update `~/.codeer/session.env` or the file pointed to by `CODEER_ENV_FILE`. |
-| HTTP 403 "CSRF Failed" | CSRF token missing or mismatched | Ensure `CODEER_CSRF_TOKEN` in `session.env` matches the `csrftoken` cookie. Both must be the same value. |
-| HTTP 400 "Organization ID is required" | Using `/agents/all` without `oid` param | Pass both `wid` and `oid`. Look up org for workspace via `GET /accounts/me` -> `profile.workspace_organization_map`. |
+| HTTP 401 or 403 | API key missing, invalid, expired, revoked, or under-scoped | Create an admin workspace API key and export `CODEER_API_KEY`. Run `codeer check`. |
+| HTTP 400 "Organization ID is required" | API-key virtual user profile did not expose `default_organization_id` | Run `codeer check`; the API key may not be a workspace API key. |
 | KB upload returns `status: FAILED`, `node_id: null`, no error message | Wrong or missing Content-Type on the uploaded file | The `kb.upload_file()` helper handles this. If uploading manually, pass `(filename, file_handle, content_type)` as a 3-tuple. Image files (JPEG, PNG, etc.) are not accepted for KB uploads. |
 | KB upload returns HTTP 422 `"Field required"` on `form` | `parent_id` sent as a top-level form field instead of JSON-encoded `form` field | Use `kb.upload_files()` which handles the Django Ninja quirk. If calling manually, the multipart body needs `form: {"parent_id": "..."}` as a single JSON-encoded field. |
 | Agent saves but form fields render blank in UI | Invalid form field `type` value (e.g. `"text"`, `"email"`, `"select"`) | Valid types: `shortText`, `longText`, `number`, `dropdown`, `radio`, `checkbox`, `date`. Use `shortText` for email/text, `dropdown` for select. |
 | Eval results show `score: null` for some cases | Cases haven't been evaluated on that agent version yet | `null` means "not yet run", not "failed". Trigger eval for those cases, or check that the correct `agent_history_id` was passed. |
-| Changes land in the wrong workspace | `CODEER_WORKSPACE_ID` not set or wrong for this project | Set per-project in `.claude/settings.json`, pass `--workspace`, or set it in the current Cowork bash environment. Run `codeer check` to verify. |
-| `codeer check` can't find credentials | `~/.codeer/session.env` is missing or empty and `CODEER_ENV_FILE` is unset | Create a credential file with `CODEER_API_BASE`, `CODEER_SESSION_ID`, `CODEER_CSRF_TOKEN`. See SKILL.md setup section. |
+| Changes land in the wrong workspace | Wrong API key is active in the runtime environment | Export the API key for the intended workspace and run `codeer check`. |
+| `codeer check` can't find credentials | `CODEER_API_KEY` is missing from the process environment | Export it outside the workspace. See `onboarding.md`. |

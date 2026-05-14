@@ -6,9 +6,8 @@ description: Build, evaluate, publish, and analyze Codeer agents over the Codeer
 # Codeer Agent Lifecycle — skill
 
 Everything you need to build, evaluate, and improve a Codeer agent against
-whatever files the user has in their current directory. Authenticates as the
-user via a session cookie, so whatever the user can do in the Codeer UI, this
-skill can do over the API.
+whatever files the user has in their current directory. Authenticates through
+an admin workspace API key supplied by the user's runtime environment.
 
 ## Mutation guardrail
 
@@ -24,12 +23,16 @@ Read-only calls (GET, listing, exporting, diffing) do not need confirmation.
 | You want to... | Read |
 | --- | --- |
 | Execute a lifecycle stage (create, upload, eval, publish, iterate) | **LIFECYCLE.md** |
-| Look up an endpoint shape, field enum, or gotcha | **API_CHEATSHEET.md** |
+
+Use the registered `codeer` domain commands only. If a requested operation is
+not supported by the CLI, say that it is not supported by the CLI and stop for
+user direction.
 
 ## Setup (one time, outside this skill)
 
 The `codeer` CLI must already be installed and authenticated before this skill
 uses it. Do not create or read credential files inside the skill workspace.
+For user setup instructions, see **onboarding.md**.
 
 For local development of the CLI from this monorepo, use an editable install:
 
@@ -38,32 +41,25 @@ cd /path/to/codeer-skills/codeer-cli
 uv tool install --editable .
 ```
 
-### Per-project workspace / org
+### Workspace / org scope
 
-`CODEER_WORKSPACE_ID` and `CODEER_ORGANIZATION_ID` do **not** live in the
-global auth config — that would make concurrent sessions on different orgs
-collide. They are non-secret scope values and can be passed as CLI flags or
-set in the command environment.
+Workspace and organization scope come from the workspace API-key virtual user's
+profile. Do not pass `--workspace` / `--org`, and do not set
+`CODEER_WORKSPACE_ID` / `CODEER_ORGANIZATION_ID`.
 
-For Claude Code, set them per project in `.claude/settings.json`:
+For Claude Code, only set the optional default agent per project in
+`.claude/settings.json`:
 
 ```json
 {
   "env": {
-    "CODEER_WORKSPACE_ID": "<ws_id>",
-    "CODEER_ORGANIZATION_ID": "<org_id>"
+    "CODEER_AGENT_ID": "<agent_id>"
   }
 }
 ```
 
-Claude Code exports these into every command run inside that project, so
-opening Claude Code in `~/customers/acme/` vs `~/customers/initech/`
-automatically pins each session to its own workspace.
-
-For Cowork, pass `--workspace` and `--org` explicitly or export them in the
-specific bash call. Credentials should be supplied by the Cowork/runtime
-environment or by an external CLI credential store, not by files in the skill
-workspace.
+Credentials should be supplied by the runtime environment, not by files in the
+skill workspace.
 
 **At the start of any Codeer-skill session, run `codeer check`**
 to validate auth, workspace, and agent config. It prints the active identity
@@ -71,23 +67,17 @@ and catches setup problems before any change lands in the wrong place.
 
 ## Invocation
 
-Use the installed `codeer` binary. In Cowork, each bash call is independent, so
-pass any needed workspace/org values in that call.
+Use the installed `codeer` binary.
 
 ```bash
 # Domain commands
-codeer agent list --workspace <ws> --org <org>
+codeer agent list
 codeer agent versions --agent <id>
-codeer kb list --workspace <ws> --org <org>
-codeer kb upload --dir kb/ --name "My KB" --workspace <ws> --org <org>
+codeer kb list
+codeer kb upload --dir kb/ --name "My KB"
 codeer eval list --agent <id>
-codeer eval evaluators --workspace <ws>
-codeer eval run --agent <id> --latest-draft --workspace <ws>
-
-# Raw API escape hatch
-codeer api get /accounts/me
-codeer api post /agents --json-file ./my_agent.json
-codeer api stream post /chats/42/messages --json '{"message":"hi"}'
+codeer eval evaluators
+codeer eval run --agent <id> --latest-draft
 ```
 
 For the full command reference, see **LIFECYCLE.md**.
@@ -126,6 +116,6 @@ For detailed step-by-step instructions, see **LIFECYCLE.md**.
 ```
 codeer-agent/
 ├── SKILL.md                  <- you are here — setup, dispatch, orientation
-├── LIFECYCLE.md              <- stage-by-stage execution, command reference, iteration loop
-└── API_CHEATSHEET.md         <- endpoint reference + gotchas
+├── onboarding.md             <- user setup for API-key auth
+└── LIFECYCLE.md              <- stage-by-stage execution, command reference, iteration loop
 ```

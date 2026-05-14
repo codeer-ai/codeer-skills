@@ -7,16 +7,15 @@ Import pattern for scripts::
     c = CodeerClient.from_env()
     agent = agents.create(c, workspace_id=..., name="My Agent", system_prompt="...", unified_tools=[])
 
-Per-project env convention: set CODEER_WORKSPACE_ID, CODEER_ORGANIZATION_ID
-and CODEER_AGENT_ID as environment variables so scripts in a customer's
-directory don't have to re-pass these args.
+Per-project env convention: set CODEER_AGENT_ID as an environment variable so
+scripts in a customer's directory don't have to re-pass it.
 
-- Claude Code: set them in ``.claude/settings.json`` (env block).
-- Cowork: pass them as CLI flags or export them in the command environment.
+The workspace and organization come from the workspace API-key virtual user's
+profile, not from CLI flags or environment overrides.
 
-Auth (CODEER_API_BASE, CODEER_SESSION_ID, CODEER_CSRF_TOKEN) is resolved from
-process env, ``CODEER_ENV_FILE``, or ``~/.codeer/session.env``. The CLI does
-not read workspace-local dotenv files.
+Auth uses CODEER_API_KEY from process env only. CODEER_API_BASE defaults to
+production and can be overridden from process env. The CLI does not read
+workspace-local dotenv files or credential files.
 """
 
 from ._validate import ToolValidationError

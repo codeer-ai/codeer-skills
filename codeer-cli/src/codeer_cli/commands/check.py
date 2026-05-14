@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sys
 
 from ..client import AuthError, CodeerError
@@ -15,47 +14,36 @@ def run(args, client) -> int:
     errors = []
 
     try:
-        me = client.get("/accounts/me")
+        me = client.get_me()
     except AuthError:
-        print("FAIL  Auth: session expired or invalid (401/403)", file=sys.stderr)
-        print("      Re-grab cookies from Codeer UI -> devtools -> Application -> Cookies", file=sys.stderr)
+        print("FAIL  Auth: API key missing, invalid, expired, or revoked (401/403)", file=sys.stderr)
+        print("      Create an admin workspace API key and export CODEER_API_KEY before running codeer", file=sys.stderr)
         return 1
     except CodeerError as e:
         print(f"FAIL  Auth: {e}", file=sys.stderr)
         return 1
 
     profile = me.get("profile", {})
-    email = profile.get("email", "(unknown)")
+    email = me.get("email") or "(unknown)"
     print(f"  OK  Auth: logged in as {email}")
 
-    ws_id = client.workspace_id or os.environ.get("CODEER_WORKSPACE_ID")
-    org_id = client.organization_id or os.environ.get("CODEER_ORGANIZATION_ID")
-    ws_org_map = profile.get("workspace_organization_map", {})
+    try:
+        ws_id, org_id = client.resolve_scope()
+    except CodeerError as e:
+        errors.append(f"FAIL  Scope: {e.message if hasattr(e, 'message') else str(e)}")
+        ws_id, org_id = None, None
 
-    if not ws_id:
-        errors.append("FAIL  Workspace: CODEER_WORKSPACE_ID not set")
-        errors.append("      Set it in .claude/settings.json, pass --workspace, or export it in the current shell")
-    else:
-        ws_name = None
-        for ws in profile.get("workspaces", []):
-            if str(ws.get("id")) == str(ws_id):
-                ws_name = ws.get("name")
-                break
+    if ws_id:
+        ws_name = _workspace_name(profile, ws_id)
         if ws_name:
             print(f"  OK  Workspace: {ws_name} ({ws_id})")
         else:
-            errors.append(f"WARN  Workspace: ID {ws_id} not found in your account's workspaces")
+            print(f"  OK  Workspace: {ws_id}")
 
-    if not org_id:
-        if ws_id and str(ws_id) in ws_org_map:
-            org_id = str(ws_org_map[str(ws_id)])
-            print(f"  OK  Organization: {org_id} (auto-resolved from workspace)")
-        else:
-            errors.append("FAIL  Organization: CODEER_ORGANIZATION_ID not set and could not auto-resolve")
-    else:
+    if org_id:
         print(f"  OK  Organization: {org_id}")
 
-    agent_id = client.agent_id or os.environ.get("CODEER_AGENT_ID")
+    agent_id = client.agent_id
     if agent_id:
         try:
             agent = client.get(f"/agents/{agent_id}")
@@ -69,3 +57,10 @@ def run(args, client) -> int:
         print(err, file=sys.stderr)
 
     return 1 if any(e.startswith("FAIL") for e in errors) else 0
+
+
+def _workspace_name(profile: dict, workspace_id: str) -> str | None:
+    for ws in profile.get("workspaces", []) or []:
+        if str(ws.get("id")) == str(workspace_id):
+            return ws.get("name")
+    return None

@@ -7,7 +7,7 @@ plus a few derived rollups that come up over and over again.
 
 Parsers are deliberately tolerant: missing/extra fields don't raise, casing
 mismatches (``FILE`` vs ``file``) are normalized to lowercase. They are NOT a
-schema validator — for that, follow ``API_CHEATSHEET.md``.
+schema validator.
 
 KEY GAP, called out here so you don't waste time:
 

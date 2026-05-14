@@ -1,18 +1,10 @@
 """HTTP client for the Codeer API.
 
-Auth is session-cookie based: we ride the same sessionid + csrftoken a browser
-would send after logging in. For every non-GET request, Django's CSRF middleware
-requires the csrftoken cookie to be echoed in an X-CSRFToken header.
-
-Credentials come from environment variables (CODEER_SESSION_ID, CODEER_CSRF_TOKEN,
-CODEER_API_BASE). Resolution order for a dotenv file:
-
-  1. $CODEER_ENV_FILE (explicit override)
-  2. ~/.codeer/session.env (user-level, permission-locked — recommended)
-
-Skip the file entirely by exporting the vars directly. The CLI intentionally
-does not read repo-root session.env or caller CWD .env files, because those
-locations are commonly visible to LLM workspace context.
+Auth uses a workspace API key supplied through the process environment as
+``CODEER_API_KEY``. ``CODEER_API_BASE`` defaults to production and can be
+overridden for local, beta, or preview. The CLI intentionally does not read
+workspace-local dotenv files or credential files, because those locations are
+commonly visible to LLM workspace context.
 """
 
 from __future__ import annotations
@@ -20,10 +12,11 @@ from __future__ import annotations
 import json as json_lib
 import os
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Optional
 
 import httpx
+
+DEFAULT_CODEER_API_BASE = "https://api.codeer.ai"
 
 
 class CodeerError(RuntimeError):
@@ -32,97 +25,97 @@ class CodeerError(RuntimeError):
     def __init__(self, status: int, message: str, body: Any = None):
         super().__init__(f"HTTP {status}: {message}")
         self.status = status
+        self.message = message
         self.body = body
 
 
 class AuthError(CodeerError):
-    """Raised when the session cookie is missing, expired, or rejected."""
+    """Raised when the API key is missing, expired, revoked, or rejected."""
 
 
-def _load_dotenv(path: Path) -> None:
-    if not path.exists():
-        return
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        if key and key not in os.environ:
-            os.environ[key] = value
-
-
-def _candidate_env_files() -> list[Path]:
-    """Return dotenv candidates in preferred order; first that exists wins."""
-    out: list[Path] = []
-    explicit = os.environ.get("CODEER_ENV_FILE")
-    if explicit:
-        out.append(Path(explicit).expanduser())
-    out.append(Path.home() / ".codeer" / "session.env")
-    return out
+class ScopeResolutionError(CodeerError):
+    """Raised when workspace or organization scope cannot be inferred."""
 
 
 @dataclass
 class CodeerClient:
-    """Thin wrapper around httpx.Client with Codeer auth + CSRF handling.
+    """Thin wrapper around httpx.Client with Codeer API-key auth.
 
     Construct via ``CodeerClient.from_env()`` so your script picks up credentials
-    from the process environment or a CLI-owned credential file without
-    hardcoding them.
+    from the process environment without hardcoding them.
     """
 
     base_url: str
-    session_id: str
-    csrf_token: str
+    api_key: str
     workspace_id: Optional[str] = None
     organization_id: Optional[str] = None
     agent_id: Optional[str] = None
     timeout: float = 30.0
 
     def __post_init__(self) -> None:
+        self._me_cache: Optional[dict[str, Any]] = None
         self._client = httpx.Client(
             base_url=self.base_url.rstrip("/"),
             timeout=self.timeout,
-            cookies={"sessionid": self.session_id, "csrftoken": self.csrf_token},
             headers={
-                "X-CSRFToken": self.csrf_token,
-                "Referer": self.base_url,
+                "x-api-key": self.api_key,
                 "Accept": "application/json",
             },
         )
 
     @classmethod
-    def from_env(cls, dotenv_path: Optional[Path] = None, **overrides: Any) -> "CodeerClient":
-        if dotenv_path is not None:
-            _load_dotenv(dotenv_path)
-        else:
-            for candidate in _candidate_env_files():
-                if candidate.exists():
-                    _load_dotenv(candidate)
-                    break
-
+    def from_env(cls, **overrides: Any) -> "CodeerClient":
         try:
-            base_url = overrides.pop("base_url", None) or os.environ["CODEER_API_BASE"]
-            session_id = overrides.pop("session_id", None) or os.environ["CODEER_SESSION_ID"]
-            csrf_token = overrides.pop("csrf_token", None) or os.environ["CODEER_CSRF_TOKEN"]
+            base_url = overrides.pop("base_url", None) or os.environ.get("CODEER_API_BASE") or DEFAULT_CODEER_API_BASE
+            api_key = overrides.pop("api_key", None) or os.environ["CODEER_API_KEY"]
         except KeyError as e:
             raise AuthError(
                 0,
-                f"Missing required env var {e.args[0]}. Expected ~/.codeer/session.env, "
-                "$CODEER_ENV_FILE, or exported CODEER_API_BASE / "
-                "CODEER_SESSION_ID / CODEER_CSRF_TOKEN.",
+                f"Missing required env var {e.args[0]}. Export CODEER_API_KEY "
+                "in the process environment before running codeer.",
             ) from None
+
+        overrides.pop("workspace_id", None)
+        overrides.pop("organization_id", None)
 
         return cls(
             base_url=base_url,
-            session_id=session_id,
-            csrf_token=csrf_token,
-            workspace_id=overrides.pop("workspace_id", None) or os.environ.get("CODEER_WORKSPACE_ID") or None,
-            organization_id=overrides.pop("organization_id", None) or os.environ.get("CODEER_ORGANIZATION_ID") or None,
+            api_key=api_key,
             agent_id=overrides.pop("agent_id", None) or os.environ.get("CODEER_AGENT_ID") or None,
             **overrides,
         )
+
+    def get_me(self) -> dict[str, Any]:
+        if self._me_cache is None:
+            self._me_cache = self.get("/accounts/me")
+        return self._me_cache
+
+    def resolve_scope(self) -> tuple[str, str]:
+        """Resolve workspace/org from the API-key virtual user's profile."""
+        me = self.get_me()
+        profile = me.get("profile") or {}
+        ws_id = profile.get("default_workspace_id")
+        org_id = profile.get("default_organization_id")
+
+        if not ws_id or not org_id:
+            default_scopes = profile.get("default_scopes") or {}
+            ws_org_map = {str(k): str(v) for k, v in (profile.get("workspace_organization_map") or {}).items()}
+            candidates = _workspace_candidates(default_scopes, ws_org_map)
+            detail = ""
+            if candidates:
+                detail = "\nAvailable workspace candidates from profile:\n" + _format_workspace_choices(
+                    candidates, ws_org_map, _workspace_names(profile)
+                )
+            raise ScopeResolutionError(
+                0,
+                "API key profile is missing default_workspace_id or default_organization_id. "
+                "This CLI expects a workspace API key virtual user profile."
+                + detail,
+            )
+
+        self.workspace_id = str(ws_id)
+        self.organization_id = str(org_id)
+        return self.workspace_id, self.organization_id
 
     def close(self) -> None:
         self._client.close()
@@ -223,7 +216,7 @@ class CodeerClient:
         if status in (401, 403):
             raise AuthError(
                 status,
-                f"{message or 'auth rejected'}. Session may have expired — re-grab sessionid/csrftoken from browser devtools.",
+                f"{message or 'auth rejected'}. API key may be missing, invalid, expired, or revoked.",
                 payload,
             )
         raise CodeerError(status, message or f"HTTP {status}", payload)
@@ -234,3 +227,37 @@ def _maybe_json(raw: str) -> Any:
         return json_lib.loads(raw)
     except (ValueError, TypeError):
         return raw
+
+
+def _workspace_names(profile: Mapping[str, Any]) -> dict[str, str]:
+    names: dict[str, str] = {}
+    for ws in profile.get("workspaces") or []:
+        ws_id = ws.get("id")
+        if ws_id:
+            names[str(ws_id)] = str(ws.get("name") or "(unnamed)")
+    return names
+
+
+def _workspace_candidates(default_scopes: Mapping[str, Any], ws_org_map: Mapping[str, str]) -> list[str]:
+    candidates: set[str] = set()
+    for scope in default_scopes.values():
+        if isinstance(scope, Mapping) and scope.get("workspace_id"):
+            candidates.add(str(scope["workspace_id"]))
+    candidates.update(str(ws_id) for ws_id in ws_org_map.keys())
+    return sorted(candidates)
+
+
+def _format_workspace_choices(
+    workspace_ids: Iterable[str],
+    ws_org_map: Mapping[str, str],
+    workspace_names: Mapping[str, str],
+) -> str:
+    lines = []
+    for ws_id in workspace_ids:
+        name = workspace_names.get(ws_id)
+        org = ws_org_map.get(ws_id)
+        label = f"{name} ({ws_id})" if name else ws_id
+        if org:
+            label = f"{label} in org {org}"
+        lines.append(f"  - {label}")
+    return "\n".join(lines)

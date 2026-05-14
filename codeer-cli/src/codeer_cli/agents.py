@@ -1,8 +1,6 @@
 """Agent CRUD, versioning, and publishing.
 
-See API_CHEATSHEET.md ("Stage 1: Author" and "Stage 4/7: Version + Publish") for
-the endpoint contracts. Each function returns the parsed `data` field from the
-Ninja response envelope.
+Each function returns the parsed `data` field from the Ninja response envelope.
 """
 
 from __future__ import annotations
@@ -86,10 +84,8 @@ def get(client: CodeerClient, agent_id: str) -> dict:
 def get_default(client: CodeerClient) -> dict:
     """Read whichever agent ``CODEER_AGENT_ID`` points to (project env).
 
-    Per-project convention is to set CODEER_WORKSPACE_ID, CODEER_ORGANIZATION_ID
-    and CODEER_AGENT_ID as environment variables so scripts in a
-    customer's directory don't have to re-pass these args every call. Raises
-    if no ``agent_id`` is in scope.
+    Workspace and organization scope come from the API-key virtual user's
+    profile. Raises if no ``agent_id`` is in scope.
     """
     if not client.agent_id:
         raise ValueError(
@@ -149,5 +145,3 @@ def get_version(client: CodeerClient, agent_id: str, history_id: str) -> dict:
 def check_impact(client: CodeerClient, agent_id: str) -> dict:
     """List downstream agents that call this one. Call before publishing breaking changes."""
     return client.get(f"/agents/{agent_id}/impact")
-
-
