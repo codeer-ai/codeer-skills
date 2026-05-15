@@ -155,7 +155,7 @@ regression check:
 
 ```bash
 codeer eval run \
-    --agent <agent_id> --latest-draft \
+    --agent <agent_id> \
     --out .codeer/eval_results.json
 ```
 
@@ -163,7 +163,7 @@ codeer eval run \
 
 ```bash
 codeer eval run \
-    --agent <agent_id> --latest-draft \
+    --agent <agent_id> \
     --out .codeer/eval_results.json
 ```
 
@@ -173,7 +173,7 @@ the evaluator's `reason` text. Then **stop and wait for user direction**.
 The fix loop within Phase 1:
 
 1. Diagnose each failure — agent issue (prompt/KB) or rubric issue
-2. Apply the fix → re-run ALL cases with `--diff-vs <prev_history_id>`
+2. Apply the fix → re-run ALL cases
 3. Review — check that targeted cases improved without regressing others
 4. Repeat until satisfied
 
@@ -320,12 +320,11 @@ case-specific patch that only improves the current eval failures.
 
 ```bash
 codeer eval run \
-    --agent <agent_id> --latest-draft \
-    --diff-vs <prev_history_id> --out .codeer/eval_results.json
+    --agent <agent_id> \
+    --out .codeer/eval_results.json
 ```
 
-`--diff-vs` prints a regression table — every case whose score moved up
-or down vs the previous version. Check that:
+Review the full result set against the previous run summary. Check that:
 
 - Targeted failure cases now pass
 - Protection cases still pass
@@ -485,7 +484,7 @@ Only `kb/` (source content for upload) stays at root level.
 | `codeer kb upload` | Create/reuse KB + upload files + poll until indexed |
 | `codeer eval list` | List eval cases for an agent |
 | `codeer eval evaluators` | List evaluators in workspace |
-| `codeer eval run` | Trigger eval, poll, print non-perfect analysis, `--diff-vs` regression |
+| `codeer eval run` | Trigger eval, poll, print non-perfect analysis |
 | `codeer eval export` | Full eval table export (CSV + JSON + summary MD) |
 | `codeer eval cases-apply` | Bulk-create eval cases with per-evaluator rubrics |
 | `codeer eval rubrics` | Read per-(case, evaluator) rubrics |

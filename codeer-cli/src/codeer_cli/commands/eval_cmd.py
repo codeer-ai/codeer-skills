@@ -42,14 +42,12 @@ def register(subparsers):
     # codeer eval run
     p = sub.add_parser("run", help="Trigger eval run, poll for results, print scores")
     p.add_argument("--agent", required=True)
-    g = p.add_mutually_exclusive_group(required=True)
+    g = p.add_mutually_exclusive_group()
     g.add_argument("--history", default=None, help="History UUID to pin the run to")
-    g.add_argument("--latest-draft", action="store_true",
-                   help="Auto-select the newest unpublished AgentHistory")
+    g.add_argument("--latest", action="store_true",
+                   help="Auto-select the newest AgentHistory (default)")
     p.add_argument("--cases", default=None, help="Comma-separated case UUIDs (default: all)")
     p.add_argument("--evaluators", default=None, help="Comma-separated evaluator UUIDs (default: all)")
-    p.add_argument("--diff-vs", default=None,
-                   help="Compare scores against this prior history_id; print regressions")
     p.add_argument("--poll-timeout", type=int, default=POLL_TIMEOUT)
     p.add_argument("--out", default=None)
     p.set_defaults(func=run_run)
@@ -126,12 +124,12 @@ def run_evaluators(args, client) -> int:
 
 def run_run(args, client) -> int:
     workspace_id, _ = client.resolve_scope()
-    if args.latest_draft:
-        history_id = agents_mod.get_latest_draft_history_id(client, args.agent)
+    if args.latest or not args.history:
+        history_id = agents_mod.get_latest_history_id(client, args.agent)
         if not history_id:
-            log("error: --latest-draft set but agent has no draft versions; pass --history instead")
+            log("error: agent has no history versions; pass --history instead")
             return 2
-        log(f"--latest-draft -> {history_id}")
+        log(f"--latest -> {history_id}")
         args.history = history_id
 
     if args.cases:
@@ -233,56 +231,11 @@ def run_run(args, client) -> int:
             log(f"     reason: {(r.get('reason') or '').strip()[:600]}")
             log("")
 
-    diff_summary: dict[str, list[dict]] = {"regressions": [], "improvements": [], "stable": []}
-    if args.diff_vs:
-        log(f"\n{'=' * 80}\nREGRESSION CHECK vs history {args.diff_vs}\n{'=' * 80}")
-        prev_by_key: dict[tuple[str, str], float] = {}
-        for ev_id in evaluator_ids:
-            try:
-                prev_rows = eval_mod.get_results(
-                    client, case_ids=case_ids, evaluator_id=ev_id,
-                    agent_history_id=args.diff_vs, workspace_id=workspace_id,
-                    include_output=False, include_reasoning_steps=False,
-                )
-            except Exception as e:
-                log(f"  warning: prev fetch failed for evaluator {ev_id[:8]}: {e}")
-                continue
-            for r in prev_rows:
-                cid = r.get("evaluation_case_id") or r.get("case_id")
-                if r.get("score") is not None:
-                    prev_by_key[(cid, ev_id)] = r["score"]
-        for r in flat:
-            key = (r["case_id"], r["evaluator_id"])
-            prev = prev_by_key.get(key)
-            cur = r.get("score")
-            if prev is None or cur is None:
-                continue
-            delta = round(cur - prev, 2)
-            row = {**r, "prev_score": prev, "delta": delta}
-            if delta < 0:
-                diff_summary["regressions"].append(row)
-            elif delta > 0:
-                diff_summary["improvements"].append(row)
-            else:
-                diff_summary["stable"].append(row)
-        for label in ("regressions", "improvements"):
-            items = diff_summary[label]
-            if not items:
-                log(f"  ({label}: none)")
-                continue
-            log(f"\n  {label.upper()}:")
-            for r in sorted(items, key=lambda x: x.get("delta") or 0):
-                log(f"    {r['prev_score']:.2f} -> {r['score']:.2f}  ({r.get('delta'):+0.2f})  "
-                    f"{r['evaluator_name'][:25]} — {r['case_label']}")
-
     out = {
         "agent_id": args.agent,
         "history_id": args.history,
         "all_perfect": all_perfect,
         "results": flat,
-        "diff_vs": args.diff_vs,
-        "regressions": diff_summary["regressions"] if args.diff_vs else None,
-        "improvements": diff_summary["improvements"] if args.diff_vs else None,
     }
     print(json.dumps(out, indent=2, ensure_ascii=False))
     if args.out:

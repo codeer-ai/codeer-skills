@@ -109,6 +109,15 @@ def get_latest_draft_history_id(client: CodeerClient, agent_id: str) -> Optional
     return drafts[0].get("id")
 
 
+def get_latest_history_id(client: CodeerClient, agent_id: str) -> Optional[str]:
+    """Return the id of the most recent AgentHistory, draft or published."""
+    versions = list_versions(client, agent_id)
+    if not versions:
+        return None
+    versions.sort(key=lambda v: v.get("version_number") or 0, reverse=True)
+    return versions[0].get("id")
+
+
 def list_in_workspace(client: CodeerClient, workspace_id: str) -> list[dict]:
     """List **published** agents in a workspace (drafts are hidden).
 

@@ -152,8 +152,8 @@ handle this automatically; if calling the API directly, loop over
 `eval_mod.list_evaluators(workspace_id)` and call `get_results()` for each.
 
 Regression workflow (apply prompt change → re-run all cases → spot side
-effects): `codeer eval run --latest-draft --diff-vs <prev_history_id>` does
-this in one shot, printing every case whose score moved up or down.
+effects): `codeer eval run --agent <agent_id>` runs the latest AgentHistory
+by default. Review the full result set against the previous run summary.
 
 ## Stage 7 — Publish
 

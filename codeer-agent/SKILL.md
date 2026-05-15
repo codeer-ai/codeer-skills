@@ -77,7 +77,7 @@ codeer kb list
 codeer kb upload --dir kb/ --name "My KB"
 codeer eval list --agent <id>
 codeer eval evaluators
-codeer eval run --agent <id> --latest-draft
+codeer eval run --agent <id>
 ```
 
 For the full command reference, see **LIFECYCLE.md**.
@@ -104,7 +104,7 @@ For the full command reference, see **LIFECYCLE.md**.
 | 3. Eval cases FIRST | Turn each finding into an eval case BEFORE making any fix |
 | 4. Baseline | Run eval on current version (failures should fail, good patterns should pass) |
 | 5. Fix | Apply the smallest generalizable change (prompt, KB, or rubric) |
-| 6. Re-run ALL | `--diff-vs` regression check: targeted cases pass, nothing else regressed |
+| 6. Re-run ALL | Run the full suite again and review targeted fixes plus unrelated case scores |
 | 7. Decide | User reviews results -> publish, iterate more, or roll back |
 
 Then loop back to Step 1 with new production data.
