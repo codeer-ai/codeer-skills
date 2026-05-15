@@ -6,7 +6,6 @@ folders or files. All endpoints are scoped under an organization + workspace.
 
 from __future__ import annotations
 
-import json
 import mimetypes
 from pathlib import Path
 from typing import Any, List, Optional
@@ -38,7 +37,7 @@ def _guess_mime(filename: str) -> str:
 
 
 def _base(organization_id: str, workspace_id: str) -> str:
-    return f"/organizations/{organization_id}/workspaces/{workspace_id}/knowledge_bases"
+    return "/external/knowledge-bases"
 
 
 def list_nodes(
@@ -191,11 +190,11 @@ def upload_files(
         if not p.is_file():
             raise FileNotFoundError(p)
 
-    url = f"{_base(organization_id, workspace_id)}/{kb_id}/files/upload"
+    url = f"{_base(organization_id, workspace_id)}/files:upload"
     open_handles = [p.open("rb") for p in paths]
     try:
         files = [("files", (p.name, fh, _guess_mime(p.name))) for p, fh in zip(paths, open_handles)]
-        data = {"form": json.dumps({"parent_id": parent_id})}
+        data = {"parent_id": parent_id}
         return client.post(url, files=files, data=data)
     finally:
         for fh in open_handles:
@@ -211,7 +210,7 @@ def file_status(
 ) -> list[dict]:
     """Batch-check indexing status for KB file nodes."""
     return client.post(
-        f"{_base(organization_id, workspace_id)}/files/status",
+        f"{_base(organization_id, workspace_id)}/files:status",
         json={"node_ids": node_ids},
     )
 
@@ -224,4 +223,4 @@ def read_file_content(
     kb_id: str,
     node_id: str,
 ) -> dict:
-    return client.get(f"{_base(organization_id, workspace_id)}/{kb_id}/nodes/{node_id}/content")
+    return client.get(f"{_base(organization_id, workspace_id)}/files/{node_id}/content")

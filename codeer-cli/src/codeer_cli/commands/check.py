@@ -46,7 +46,7 @@ def run(args, client) -> int:
     agent_id = client.agent_id
     if agent_id:
         try:
-            agent = client.get(f"/agents/{agent_id}")
+            agent = client.get(f"/external/agents/{agent_id}")
             print(f"  OK  Agent: {agent.get('name', '(unnamed)')} ({agent_id})")
         except CodeerError:
             errors.append(f"WARN  Agent: ID {agent_id} could not be read (may be in a different workspace)")

@@ -28,7 +28,6 @@ def create(
     validated_tools = validate_unified_tools(unified_tools)
     body: dict[str, Any] = {
         "name": name,
-        "workspace_id": workspace_id,
         "system_prompt": system_prompt,
         "unified_tools": validated_tools,
         "primary_object_ids": primary_object_ids or [],
@@ -40,7 +39,7 @@ def create(
         body["description"] = description
     if llm_model is not None:
         body["llm_model"] = llm_model
-    return client.post("/agents", json=body)
+    return client.post("/external/agents", json=body)
 
 
 def update(
@@ -74,11 +73,11 @@ def update(
         body["description"] = description
     if llm_model is not None:
         body["llm_model"] = llm_model
-    return client.put(f"/agents/{agent_id}", json=body)
+    return client.patch(f"/external/agents/{agent_id}", json=body)
 
 
 def get(client: CodeerClient, agent_id: str) -> dict:
-    return client.get(f"/agents/{agent_id}")
+    return client.get(f"/external/agents/{agent_id}")
 
 
 def get_default(client: CodeerClient) -> dict:
@@ -116,7 +115,7 @@ def list_in_workspace(client: CodeerClient, workspace_id: str) -> list[dict]:
     If you need drafts too — which is almost always the case while iterating
     on an agent — use :func:`list_all` with both workspace_id and organization_id.
     """
-    return client.get("/agents", params={"wid": workspace_id})
+    return client.get("/external/agents")
 
 
 def list_all(
@@ -131,17 +130,17 @@ def list_all(
     is required`` if you omit ``oid``. Look up the org for a workspace via
     ``/accounts/me`` → ``profile.workspace_organization_map``.
     """
-    return client.get("/agents/all", params={"wid": workspace_id, "oid": organization_id})
+    return client.get("/external/agents/all")
 
 
 def list_versions(client: CodeerClient, agent_id: str) -> list[dict]:
-    return client.get(f"/agents/{agent_id}/histories")
+    return client.get(f"/external/agents/{agent_id}/versions")
 
 
 def get_version(client: CodeerClient, agent_id: str, history_id: str) -> dict:
-    return client.get(f"/agents/{agent_id}/histories/{history_id}")
+    return client.get(f"/external/agents/{agent_id}/versions/{history_id}")
 
 
 def check_impact(client: CodeerClient, agent_id: str) -> dict:
     """List downstream agents that call this one. Call before publishing breaking changes."""
-    return client.get(f"/agents/{agent_id}/impact")
+    return client.get(f"/external/agents/{agent_id}/impact")

@@ -43,15 +43,11 @@ def list(
     params: dict[str, Any] = {"limit": limit, "offset": offset, "order_by": order_by}
     if agent_id:
         params["agent_id"] = agent_id
-    if workspace_id:
-        params["workspace_id"] = workspace_id
-    if organization_id:
-        params["organization_id"] = organization_id
     if external_user_id:
         params["external_user_id"] = external_user_id
     if feedback_filter:
         params["feedback_filter"] = feedback_filter
-    rows = client.get("/histories", params=params)
+    rows = client.get("/external/histories", params=params)
     drop = {e.lower() for e in exclude_users}
     if drop:
         rows = [h for h in rows if (h.get("external_user_id") or "").lower() not in drop]
@@ -151,11 +147,10 @@ def list_negative_feedback_turns(
 
 
 def get(client: CodeerClient, history_id: int) -> dict:
-    return client.get(f"/histories/{history_id}")
+    return client.get(f"/external/histories/{history_id}")
 
 
 def get_conversations(client: CodeerClient, history_id: int) -> list[dict]:
     """Return all conversation turns for a history — includes tool calls and reasoning."""
-    return client.get(f"/histories/{history_id}/conversations")
-
+    return client.get(f"/external/histories/{history_id}/conversations")
 

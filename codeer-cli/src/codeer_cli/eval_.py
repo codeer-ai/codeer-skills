@@ -45,15 +45,15 @@ def create_case(
         body["meta"] = meta
     if note is not None:
         body["note"] = note
-    return client.post("/eval/cases", json=body)
+    return client.post("/external/eval/cases", json=body)
 
 
 def list_cases(client: CodeerClient, agent_id: str) -> list[dict]:
-    return client.get(f"/eval/agents/{agent_id}/cases")
+    return client.get(f"/external/eval/agents/{agent_id}/cases")
 
 
 def get_case(client: CodeerClient, case_id: str) -> dict:
-    return client.get(f"/eval/cases/{case_id}")
+    return client.get(f"/external/eval/cases/{case_id}")
 
 
 def update_case(
@@ -80,7 +80,7 @@ def update_case(
         body["meta"] = meta
     if note is not None:
         body["note"] = note
-    return client.put(f"/eval/cases/{case_id}", json=body)
+    return client.put(f"/external/eval/cases/{case_id}", json=body)
 
 
 
@@ -95,21 +95,20 @@ def create_evaluator(
     description: Optional[str] = None,
 ) -> dict:
     body: dict[str, Any] = {
-        "workspace_id": workspace_id,
         "name": name,
         "system_prompt_template": system_prompt_template,
     }
     if description is not None:
         body["description"] = description
-    return client.post("/eval/evaluators", json=body)
+    return client.post("/external/eval/evaluators", json=body)
 
 
 def list_evaluators(client: CodeerClient, workspace_id: str) -> list[dict]:
-    return client.get("/eval/evaluators", params={"wid": workspace_id})
+    return client.get("/external/eval/evaluators")
 
 
 def get_evaluator(client: CodeerClient, evaluator_id: str) -> dict:
-    return client.get(f"/eval/evaluators/{evaluator_id}")
+    return client.get(f"/external/eval/evaluators/{evaluator_id}")
 
 
 def update_evaluator(
@@ -130,7 +129,7 @@ def update_evaluator(
         body["description"] = description
     if agent_ids is not None:
         body["agent_ids"] = agent_ids
-    return client.put(f"/eval/evaluators/{evaluator_id}", json=body)
+    return client.put(f"/external/eval/evaluators/{evaluator_id}", json=body)
 
 
 
@@ -148,14 +147,18 @@ def trigger(
     Pass ``agent_history_id`` to pin the run to a specific (possibly unpublished)
     agent version — this is the core of the apply → eval → publish loop.
     """
-    body: dict[str, Any] = {"case_ids": case_ids, "evaluator_ids": evaluator_ids}
-    if agent_history_id is not None:
-        body["agent_history_id"] = agent_history_id
-    return client.post("/eval/trigger", json=body)
+    if agent_history_id is None:
+        raise ValueError("agent_history_id is required for external eval runs")
+    body: dict[str, Any] = {
+        "case_ids": case_ids,
+        "evaluator_ids": evaluator_ids,
+        "version_id": agent_history_id,
+    }
+    return client.post("/external/eval/runs", json=body)
 
 
 def stop(client: CodeerClient, *, case_id: str, evaluator_id: str) -> Any:
-    return client.post("/eval/stop", json={"case_id": case_id, "evaluator_id": evaluator_id})
+    return client.post("/external/eval/runs:stop", json={"case_id": case_id, "evaluator_id": evaluator_id})
 
 
 def get_results(
@@ -170,12 +173,11 @@ def get_results(
 ) -> list[dict]:
     """Fetch scored results for a batch of cases under one evaluator + agent version."""
     return client.post(
-        "/eval/results/batch",
+        "/external/eval/results:batch",
         json={
             "case_ids": case_ids,
             "evaluator_id": evaluator_id,
-            "agent_history_id": agent_history_id,
-            "workspace_id": workspace_id,
+            "version_id": agent_history_id,
             "include_output": include_output,
             "include_reasoning_steps": include_reasoning_steps,
         },
@@ -184,13 +186,9 @@ def get_results(
 
 def set_rubric(client: CodeerClient, *, evaluation_case_id: str, evaluator_id: str, rubric: str) -> Any:
     """Set the per-evaluator rubric (the ``Standard`` the UI displays) for a case."""
-    return client.post(
-        "/eval/rubric",
-        json={
-            "evaluation_case_id": evaluation_case_id,
-            "evaluator_id": evaluator_id,
-            "rubric": rubric,
-        },
+    return client.put(
+        f"/external/eval/cases/{evaluation_case_id}/rubrics/{evaluator_id}",
+        json={"rubric": rubric},
     )
 
 
@@ -221,7 +219,7 @@ def get_rubrics_batch(
     ``rubric == ""`` — they're not omitted from the response.
     """
     return client.post(
-        "/eval/rubrics/batch",
+        "/external/eval/rubrics:batch",
         json={"case_ids": case_ids, "evaluator_id": evaluator_id},
     )
 
@@ -294,7 +292,7 @@ def list_runs_for_case(
     rather than being omitted — useful for spotting "we forgot to add this
     case to the run" alongside true regressions.
     """
-    versions = client.get(f"/agents/{agent_id}/histories")
+    versions = client.get(f"/external/agents/{agent_id}/versions")
     if not versions:
         return []
     out: list[dict] = []
@@ -354,7 +352,7 @@ def list_results_across_versions(
 
     If ``case_ids`` is omitted, fetches results for every case under the agent.
     """
-    versions = client.get(f"/agents/{agent_id}/histories")
+    versions = client.get(f"/external/agents/{agent_id}/versions")
     if case_ids is None:
         case_ids = [c["id"] for c in list_cases(client, agent_id)]
     if not case_ids or not versions:

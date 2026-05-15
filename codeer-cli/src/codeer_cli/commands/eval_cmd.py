@@ -634,12 +634,8 @@ def _upload_attachment(client: CodeerClient, *, file_path: Path, workspace_id: s
     ct, _ = mimetypes.guess_type(file_path.name)
     ct = ct or "application/octet-stream"
     files = {"file": (file_path.name, file_path.read_bytes(), ct)}
-    data = {"data": json.dumps({
-        "workspace_id": workspace_id,
-        "scope": "persistent",
-        "is_evaluation_context": True,
-    })}
-    uploaded = client.post("/retrieval/upload-file", files=files, data=data)
+    data = {"scope": "persistent", "purpose": "evaluation_context"}
+    uploaded = client.post("/external/files", files=files, data=data)
     uuid = uploaded.get("uuid") if isinstance(uploaded, dict) else None
     if not uuid:
         raise RuntimeError(f"upload-file response missing uuid for {file_path.name}: {uploaded}")

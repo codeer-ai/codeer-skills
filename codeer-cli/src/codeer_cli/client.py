@@ -87,7 +87,7 @@ class CodeerClient:
 
     def get_me(self) -> dict[str, Any]:
         if self._me_cache is None:
-            self._me_cache = self.get("/accounts/me")
+            self._me_cache = self.get("/external/me")
         return self._me_cache
 
     def resolve_scope(self) -> tuple[str, str]:
