@@ -52,6 +52,8 @@ KB planning decisions to confirm with the user:
 - One KB or several? (default: one per agent)
 - Flat root or one level of folders? (KB UI only renders one level)
 - Naming convention — descriptive `NN_topic.md` vs. opaque IDs
+- Context Object FAQ candidates — recurring user questions that must route
+  to one canonical file/object instead of relying on broad semantic search
 
 **KB query hints in the system prompt.** The agent queries KB content
 using three tools: `list_kb_files` (regex filename search),
@@ -69,6 +71,28 @@ tells the agent what content is available and how to query it. Example:
 This dramatically improves retrieval accuracy — without it, the agent
 guesses at filenames and keywords, often missing relevant content. When
 filenames are opaque or the KB is large, this index is critical.
+
+**Context Object FAQ for routing-critical questions.** When a specific user
+question should consistently retrieve a specific KB file/object, consider
+Context Object FAQ instead of only adding more prompt text. Add representative
+question variants and link them to the canonical context object/file. This
+gives retrieval a direct question-to-source routing signal and can reserve
+that source during `retrieve_context_objs`, which is useful when several KB
+files share similar wording.
+
+Use Context Object FAQ when:
+
+- the canonical file is already uploaded, attached to the agent, and indexed
+- the agent's KB query is reasonable, but semantic retrieval often misses or
+  ranks the intended file too low
+- a high-value question, policy, route, product, or FAQ must reliably land on
+  one source of truth
+
+Do not use it as a substitute for missing KB content, unclear file structure,
+bad tool-use instructions, or rubric/source-of-truth conflicts. If the
+installed `codeer` CLI cannot create or update Context Object FAQ entries, say
+the operation is not supported by the CLI and ask the user how they want to
+proceed.
 
 ### Step 3 — Create agent
 
