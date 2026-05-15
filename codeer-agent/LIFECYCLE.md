@@ -48,6 +48,7 @@ eval case design.
    feed these into the agent payload.
 
 KB planning decisions to confirm with the user:
+
 - One KB or several? (default: one per agent)
 - Flat root or one level of folders? (KB UI only renders one level)
 - Naming convention — descriptive `NN_topic.md` vs. opaque IDs
@@ -103,8 +104,8 @@ For each category (user picks which to tackle first, or go sequentially):
    hallucination risk. State the count and rationale — the user can
    adjust.
 2. **Generate cases + rubrics.** Write cases for this category only.
-   Each case carries per-evaluator rubrics — Style/Tone judges *how*,
-   Content Compliance judges *what*. Prioritize the **Content Compliance
+   Each case carries per-evaluator rubrics — Style/Tone judges _how_,
+   Content Compliance judges _what_. Prioritize the **Content Compliance
    Evaluator** unless the user explicitly cares about style. Its rubrics
    must be self-sufficient: the evaluator only has its system prompt and
    the rubric, not the agent's KB or tools.
@@ -146,6 +147,7 @@ For every score < 1.0, surface the case label, evaluator, score, and
 the evaluator's `reason` text. Then **stop and wait for user direction**.
 
 The fix loop within Phase 1:
+
 1. Diagnose each failure — agent issue (prompt/KB) or rubric issue
 2. Apply the fix → re-run ALL cases with `--diff-vs <prev_history_id>`
 3. Review — check that targeted cases improved without regressing others
@@ -159,6 +161,7 @@ only when it fixes a general behavior that should hold across the agent's
 real operating scope.
 
 Before proposing a prompt change, compare these options:
+
 - No change — the failure is acceptable or evaluator noise
 - Rubric edit — the judge is asking for the wrong thing
 - Eval case edit — the case is underspecified or not representative
@@ -167,6 +170,7 @@ Before proposing a prompt change, compare these options:
 - Minimal prompt edit — the agent needs a broader behavioral rule
 
 For any prompt edit, state:
+
 - The exact behavioral defect being fixed
 - Why this is not case-specific overfitting
 - The smallest prompt diff that could fix it
@@ -174,6 +178,7 @@ For any prompt edit, state:
 - Which full-batch eval run will verify the change
 
 Avoid:
+
 - Adding phrases copied from a failing eval case
 - Adding answer templates for one scenario
 - Adding long new policy sections for narrow failures
@@ -278,6 +283,7 @@ codeer eval run \
 ### Step 5 — Apply the fix
 
 Make the smallest change that addresses the findings:
+
 - Prompt change → `codeer agent apply` (auto-forks a new draft)
 - KB update → `codeer kb upload`
 - Rubric edit → `codeer eval rubrics-apply`
@@ -296,6 +302,7 @@ codeer eval run \
 
 `--diff-vs` prints a regression table — every case whose score moved up
 or down vs the previous version. Check that:
+
 - Targeted failure cases now pass
 - Protection cases still pass
 - No unrelated cases regressed
@@ -303,6 +310,7 @@ or down vs the previous version. Check that:
 ### Step 7 — Review and decide
 
 **Stop and report results to the user.** They decide:
+
 - Publish the new version
 - Iterate more (back to step 5)
 - Roll back if regressions are unacceptable
@@ -345,19 +353,39 @@ isn't grounded in KB content.
 
 ### Agent called KB but the key information is missing from query results
 
-**1. The information is not in the KB at all.**
-The KB simply doesn't contain the answer. No prompt fix will help.
+**1. First verify the canonical file exists in the uploaded KB.**
+Check whether the authoritative file is part of the KB files attached to
+the agent and is indexed as a ready file node. If the canonical file is not
+in the uploaded KB, no prompt edit, `invocation_instruction` edit, or Context
+Object FAQ can retrieve it.
 
-Fix: enhance the KB content — add or update the relevant file.
+Fix: include the canonical file in the KB, attach the correct node IDs to
+the agent, and wait for indexing before changing prompt or retrieval hints.
 
-**2. The information IS in the KB but the query didn't retrieve it.**
-The agent asked the wrong question or the KB's trigger didn't fire on
-the right content.
+**2. The canonical file exists in the KB but retrieval never reached it.**
+The retrieved sources do not include the authoritative file. If the agent's
+query is clearly wrong or too narrow, or too general, improve the system prompt or KB `invocation_instruction` so it asks better retrieval questions. But if the
+query is reasonable, prefer Context Object FAQ: add a representative
+question/query and connect it to the canonical context object/file. The FAQ
+question embedding can reserve the linked file during `retrieve_context_objs`.
 
-Fix: improve the agent's system prompt (guide how it formulates queries)
-and/or the KB's `invocation_instruction` to improve retrieval quality.
+Fix: usually Context Object FAQ; use prompt / `invocation_instruction` only
+when the query itself is the problem.
 
-**2.5. The information is missing from query results AND the agent made
+**2.5. Retrieval reached an adjacent chunk within the correct canonical file.**
+The semantic search reached the authoritative file, but returned a nearby
+chunk instead of the chunk containing the answer. Treat this as a
+content-organization question before changing prompts: does the answer need
+clearer headings, tighter chunk boundaries, or a better local structure inside
+the file? If the file structure is already clear, improve the system prompt,
+KB `invocation_instruction`, or query hints so the agent asks for the precise
+part of the canonical file.
+
+Fix: improve file structure / headings / chunk boundaries when the local
+organization is weak; otherwise improve prompt / `invocation_instruction` /
+query hints.
+
+**2.6. The information is missing from query results AND the agent made
 something up instead of admitting the gap.**
 The agent hallucinated rather than saying "I don't have that information."
 
@@ -397,6 +425,7 @@ wording is ambiguous.
 
 Fix: make the rubric more deterministic. Add concrete pass/fail examples
 inline so the judge has anchors:
+
 ```
 - PASS example: "目前沒有看到您附上的檔案，請您再上傳一次"
 - FAIL example: "我已收到您的報告，正在為您辨識"
@@ -408,8 +437,9 @@ inline so the judge has anchors:
 | --- | --- | --- |
 | Good response, low score | Rubric too strict | Fix rubric |
 | Agent didn't use tool | Weak tool trigger | Fix prompt or invocation_instruction |
-| Info not in KB | KB gap | Add KB content |
-| Info in KB, not in query results | Bad retrieval | Fix prompt / KB when-to-use |
+| Canonical file not in uploaded KB | KB inclusion / attachment / indexing gap | Add file, attach node IDs, wait for indexing |
+| Canonical file in KB but never reached | Reasonable query misses authoritative file | Add Context Object FAQ; fix prompt only if query is wrong |
+| Adjacent chunk in canonical file reached only | Retrieval reached right file but wrong chunk | Improve file structure / headings / chunk boundaries, or query hints |
 | Missing info + hallucination | No refusal guardrail | Fix prompt to refuse |
 | KB contradicts rubric | Source of truth conflict | Human decision needed |
 | KB correct, response wrong | Agent embellishing | Fix prompt |
