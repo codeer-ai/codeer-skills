@@ -255,9 +255,7 @@ codeer agent versions --agent <agent_id>
 ```
 
 Downstream impact checks are not supported by the CLI. If the user asks for
-that check, say it is not supported by the CLI and stop for direction. Use the
-registered publish command when available; if publishing is not exposed by the
-CLI, say it is not supported by the CLI.
+that check, say it is not supported by the CLI and stop for direction.
 
 ---
 
@@ -521,31 +519,15 @@ Only `kb/` (source content for upload) stays at root level.
 | `codeer kb upload` | Create/reuse KB + upload files + poll until indexed |
 | `codeer eval list` | List eval cases for an agent |
 | `codeer eval evaluators` | List evaluators in workspace |
-| `codeer eval run` | Trigger eval, poll, print non-perfect analysis |
+| `codeer eval run` | Trigger eval, poll, print non-perfect analysis. `--history <uuid>` pins to a version; `--latest` (default) auto-selects newest version. Mutually exclusive. |
 | `codeer eval export` | Full eval table export (CSV + JSON + summary MD) |
 | `codeer eval cases-apply` | Bulk-create eval cases with per-evaluator rubrics |
 | `codeer eval rubrics` | Read per-(case, evaluator) rubrics |
 | `codeer eval rubrics-apply` | Apply rubric edits (pairs with `eval rubrics`) |
 | `codeer eval reconcile` | Read-only audit: compare local manifest vs server state |
 
-All commands run via the separately installed `codeer` CLI.
-
-Workspace and organization scope come from the workspace API-key virtual user's
-profile. The optional `CODEER_AGENT_ID` can live in `.claude/settings.json`
-when a project has one default agent.
-
-### Common helpers (for ad-hoc Python)
-
-Only fall back to these when the CLI commands above can't express what you need:
-
-- `histories.list_production(agent_id, internal_user_emails=...)` — filter
-  out internal testing accounts.
-- `histories.list_negative_feedback_turns(agent_id, ...)` — surface
-  assistant turns flagged with `sys_improve`.
-- `eval_mod.list_runs_for_case(case_id, agent_id, workspace_id, evaluator_id)`
-  — score history of one case across every version.
-- `agents.get_latest_draft_history_id(agent_id)` — find the newest
-  unpublished draft version.
+All commands run via the separately installed `codeer` CLI. See
+**onboarding.md** for auth and workspace scope details.
 
 ---
 

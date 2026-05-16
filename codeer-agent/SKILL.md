@@ -43,23 +43,7 @@ uv tool install --editable .
 
 ### Workspace / org scope
 
-Workspace and organization scope come from the workspace API-key virtual user's
-profile. Do not pass `--workspace` / `--org`, and do not set
-`CODEER_WORKSPACE_ID` / `CODEER_ORGANIZATION_ID`.
-
-For Claude Code, only set the optional default agent per project in
-`.claude/settings.json`:
-
-```json
-{
-  "env": {
-    "CODEER_AGENT_ID": "<agent_id>"
-  }
-}
-```
-
-Credentials should be supplied by the runtime environment, not by files in the
-skill workspace.
+See **onboarding.md** for auth, workspace scope, and per-environment setup.
 
 **At the start of any Codeer-skill session, run `codeer check`**
 to validate auth, workspace, and agent config. It prints the active identity
