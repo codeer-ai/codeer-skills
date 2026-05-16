@@ -132,7 +132,12 @@ For each category (user picks which to tackle first, or go sequentially):
    Content Compliance judges _what_. Prioritize the **Content Compliance
    Evaluator** unless the user explicitly cares about style. Its rubrics
    must be self-sufficient: the evaluator only has its system prompt and
-   the rubric, not the agent's KB or tools.
+   the rubric, not the agent's KB, retrieved chunks, tools, settings, or
+   diagnosis notes.
+   For broad user questions, require only what the question naturally asks
+   for. Do not require prices, exhaustive lists, logistics details, or stock
+   confirmation unless the user asked for that dimension or the product
+   requirement depends on it.
 3. **Present for review.** Show the cases to the user. Keep the batch
    small enough to be mentally manageable.
 4. **Apply.** After user approves (with any adjustments):
@@ -172,10 +177,42 @@ the evaluator's `reason` text. Then **stop and wait for user direction**.
 
 The fix loop within Phase 1:
 
-1. Diagnose each failure — agent issue (prompt/KB) or rubric issue
-2. Apply the fix → re-run ALL cases
-3. Review — check that targeted cases improved without regressing others
-4. Repeat until satisfied
+1. Diagnose each failure using the eval failure triage ladder below.
+2. Apply the smallest agreed fix.
+3. Re-run impacted cases first. If the agent was updated, use `--latest`
+   when evaluating the newest draft/version.
+4. Run the full suite when the change has cross-category regression risk.
+5. Review — check that targeted cases improved without regressing others.
+6. Repeat until satisfied.
+
+#### Eval failure triage ladder
+
+Treat eval failures as evidence to classify, not instructions to blindly
+patch the prompt. Diagnose in this order:
+
+1. **Rubric / source-of-truth check.**
+   Compare the rubric against public KB facts before inspecting the prompt.
+   If the rubric contradicts the KB, fix the rubric. If the rubric assumes
+   hidden KB, retrieved chunk, tool, or diagnosis context, make it
+   self-sufficient. For broad user questions, do not require unnecessary
+   details the user did not ask for.
+2. **Retrieval check.**
+   Check whether the agent retrieved the canonical KB chunk. Identify noisy
+   footer/contact content separately from authoritative service details.
+   If a fact is absent from public KB, treat that absence as meaningful.
+3. **Prompt / behavior check.**
+   Only consider prompt changes after rubric and retrieval are clean. Prefer
+   narrow, category-specific rules. If KB only supports onsite availability
+   and does not mention remote or logistics services, do not create a
+   contact-based workaround. If public KB has no formal scheme, say so
+   before offering adjacent options.
+4. **Stop / accept decision.**
+   Not every non-perfect score needs another fix. If the answer is acceptable
+   and the remaining loss is evaluator strictness, mark it as accepted
+   evaluator strictness instead of overfitting toward 1.0.
+
+For rubric edits, show before/after text and explain which public KB fact or
+eval-design issue motivated the change.
 
 #### Prompt change discipline
 
