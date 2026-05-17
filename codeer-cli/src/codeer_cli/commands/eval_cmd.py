@@ -47,7 +47,7 @@ def register(subparsers):
     g.add_argument("--latest", action="store_true",
                    help="Auto-select the newest AgentHistory (default)")
     p.add_argument("--cases", default=None, help="Comma-separated case UUIDs (default: all)")
-    p.add_argument("--evaluators", default=None, help="Comma-separated evaluator UUIDs (default: all)")
+    p.add_argument("--evaluators", required=True, help="Comma-separated evaluator UUIDs")
     p.add_argument("--poll-timeout", type=int, default=POLL_TIMEOUT)
     p.add_argument("--out", default=None)
     p.set_defaults(func=run_run)
@@ -148,15 +148,11 @@ def run_run(args, client) -> int:
         log("error: no cases to run")
         return 2
 
-    if args.evaluators:
-        evaluator_ids = _ids(args.evaluators) or []
-        evaluators = [eval_mod.get_evaluator(client, eid) for eid in evaluator_ids]
-    else:
-        evaluators = eval_mod.list_evaluators(client, workspace_id)
-        evaluator_ids = [e["id"] for e in evaluators]
+    evaluator_ids = _ids(args.evaluators) or []
     if not evaluator_ids:
-        log("error: no evaluators in workspace")
+        log("error: --evaluators is required")
         return 2
+    evaluators = [eval_mod.get_evaluator(client, eid) for eid in evaluator_ids]
 
     case_label_by_id = {c["id"]: truncate(c.get("input") or "", 60) for c in case_objs}
     evaluator_name_by_id = {e["id"]: e.get("name", e["id"]) for e in evaluators}

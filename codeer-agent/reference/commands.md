@@ -43,7 +43,7 @@ Only `kb/` (source content for upload) stays at root level.
 | `--history` | string | — | Pin eval to a specific version (AgentHistory UUID) |
 | `--latest` | flag | **default behavior** | Auto-select newest version |
 | `--cases` | string | all | Comma-separated case UUIDs to run |
-| `--evaluators` | string | all | Comma-separated evaluator UUIDs to use |
+| `--evaluators` | string | **required** | Comma-separated evaluator UUIDs to use |
 | `--poll-timeout` | int | 900 | Polling timeout in seconds |
 | `--out` | string | — | Write results JSON to this path |
 

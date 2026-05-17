@@ -80,11 +80,12 @@ Repeat from 2a for the next category.
 ## Step 3 — Full sweep
 
 After all categories are covered, run eval across ALL cases as a regression
-check:
+check. You must specify which evaluator to test against:
 
 ```bash
 codeer eval run \
     --agent <agent_id> \
+    --evaluators <evaluator_id> \
     --out .codeer/eval_results.json
 ```
 

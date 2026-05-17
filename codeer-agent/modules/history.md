@@ -86,6 +86,7 @@ before making any fix:
 ```bash
 codeer eval run \
     --agent <agent_id> --history <published_history_id> \
+    --evaluators <evaluator_id> \
     --out .codeer/eval_baseline.json
 ```
 
