@@ -1,10 +1,10 @@
 """HTTP client for the Codeer API.
 
-Auth uses a workspace API key supplied through the process environment as
-``CODEER_API_KEY``. ``CODEER_API_BASE`` defaults to production and can be
-overridden for local, beta, or preview. The CLI intentionally does not read
-workspace-local dotenv files or credential files, because those locations are
-commonly visible to LLM workspace context.
+Auth uses a workspace API key supplied through ``CODEER_API_KEY`` or a named
+profile stored outside the workspace. ``CODEER_API_BASE`` defaults to
+production and can be overridden for local, beta, or preview. The CLI
+intentionally does not read workspace-local dotenv files or credential files,
+because those locations are commonly visible to LLM workspace context.
 """
 
 from __future__ import annotations
@@ -65,15 +65,29 @@ class CodeerClient:
 
     @classmethod
     def from_env(cls, **overrides: Any) -> "CodeerClient":
-        try:
-            base_url = overrides.pop("base_url", None) or os.environ.get("CODEER_API_BASE") or DEFAULT_CODEER_API_BASE
-            api_key = overrides.pop("api_key", None) or os.environ["CODEER_API_KEY"]
-        except KeyError as e:
+        base_url = overrides.pop("base_url", None)
+        api_key = overrides.pop("api_key", None)
+
+        if not api_key:
+            from .commands.profile import resolve_profile
+
+            profile = resolve_profile()
+            api_key = profile.get("api_key")
+            base_url = (
+                base_url
+                or os.environ.get("CODEER_API_BASE")
+                or profile.get("api_base")
+                or DEFAULT_CODEER_API_BASE
+            )
+        else:
+            base_url = base_url or os.environ.get("CODEER_API_BASE") or DEFAULT_CODEER_API_BASE
+
+        if not api_key:
             raise AuthError(
                 0,
-                f"Missing required env var {e.args[0]}. Export CODEER_API_KEY "
-                "in the process environment before running codeer.",
-            ) from None
+                "Missing API key. Export CODEER_API_KEY or run `codeer profile add <name>` "
+                "and `codeer profile use <name>`.",
+            )
 
         overrides.pop("workspace_id", None)
         overrides.pop("organization_id", None)

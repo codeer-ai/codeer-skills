@@ -19,12 +19,24 @@ uv tool install --reinstall --editable /path/to/codeer-skills/codeer-cli
 
 ## Credentials
 
-The CLI expects credentials to be configured outside any skill workspace. It
-loads auth only from the process environment:
+The CLI expects credentials to be configured outside any skill workspace. For a
+one-off shell session, export an API key directly:
 
 ```bash
 export CODEER_API_KEY=<admin-workspace-api-key>
 ```
+
+For persistent local use, store named profiles in `~/.codeer/profiles.json`:
+
+```bash
+codeer profile add work
+codeer profile use work
+codeer profile current
+```
+
+`codeer profile add` prompts for the API key without echoing it. The local
+project stores only the selected profile name in `.codeer/profile`; API keys
+remain in the user-level config file.
 
 `CODEER_API_BASE` defaults to `https://api.codeer.ai`. Override it only for
 local, beta, or preview environments:
