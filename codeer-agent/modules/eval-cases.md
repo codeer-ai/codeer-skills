@@ -109,6 +109,44 @@ When building cases from production conversations (Phase 2):
 
 ---
 
+## Multi-Turn Follow-Up Cases
+
+When a case needs previous thread context, use a real persisted history as the
+source. If production traffic already has the right setup, use that history.
+If not, create a seed history through the published agent:
+
+```bash
+codeer history create \
+    --agent <agent_id> \
+    --title "Seed conversation" \
+    --user "eval-seed@example.com" \
+    --message "First user turn" \
+    --message "Follow-up user turn"
+```
+
+This writes real `History` and `Conversation` rows and returns the `history_id`
+plus conversation IDs. The command uses the published agent version only; the
+API-key chat flow cannot pin an unpublished draft version.
+
+For the eval case, set `meta.previous_conversations` to replay prior turns from
+the source history before the target conversation:
+
+```json
+{
+  "previous_conversations": {
+    "source_history_id": 123,
+    "target_conversation_id": 456,
+    "previous_conversation_count": 2
+  }
+}
+```
+
+The eval case `input` should be the follow-up user message being judged. The
+server uses the current eval run's agent version for the system prompt and
+replays only the prior user/assistant turns from `source_history_id`.
+
+---
+
 ## Custom evaluators
 
 When the existing evaluators don't cover a needed dimension, create or

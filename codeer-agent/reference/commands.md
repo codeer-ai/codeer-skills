@@ -30,8 +30,38 @@ Only `kb/` (source content for upload) stays at root level.
 | `codeer eval rubrics-apply` | Apply rubric edits (pairs with `eval rubrics`) |
 | `codeer eval reconcile` | Read-only audit: compare local manifest vs server state |
 | `codeer history list` | List conversation histories for an agent |
+| `codeer history create` | Create a real persisted conversation history through the published agent |
 | `codeer history negative-feedback` | Surface turns with negative feedback |
 | `codeer history conversations` | Read a specific conversation history |
+
+---
+
+## `codeer history create` flags
+
+Creates a real persisted chat history by calling the API-key external chat
+endpoints. This uses the agent's **published** version. It cannot pin an
+unpublished draft `AgentHistory` unless the server API gains support for that.
+
+| Flag | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `--agent` | string | `CODEER_AGENT_ID` | Agent ID |
+| `--title` | string | first message prefix | Conversation title |
+| `--user` | string | — | `external_user_id` to associate with the history |
+| `--message` | string, repeatable | **required** | User turn to send, in order |
+
+Example:
+
+```bash
+codeer history create \
+    --agent <agent_id> \
+    --title "Seed conversation" \
+    --user "eval-seed@example.com" \
+    --message "First user turn" \
+    --message "Follow-up user turn"
+```
+
+The output includes `history_id`, conversation IDs, and a history URL. Keep
+those IDs when turning a real conversation into follow-up eval cases later.
 
 ---
 
