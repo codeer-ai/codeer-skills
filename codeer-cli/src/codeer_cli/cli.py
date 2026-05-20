@@ -3,7 +3,7 @@
     codeer check
     codeer agent list|get|apply|diff|versions
     codeer kb list|files|upload
-    codeer eval list|evaluators|run|export|reconcile|cases-apply|rubrics|rubrics-apply
+    codeer eval list|evaluators|evaluator-create|run|export|reconcile|cases-apply|rubrics|rubrics-apply
     codeer history list|get|conversations|negative-feedback
 """
 

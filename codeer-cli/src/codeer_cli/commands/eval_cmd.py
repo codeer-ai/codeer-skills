@@ -39,6 +39,15 @@ def register(subparsers):
     p = sub.add_parser("evaluators", help="List evaluators in workspace")
     p.set_defaults(func=run_evaluators)
 
+    # codeer eval evaluator-create
+    p = sub.add_parser("evaluator-create", help="Create an evaluator in the workspace")
+    p.add_argument("--name", required=True)
+    g = p.add_mutually_exclusive_group(required=True)
+    g.add_argument("--system-prompt-template", help="Evaluator system prompt template text")
+    g.add_argument("--system-prompt-template-file", help="Path to evaluator system prompt template")
+    p.add_argument("--description", default=None)
+    p.set_defaults(func=run_evaluator_create)
+
     # codeer eval run
     p = sub.add_parser("run", help="Trigger eval run, poll for results, print scores")
     p.add_argument("--agent", required=True)
@@ -115,6 +124,27 @@ def run_evaluators(args, client) -> int:
     ws, _ = client.resolve_scope()
     evaluators = eval_mod.list_evaluators(client, ws)
     print(json.dumps(evaluators, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# eval evaluator-create
+# ---------------------------------------------------------------------------
+
+def run_evaluator_create(args, client) -> int:
+    workspace_id, _ = client.resolve_scope()
+    if args.system_prompt_template_file:
+        system_prompt_template = Path(args.system_prompt_template_file).read_text()
+    else:
+        system_prompt_template = args.system_prompt_template
+    evaluator = eval_mod.create_evaluator(
+        client,
+        workspace_id=workspace_id,
+        name=args.name,
+        system_prompt_template=system_prompt_template,
+        description=args.description,
+    )
+    print(json.dumps(evaluator, ensure_ascii=False, indent=2, default=str))
     return 0
 
 

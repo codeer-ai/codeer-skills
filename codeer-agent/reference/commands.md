@@ -23,6 +23,7 @@ Only `kb/` (source content for upload) stays at root level.
 | `codeer kb upload` | Create/reuse KB + upload files + poll until indexed |
 | `codeer eval list` | List eval cases for an agent |
 | `codeer eval evaluators` | List evaluators in workspace |
+| `codeer eval evaluator-create` | Create an evaluator in the workspace |
 | `codeer eval run` | Trigger eval, poll, print non-perfect analysis |
 | `codeer eval export` | Full eval table export (CSV + JSON + summary MD) |
 | `codeer eval cases-apply` | Bulk-create/update eval cases with per-evaluator rubrics |
