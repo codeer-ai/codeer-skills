@@ -10,17 +10,32 @@ Codex/Claude skills for building, evaluating, and managing [Codeer](https://code
 
 ## Installation
 
-Install and authenticate the CLI separately from the skill. During development,
-install the `codeer-cli/` package in editable mode:
+Install and authenticate the CLI separately from the skill. After the CLI is
+published to PyPI, install it as an isolated command line tool:
 
 ```bash
-cd /path/to/codeer-skills/codeer-cli
-uv tool install --editable .
+uv tool install codeer-cli
+codeer profile add work
+codeer profile use work
+codeer check
+```
+
+Until the package is published, install directly from this repository:
+
+```bash
+uv tool install 'git+https://github.com/<org>/codeer-skills.git#subdirectory=codeer-cli'
 codeer check
 ```
 
 The CLI is intentionally separate from the skill so credentials and runtime
 dependencies are maintained outside the LLM-readable skill package.
+
+For CLI development, use an editable install from `codeer-cli/`:
+
+```bash
+cd /path/to/codeer-skills/codeer-cli
+uv tool install --editable .
+```
 
 ### Claude Cowork
 
@@ -74,8 +89,8 @@ Once installed, Claude Code will automatically invoke the skill when your reques
 
 ## Prerequisites
 
-- **Codeer CLI** — installed from `codeer-cli/`, preferably with editable
-  install while it is changing quickly.
+- **Codeer CLI** — installed from PyPI, from the repository subdirectory, or
+  from `codeer-cli/` in editable mode during development.
 - **Codeer session credentials** — configured outside the skill workspace so
   `codeer check` succeeds.
 

@@ -2,41 +2,50 @@
 
 Standalone CLI for managing Codeer agents over the Codeer API.
 
-## Development install
+## User install
 
-Use an editable install while the CLI is changing quickly:
+After the package is published to PyPI, install the CLI as an isolated command
+line tool:
 
 ```bash
-cd /path/to/codeer-skills/codeer-cli
-uv tool install --editable .
+uv tool install codeer-cli
 ```
 
-Reinstall only when dependencies, entry points, or package metadata change:
+Until the package is published, install directly from this repository:
 
 ```bash
-uv tool install --reinstall --editable /path/to/codeer-skills/codeer-cli
+uv tool install 'git+https://github.com/<org>/codeer-skills.git#subdirectory=codeer-cli'
+```
+
+Replace `<org>` with the GitHub organization or user that hosts this repository.
+
+Verify that the command is available:
+
+```bash
+codeer --help
 ```
 
 ## Credentials
 
-The CLI expects credentials to be configured outside any skill workspace. For a
-one-off shell session, export an API key directly:
-
-```bash
-export CODEER_API_KEY=<admin-workspace-api-key>
-```
-
-For persistent local use, store named profiles in `~/.codeer/profiles.json`:
+The CLI expects credentials to be configured outside any skill workspace. Add a
+named profile, select it, then verify the setup:
 
 ```bash
 codeer profile add work
 codeer profile use work
-codeer profile current
+codeer check
 ```
 
 `codeer profile add` prompts for the API key without echoing it. The local
 project stores only the selected profile name in `.codeer/profile`; API keys
 remain in the user-level config file.
+
+For a one-off shell session, you can also export an API key directly:
+
+```bash
+export CODEER_API_KEY=<admin-workspace-api-key>
+codeer check
+```
 
 `CODEER_API_BASE` defaults to `https://api.codeer.ai`. Override it only for
 local, beta, or preview environments:
@@ -57,6 +66,21 @@ Agent scope is optional and can be set as a non-secret environment variable:
 
 ```bash
 CODEER_AGENT_ID=<agent-id>
+```
+
+## Development install
+
+Use an editable install while the CLI is changing quickly:
+
+```bash
+cd /path/to/codeer-skills/codeer-cli
+uv tool install --editable .
+```
+
+Reinstall only when dependencies, entry points, or package metadata change:
+
+```bash
+uv tool install --reinstall --editable /path/to/codeer-skills/codeer-cli
 ```
 
 Validate setup before API work:

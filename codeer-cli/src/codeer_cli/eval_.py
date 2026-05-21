@@ -118,7 +118,6 @@ def update_evaluator(
     name: Optional[str] = None,
     system_prompt_template: Optional[str] = None,
     description: Optional[str] = None,
-    agent_ids: Optional[List[str]] = None,
 ) -> dict:
     body: dict[str, Any] = {}
     if name is not None:
@@ -127,8 +126,6 @@ def update_evaluator(
         body["system_prompt_template"] = system_prompt_template
     if description is not None:
         body["description"] = description
-    if agent_ids is not None:
-        body["agent_ids"] = agent_ids
     return client.put(f"/external/eval/evaluators/{evaluator_id}", json=body)
 
 
