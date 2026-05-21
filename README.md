@@ -1,6 +1,6 @@
 # codeer-skills
 
-Claude skills for building, evaluating, and managing [Codeer](https://codeer.ai) agents.
+Codex/Claude skills for building, evaluating, and managing [Codeer](https://codeer.ai) agents.
 
 ## Skills
 
@@ -11,7 +11,7 @@ Claude skills for building, evaluating, and managing [Codeer](https://codeer.ai)
 ## Installation
 
 Install and authenticate the CLI separately from the skill. During development,
-install the root-level CLI package in editable mode:
+install the `codeer-cli/` package in editable mode:
 
 ```bash
 cd /path/to/codeer-skills/codeer-cli
@@ -50,10 +50,11 @@ After uploading, make sure:
 
 - Code execution and file creation are enabled for Claude/Cowork.
 - The external `codeer` CLI is installed and `codeer check` passes.
-- The relevant project provides `CODEER_WORKSPACE_ID` and
-  `CODEER_ORGANIZATION_ID`. In Claude Code this is usually done with
-  `.claude/settings.json`; in Cowork, pass them as CLI flags or ask Cowork to
-  use them before running Codeer API actions.
+- Workspace and organization scope resolve from the workspace API-key virtual
+  user's profile. The CLI does not use `CODEER_WORKSPACE_ID`,
+  `CODEER_ORGANIZATION_ID`, `--workspace`, or `--org`.
+- If a project has one default agent, provide `CODEER_AGENT_ID` as a
+  non-secret environment variable.
 
 ### Claude Code
 
@@ -85,6 +86,7 @@ codeer-skills/
 ├── codeer-cli/               ← standalone CLI package
 └── codeer-agent/
     ├── SKILL.md              ← orientation, setup, lifecycle walkthrough
-    ├── DESIGN_GUIDE.md       ← agent design advice (tools, prompts, patterns)
-    └── API_CHEATSHEET.md     ← endpoint reference + gotchas
+    ├── onboarding.md         ← auth and environment setup
+    ├── modules/              ← lifecycle workflows
+    └── reference/            ← concepts, commands, errors
 ```
