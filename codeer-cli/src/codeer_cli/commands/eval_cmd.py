@@ -48,6 +48,16 @@ def register(subparsers):
     p.add_argument("--description", default=None)
     p.set_defaults(func=run_evaluator_create)
 
+    # codeer eval evaluator-update
+    p = sub.add_parser("evaluator-update", help="Update an evaluator in the workspace")
+    p.add_argument("--evaluator", required=True, help="Evaluator UUID")
+    p.add_argument("--name", default=None)
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--system-prompt-template", help="Evaluator system prompt template text")
+    g.add_argument("--system-prompt-template-file", help="Path to evaluator system prompt template")
+    p.add_argument("--description", default=None)
+    p.set_defaults(func=run_evaluator_update)
+
     # codeer eval run
     p = sub.add_parser("run", help="Trigger eval run, poll for results, print scores")
     p.add_argument("--agent", required=True)
@@ -140,6 +150,34 @@ def run_evaluator_create(args, client) -> int:
     evaluator = eval_mod.create_evaluator(
         client,
         workspace_id=workspace_id,
+        name=args.name,
+        system_prompt_template=system_prompt_template,
+        description=args.description,
+    )
+    print(json.dumps(evaluator, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# eval evaluator-update
+# ---------------------------------------------------------------------------
+
+def run_evaluator_update(args, client) -> int:
+    if args.system_prompt_template_file:
+        system_prompt_template = Path(args.system_prompt_template_file).read_text()
+    else:
+        system_prompt_template = args.system_prompt_template
+
+    if args.name is None and args.description is None and system_prompt_template is None:
+        log(
+            "error: provide at least one of --name, --description, "
+            "--system-prompt-template, --system-prompt-template-file"
+        )
+        return 2
+
+    evaluator = eval_mod.update_evaluator(
+        client,
+        evaluator_id=args.evaluator,
         name=args.name,
         system_prompt_template=system_prompt_template,
         description=args.description,
