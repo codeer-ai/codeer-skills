@@ -2,33 +2,48 @@ from __future__ import annotations
 
 import difflib
 import json
-import sys
 from pathlib import Path
 from typing import Optional
 
 from .. import agents as agents_mod
 from ..client import CodeerClient
-from ._util import log
+from ._util import log, print_json, strip_noisy_fields, truncate, write_json
 
 
 def register(subparsers):
-    agent = subparsers.add_parser("agent", help="Agent CRUD, versioning, publishing")
+    agent = subparsers.add_parser("agent", help="Agent CRUD and versioning")
     sub = agent.add_subparsers(dest="action", required=True)
 
     # codeer agent list
-    p = sub.add_parser("list", help="List agents in workspace")
+    p = sub.add_parser(
+        "list",
+        help="List agents in workspace. Defaults to a lifecycle summary safe for Codex/Claude context.",
+    )
+    p.add_argument("--full", action="store_true",
+                   help="Print bounded detail instead of the default lifecycle summary.")
+    p.add_argument("--out", default=None,
+                   help="Write stripped full server detail to this file; stdout stays compact.")
     p.set_defaults(func=run_list)
 
     # codeer agent get <id>
-    p = sub.add_parser("get", help="Read agent details")
+    p = sub.add_parser(
+        "get",
+        help="Read one agent. Defaults to summary; use --full for prompt/tool detail or --out for an artifact.",
+    )
     p.add_argument("agent_id")
+    p.add_argument("--full", action="store_true",
+                   help="Print stripped full agent config, including system_prompt and tools.")
+    p.add_argument("--out", default=None,
+                   help="Write stripped full agent config to this file.")
     p.set_defaults(func=run_get)
 
     # codeer agent apply --payload agent.json
-    p = sub.add_parser("apply", help="Create or update agent from JSON payload")
+    p = sub.add_parser("apply", help="Create or update agent from JSON payload; run --dry-run first")
     p.add_argument("--payload", required=True, help="Path to agent payload JSON")
     p.add_argument("--agent-id", default=None, help="If set, PUT (update). Else POST (create).")
     p.add_argument("--note", default="", help="version_note for PUT")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Validate payload and print intended mutation without writing server state.")
     p.add_argument("--out", default=None, help="Write result JSON to this file too")
     p.set_defaults(func=run_apply)
 
@@ -43,27 +58,104 @@ def register(subparsers):
     p.set_defaults(func=run_diff)
 
     # codeer agent versions --agent <id>
-    p = sub.add_parser("versions", help="List version history for an agent")
+    p = sub.add_parser(
+        "versions",
+        help="List version history. Defaults to version metadata only; use --out for full snapshots.",
+    )
     p.add_argument("--agent", required=True)
+    p.add_argument("--full", action="store_true",
+                   help="Add bounded prompt/tool size metadata; full snapshots still require --out.")
+    p.add_argument("--out", default=None,
+                   help="Write stripped full version snapshots to this file; stdout stays compact.")
     p.set_defaults(func=run_versions)
+
+
+def _tool_summary(tools: list[dict] | None) -> list[dict]:
+    out = []
+    for t in tools or []:
+        form = t.get("custom_form_schema") if isinstance(t.get("custom_form_schema"), dict) else {}
+        out.append({
+            "id": t.get("id"),
+            "type": t.get("type"),
+            "name": t.get("name"),
+            "knowledge_node_count": len(t.get("knowledge_node_ids") or []),
+            "form_title": form.get("title"),
+            "invocation_preview": truncate(t.get("invocation_instruction") or "", 160),
+        })
+    return out
+
+
+def _agent_summary(agent: dict, *, full: bool = False) -> dict:
+    tools = agent.get("unified_tools") or agent.get("tools") or []
+    row = {
+        "id": agent.get("id"),
+        "name": agent.get("name"),
+        "workspace": {
+            "id": agent.get("workspace_id") or (agent.get("workspace") or {}).get("id"),
+            "name": (agent.get("workspace") or {}).get("name"),
+        },
+        "publish_state": agent.get("publish_state"),
+        "version": agent.get("version"),
+        "latest_version_number": agent.get("latest_version_number"),
+        "published_version_number": agent.get("published_version_number"),
+        "publish_history_id": agent.get("publish_history_id"),
+        "llm_model": agent.get("llm_model"),
+        "agent_type": agent.get("agent_type"),
+        "updated_at": agent.get("updated_at"),
+        "tool_count": len(tools),
+        "system_prompt_chars": len(agent.get("system_prompt") or ""),
+    }
+    if full:
+        row["description"] = agent.get("description") or ""
+        row["use_search"] = agent.get("use_search")
+        row["suggested_questions"] = agent.get("suggested_questions") or []
+        row["tools"] = _tool_summary(tools)
+        row["system_prompt_preview"] = truncate(agent.get("system_prompt") or "", 1200)
+    return row
 
 
 
 def run_list(args, client) -> int:
     ws, org = client.resolve_scope()
     result = agents_mod.list_all(client, workspace_id=ws, organization_id=org)
-    print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+    write_json(args.out, strip_noisy_fields(result))
+    print_json([_agent_summary(a, full=args.full) for a in result])
     return 0
 
 
 def run_get(args, client) -> int:
     result = agents_mod.get(client, args.agent_id)
-    print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+    full_result = strip_noisy_fields(result)
+    write_json(args.out, full_result)
+    print_json(full_result if args.full else _agent_summary(result))
     return 0
 
 
 def run_apply(args, client) -> int:
     body = json.loads(Path(args.payload).read_text())
+    missing = [field for field in ("name", "system_prompt") if not body.get(field)]
+    if missing:
+        log(f"error: payload missing required field(s): {', '.join(missing)}")
+        return 2
+
+    if args.dry_run:
+        operation = "update" if args.agent_id else "create"
+        result = {
+            "dry_run": True,
+            "operation": operation,
+            "agent_id": args.agent_id,
+            "payload": str(Path(args.payload)),
+            "name": body.get("name"),
+            "system_prompt_chars": len(body.get("system_prompt") or ""),
+            "tool_count": len(body.get("unified_tools") or []),
+            "use_search": body.get("use_search", False),
+            "llm_model": body.get("llm_model"),
+            "version_note": args.note if args.agent_id else None,
+            "would_write_server_state": True,
+            "next_step": "Review this summary, then rerun without --dry-run after approval.",
+        }
+        print_json(result)
+        return 0
 
     if args.agent_id:
         body.pop("workspace_id", None)
@@ -118,7 +210,22 @@ def run_apply(args, client) -> int:
 
 def run_versions(args, client) -> int:
     versions = agents_mod.list_versions(client, args.agent)
-    print(json.dumps(versions, ensure_ascii=False, indent=2, default=str))
+    write_json(args.out, strip_noisy_fields(versions))
+    rows = []
+    for v in versions:
+        row = {
+            "id": v.get("id"),
+            "version_number": v.get("version_number"),
+            "status": v.get("status"),
+            "was_published": v.get("was_published"),
+            "version_note": v.get("version_note") or "",
+            "created_at": v.get("created_at"),
+        }
+        if args.full:
+            row["system_prompt_chars"] = len(v.get("system_prompt") or "")
+            row["tool_count"] = len(v.get("unified_tools") or v.get("tools") or [])
+        rows.append(row)
+    print_json(rows)
     return 0
 
 

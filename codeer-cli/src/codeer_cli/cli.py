@@ -18,7 +18,30 @@ from .commands import check
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="codeer")
+    parser = argparse.ArgumentParser(
+        prog="codeer",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="Codeer CLI — self-describing agent lifecycle tools.",
+        epilog="""\
+Safe workflow for coding agents:
+  codeer check --json
+  codeer agent list
+  codeer agent get <agent-id> --full
+  codeer kb list
+  codeer eval list --agent <agent-id>
+  codeer eval evaluators
+  codeer agent diff --agent <agent-id> --from-version <n> --to-version <n>
+  codeer eval reconcile --agent <agent-id> --manifest .codeer/eval_cases.json
+
+Preview mutations before applying:
+  codeer agent apply --payload agent.json --dry-run
+  codeer eval cases-apply --agent <agent-id> --cases eval_cases.json --dry-run
+  codeer eval rubrics-apply --rubrics rubrics.json --dry-run
+  codeer kb upload --dir kb --name "Product KB" --dry-run
+
+Use --out <path> for large raw artifacts; stdout defaults to compact summaries.
+""",
+    )
     sub = parser.add_subparsers(dest="group")
 
     check.register(sub)
@@ -67,6 +90,16 @@ def main(argv: list[str] | None = None) -> int:
             client = CodeerClient.from_env()
         except AuthError as e:
             if args.group == "check":
+                if getattr(args, "json", False):
+                    print(json.dumps({
+                        "status": "fail",
+                        "auth": {
+                            "ok": False,
+                            "error": str(e),
+                        },
+                        "next_step": "Configure CODEER_API_KEY or a codeer profile",
+                    }, ensure_ascii=False, indent=2))
+                    return 1
                 print(f"FAIL  Auth: {e}", file=sys.stderr)
                 print("      Configure CODEER_API_KEY or a codeer profile", file=sys.stderr)
                 return 1

@@ -14,7 +14,7 @@ from .. import agents as agents_mod
 from .. import eval_ as eval_mod
 from ..client import CodeerClient
 from ..parse import parse_eval_result, parse_eval_tool_calls, summarize_eval_tool_calls
-from ._util import log, truncate
+from ._util import log, print_json, strip_noisy_fields, truncate, write_json
 
 POLL_INTERVAL = 5
 POLL_TIMEOUT = 900
@@ -31,31 +31,53 @@ def register(subparsers):
     sub = ev.add_subparsers(dest="action", required=True)
 
     # codeer eval list
-    p = sub.add_parser("list", help="List eval cases for an agent")
+    p = sub.add_parser(
+        "list",
+        help="List eval cases. Defaults to compact case summaries for Codex/Claude lifecycle work.",
+    )
     p.add_argument("--agent", required=True)
+    p.add_argument("--limit", type=int, default=50,
+                   help="Number of cases to print by default (default: 50; use --all for every case).")
+    p.add_argument("--all", action="store_true",
+                   help="Print every case summary. Prefer --out for large suites.")
+    p.add_argument("--full", action="store_true",
+                   help="Print stripped full case payloads.")
+    p.add_argument("--out", default=None,
+                   help="Write stripped full case payloads to this file; stdout stays compact unless --full.")
     p.set_defaults(func=run_list)
 
     # codeer eval evaluators
-    p = sub.add_parser("evaluators", help="List evaluators in workspace")
+    p = sub.add_parser(
+        "evaluators",
+        help="List evaluators. Defaults to prompt metadata, not full prompt text.",
+    )
+    p.add_argument("--full", action="store_true",
+                   help="Print stripped full evaluator payloads, including prompt templates.")
+    p.add_argument("--out", default=None,
+                   help="Write stripped full evaluator payloads to this file.")
     p.set_defaults(func=run_evaluators)
 
     # codeer eval evaluator-create
-    p = sub.add_parser("evaluator-create", help="Create an evaluator in the workspace")
+    p = sub.add_parser("evaluator-create", help="Create an evaluator in the workspace; run --dry-run first")
     p.add_argument("--name", required=True)
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--system-prompt-template", help="Evaluator system prompt template text")
     g.add_argument("--system-prompt-template-file", help="Path to evaluator system prompt template")
     p.add_argument("--description", default=None)
+    p.add_argument("--dry-run", action="store_true",
+                   help="Validate inputs and print intended mutation without writing server state.")
     p.set_defaults(func=run_evaluator_create)
 
     # codeer eval evaluator-update
-    p = sub.add_parser("evaluator-update", help="Update an evaluator in the workspace")
+    p = sub.add_parser("evaluator-update", help="Update an evaluator in the workspace; run --dry-run first")
     p.add_argument("--evaluator", required=True, help="Evaluator UUID")
     p.add_argument("--name", default=None)
     g = p.add_mutually_exclusive_group()
     g.add_argument("--system-prompt-template", help="Evaluator system prompt template text")
     g.add_argument("--system-prompt-template-file", help="Path to evaluator system prompt template")
     p.add_argument("--description", default=None)
+    p.add_argument("--dry-run", action="store_true",
+                   help="Validate inputs and print intended mutation without writing server state.")
     p.set_defaults(func=run_evaluator_update)
 
     # codeer eval run
@@ -68,7 +90,10 @@ def register(subparsers):
     p.add_argument("--cases", default=None, help="Comma-separated case UUIDs (default: all)")
     p.add_argument("--evaluators", required=True, help="Comma-separated evaluator UUIDs")
     p.add_argument("--poll-timeout", type=int, default=POLL_TIMEOUT)
-    p.add_argument("--out", default=None)
+    p.add_argument("--full", action="store_true",
+                   help="Use longer previews in stdout. Raw outputs/tool calls still require --out.")
+    p.add_argument("--out", default=None,
+                   help="Write complete eval result artifact, including raw outputs/tool calls, to this file.")
     p.set_defaults(func=run_run)
 
     # codeer eval export
@@ -91,11 +116,13 @@ def register(subparsers):
     p.set_defaults(func=run_reconcile)
 
     # codeer eval cases-apply
-    p = sub.add_parser("cases-apply", help="Create/update eval cases from JSON manifest")
+    p = sub.add_parser("cases-apply", help="Create/update eval cases from JSON manifest; run --dry-run first")
     p.add_argument("--cases", required=True, help="Path to eval_cases.json")
     p.add_argument("--agent", required=True)
     p.add_argument("--attachments-dir", default=None, dest="attachments_dir")
     p.add_argument("--allow-duplicates", action="store_true")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Validate manifest and print intended mutations without writing server state.")
     p.add_argument("--out", default=None)
     p.set_defaults(func=run_cases_apply)
 
@@ -104,7 +131,10 @@ def register(subparsers):
     p.add_argument("--agent", required=True)
     p.add_argument("--evaluators", default=None, help="Comma-separated evaluator UUIDs")
     p.add_argument("--cases", default=None, help="Comma-separated case UUIDs")
-    p.add_argument("--out", default=None)
+    p.add_argument("--full", action="store_true",
+                   help="Print complete rubric text. Default prints matrix summaries/previews.")
+    p.add_argument("--out", default=None,
+                   help="Write complete rubric matrix to this file.")
     p.set_defaults(func=run_rubrics)
 
     # codeer eval rubrics-apply
@@ -120,9 +150,59 @@ def register(subparsers):
 # eval list
 # ---------------------------------------------------------------------------
 
+def _case_summary(case: dict, *, full: bool = False) -> dict:
+    row = {
+        "id": case.get("id"),
+        "input_preview": truncate(case.get("input") or "", 240 if full else 80),
+        "input_chars": len(case.get("input") or ""),
+        "expected_output_chars": len(case.get("expected_output") or ""),
+        "note_preview": truncate(case.get("note") or "", 180 if full else 100),
+        "attachment_count": len(case.get("attachments") or case.get("attachment_ids") or []),
+    }
+    if full:
+        row["created_at"] = case.get("created_at")
+        row["updated_at"] = case.get("updated_at")
+        row["meta"] = case.get("meta") or {}
+        row["expected_output_preview"] = truncate(case.get("expected_output") or "", 600)
+    return row
+
+
+def _evaluator_summary(evaluator: dict, *, full: bool = False) -> dict:
+    template = evaluator.get("system_prompt_template") or ""
+    row = {
+        "id": evaluator.get("id"),
+        "name": evaluator.get("name"),
+        "description": evaluator.get("description"),
+        "system_prompt_template_chars": len(template),
+        "has_tool_steps_placeholder": "{tool_steps}" in template,
+        "has_output_placeholder": "{output}" in template,
+        "created_at": evaluator.get("created_at"),
+        "updated_at": evaluator.get("updated_at"),
+    }
+    if full:
+        row["system_prompt_template"] = template
+    else:
+        row["system_prompt_template_preview"] = truncate(template, 240)
+    return row
+
+
 def run_list(args, client) -> int:
     cases = eval_mod.list_cases(client, args.agent)
-    print(json.dumps(cases, ensure_ascii=False, indent=2, default=str))
+    full_cases = strip_noisy_fields(cases)
+    write_json(args.out, full_cases)
+    shown = cases if args.all else cases[:args.limit]
+    if args.full:
+        payload = strip_noisy_fields(shown)
+    else:
+        payload = [_case_summary(c) for c in shown]
+    print_json({
+        "agent_id": args.agent,
+        "case_count": len(cases),
+        "returned_count": len(shown),
+        "limit": None if args.all else args.limit,
+        "wrote_full_detail": bool(args.out),
+        "cases": payload,
+    })
     return 0
 
 
@@ -133,7 +213,9 @@ def run_list(args, client) -> int:
 def run_evaluators(args, client) -> int:
     ws, _ = client.resolve_scope()
     evaluators = eval_mod.list_evaluators(client, ws)
-    print(json.dumps(evaluators, ensure_ascii=False, indent=2, default=str))
+    full_evaluators = strip_noisy_fields(evaluators)
+    write_json(args.out, full_evaluators)
+    print_json(full_evaluators if args.full else [_evaluator_summary(e) for e in evaluators])
     return 0
 
 
@@ -147,6 +229,18 @@ def run_evaluator_create(args, client) -> int:
         system_prompt_template = Path(args.system_prompt_template_file).read_text()
     else:
         system_prompt_template = args.system_prompt_template
+    if args.dry_run:
+        print_json({
+            "dry_run": True,
+            "operation": "create_evaluator",
+            "workspace_id": workspace_id,
+            "name": args.name,
+            "description": args.description,
+            "system_prompt_template_chars": len(system_prompt_template or ""),
+            "would_write_server_state": True,
+            "next_step": "Review this summary, then rerun without --dry-run after approval.",
+        })
+        return 0
     evaluator = eval_mod.create_evaluator(
         client,
         workspace_id=workspace_id,
@@ -154,7 +248,7 @@ def run_evaluator_create(args, client) -> int:
         system_prompt_template=system_prompt_template,
         description=args.description,
     )
-    print(json.dumps(evaluator, ensure_ascii=False, indent=2, default=str))
+    print_json(_evaluator_summary(evaluator, full=True))
     return 0
 
 
@@ -175,6 +269,21 @@ def run_evaluator_update(args, client) -> int:
         )
         return 2
 
+    if args.dry_run:
+        print_json({
+            "dry_run": True,
+            "operation": "update_evaluator",
+            "evaluator_id": args.evaluator,
+            "name": args.name,
+            "description": args.description,
+            "system_prompt_template_chars": (
+                len(system_prompt_template) if system_prompt_template is not None else None
+            ),
+            "would_write_server_state": True,
+            "next_step": "Review this summary, then rerun without --dry-run after approval.",
+        })
+        return 0
+
     evaluator = eval_mod.update_evaluator(
         client,
         evaluator_id=args.evaluator,
@@ -182,7 +291,7 @@ def run_evaluator_update(args, client) -> int:
         system_prompt_template=system_prompt_template,
         description=args.description,
     )
-    print(json.dumps(evaluator, ensure_ascii=False, indent=2, default=str))
+    print_json(_evaluator_summary(evaluator, full=True))
     return 0
 
 
@@ -295,15 +404,42 @@ def run_run(args, client) -> int:
             log(f"     reason: {(r.get('reason') or '').strip()[:600]}")
             log("")
 
+    preview_chars = 1200 if args.full else 360
+    result_summaries = []
+    for r in flat:
+        result_summaries.append({
+            "case_id": r.get("case_id"),
+            "case_label": r.get("case_label"),
+            "evaluator_id": r.get("evaluator_id"),
+            "evaluator_name": r.get("evaluator_name"),
+            "score": r.get("score"),
+            "status": r.get("status"),
+            "reason_preview": truncate(r.get("reason") or "", preview_chars),
+            "output_preview": truncate(r.get("output") or "", preview_chars),
+            "execution_time_s": r.get("execution_time_s"),
+            "cost_credits": r.get("cost_credits"),
+            "tool_call_count": r.get("tool_call_count"),
+            "tool_total_duration_ms": r.get("tool_total_duration_ms"),
+            "tool_calls_summary": truncate(r.get("tool_calls_summary") or "", preview_chars),
+        })
+
     out = {
+        "agent_id": args.agent,
+        "history_id": args.history,
+        "all_perfect": all_perfect,
+        "result_count": len(result_summaries),
+        "non_perfect_count": len(non_perfect),
+        "wrote_full_detail": bool(args.out),
+        "results": result_summaries,
+    }
+    full_out = {
         "agent_id": args.agent,
         "history_id": args.history,
         "all_perfect": all_perfect,
         "results": flat,
     }
-    print(json.dumps(out, indent=2, ensure_ascii=False))
-    if args.out:
-        Path(args.out).write_text(json.dumps(out, indent=2, ensure_ascii=False) + "\n")
+    write_json(args.out, full_out)
+    print_json(out)
     return 0 if all_perfect else 1
 
 
@@ -691,6 +827,7 @@ def run_cases_apply(args, client) -> int:
     labels: list[str] = []
     created: list[dict] = []
     reused: list[dict] = []
+    dry_run_updates: list[dict] = []
     for case in cases:
         rubrics = dict(case.get("rubrics") or {})
         if shared_style_rubric:
@@ -707,6 +844,9 @@ def run_cases_apply(args, client) -> int:
             if not fp or not fp.is_file():
                 log(f"error: attachment file not found for case '{label}': {fname}")
                 return 2
+            if args.dry_run:
+                attachment_ids.append(fname)
+                continue
             log(f"  uploading attachment: {fname}")
             uid = _upload_attachment(client, file_path=fp, workspace_id=workspace_id)
             attachment_ids.append(uid)
@@ -714,6 +854,22 @@ def run_cases_apply(args, client) -> int:
         existing = existing_by_input.get(case["input"])
         if existing is not None:
             case_id = existing["id"]
+            if args.dry_run:
+                case_ids.append(case_id)
+                labels.append(label)
+                reused.append({"case_id": case_id, "label": label})
+                dry_run_updates.append({
+                    "case_id": case_id,
+                    "label": label,
+                    "would_update_case_metadata": bool(
+                        case.get("expected_output") is not None
+                        or attachment_ids
+                        or case.get("meta") is not None
+                        or case.get("note") is not None
+                    ),
+                    "rubric_count": len(rubrics),
+                })
+                continue
             log(f"reusing existing case: {label} ({case_id[:8]})")
             if case.get("expected_output") is not None or attachment_ids or case.get("meta") is not None or case.get("note") is not None:
                 eval_mod.update_case(
@@ -731,6 +887,17 @@ def run_cases_apply(args, client) -> int:
             reused.append({"case_id": case_id, "label": label})
             continue
 
+        if args.dry_run:
+            labels.append(label)
+            created.append({
+                "label": label,
+                "input_chars": len(case.get("input") or ""),
+                "expected_output_chars": len(case.get("expected_output") or ""),
+                "attachment_count": len(attachment_ids),
+                "rubric_count": len(rubrics),
+            })
+            continue
+
         log(f"creating: {label}")
         result = eval_mod.create_case_with_rubrics(
             client, agent_id=args.agent, input=case["input"],
@@ -744,6 +911,15 @@ def run_cases_apply(args, client) -> int:
         created.append({"case_id": result["id"], "label": label})
 
     out = {"case_ids": case_ids, "labels": labels, "created": created, "reused": reused}
+    if args.dry_run:
+        out.update({
+            "dry_run": True,
+            "operation": "cases_apply",
+            "agent_id": args.agent,
+            "updates": dry_run_updates,
+            "would_write_server_state": True,
+            "next_step": "Review this summary, then rerun without --dry-run after approval.",
+        })
     out_text = json.dumps(out, indent=2, ensure_ascii=False)
     print(out_text)
     if args.out:
@@ -785,19 +961,37 @@ def run_rubrics(args, client) -> int:
         evaluator_ids=evaluator_ids, case_ids=case_ids,
     )
 
+    if args.full:
+        for cid in case_ids:
+            log("=" * 80)
+            log(f"CASE {cid}")
+            log(f"  input: {truncate(case_input.get(cid, ''), 120)}")
+            for ev_id in evaluator_ids:
+                ev_name = evaluator_name.get(ev_id, ev_id)
+                rubric_text = (rubrics.get(cid) or {}).get(ev_id, "")
+                if not rubric_text:
+                    log(f"  [{ev_name}] (rubric not set)")
+                else:
+                    log(f"  [{ev_name}]")
+                    for line in rubric_text.splitlines():
+                        log(f"    {line}")
+
+    summary_cases = []
     for cid in case_ids:
-        log("=" * 80)
-        log(f"CASE {cid}")
-        log(f"  input: {truncate(case_input.get(cid, ''), 120)}")
+        rubrics_summary = {}
         for ev_id in evaluator_ids:
-            ev_name = evaluator_name.get(ev_id, ev_id)
             rubric_text = (rubrics.get(cid) or {}).get(ev_id, "")
-            if not rubric_text:
-                log(f"  [{ev_name}] (rubric not set)")
-            else:
-                log(f"  [{ev_name}]")
-                for line in rubric_text.splitlines():
-                    log(f"    {line}")
+            rubrics_summary[ev_id] = {
+                "evaluator_name": evaluator_name.get(ev_id, ev_id),
+                "is_set": bool(rubric_text),
+                "chars": len(rubric_text),
+                "preview": truncate(rubric_text, 240),
+            }
+        summary_cases.append({
+            "case_id": cid,
+            "input_preview": truncate(case_input.get(cid, ""), 160),
+            "rubrics_by_evaluator": rubrics_summary,
+        })
 
     out = {
         "agent_id": args.agent,
@@ -815,9 +1009,19 @@ def run_rubrics(args, client) -> int:
             for cid in case_ids
         ],
     }
-    print(json.dumps(out, indent=2, ensure_ascii=False))
-    if args.out:
-        Path(args.out).write_text(json.dumps(out, indent=2, ensure_ascii=False) + "\n")
+    write_json(args.out, out)
+    if args.full:
+        print_json(out)
+    else:
+        print_json({
+            "agent_id": args.agent,
+            "workspace_id": workspace_id,
+            "evaluator_count": len(evaluators),
+            "case_count": len(case_ids),
+            "wrote_full_detail": bool(args.out),
+            "evaluators": [{"id": e["id"], "name": e.get("name")} for e in evaluators],
+            "cases": summary_cases,
+        })
     return 0
 
 

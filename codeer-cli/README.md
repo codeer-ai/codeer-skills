@@ -88,3 +88,29 @@ Validate setup before API work:
 ```bash
 codeer check
 ```
+
+## Output policy for coding agents
+
+The CLI is optimized for Codex, Claude Code, Claude Cowork, and similar coding
+agents that keep command output in their LLM context. Default stdout is a
+compact lifecycle summary, not the full server payload.
+
+Use this pattern during agent lifecycle work:
+
+```bash
+codeer agent list
+codeer history list --agent <agent-id> --limit 50
+codeer eval run --agent <agent-id> --evaluators <evaluator-id> --out .codeer/eval_run.json
+```
+
+Flags:
+
+- `--full` prints bounded extra detail for human inspection. It is still
+  intended to be safe for LLM context.
+- `--out <path>` writes complete diagnostic artifacts to a local file. Use it
+  for raw eval results, full conversation turns, full rubric matrices, and
+  other data that can grow with cases, versions, or turns.
+
+Avoid piping large raw JSON directly into agent chat. Prefer `--out`, then ask
+the coding agent to inspect targeted summaries, IDs, failing cases, or selected
+snippets from the saved file.

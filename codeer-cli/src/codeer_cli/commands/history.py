@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import json
 import os
 
 from .. import agents as agents_mod
 from .. import chats as chats_mod
 from .. import histories as hist_mod
-from ._util import log
+from ._util import log, print_json, strip_noisy_fields, truncate, write_json
 
 
 def register(subparsers):
@@ -14,7 +13,10 @@ def register(subparsers):
     sub = h.add_subparsers(dest="action", required=True)
 
     # codeer history list
-    p = sub.add_parser("list", help="List conversation histories")
+    p = sub.add_parser(
+        "list",
+        help="List conversation histories. Defaults to compact lifecycle fields for LLM context safety.",
+    )
     p.add_argument("--agent", default=None)
     p.add_argument("--user", default=None, help="Filter by external_user_id")
     p.add_argument("--feedback", default=None, help="positive / negative / any")
@@ -22,18 +24,34 @@ def register(subparsers):
                    help="Comma-separated external_user_ids to exclude")
     p.add_argument("--version", type=int, default=None,
                    help="Filter to histories created while this agent version was live (requires --agent)")
-    p.add_argument("--limit", type=int, default=500)
+    p.add_argument("--limit", type=int, default=50,
+                   help="Number of histories to inspect (default: 50; increase deliberately for audits).")
     p.add_argument("--offset", type=int, default=0)
+    p.add_argument("--full", action="store_true",
+                   help="Add bounded metadata; complete raw listing should be written with --out.")
+    p.add_argument("--out", default=None,
+                   help="Write stripped full listing to this file; stdout stays compact.")
     p.set_defaults(func=run_list)
 
     # codeer history get <id>
-    p = sub.add_parser("get", help="Get single history metadata")
+    p = sub.add_parser("get", help="Get one history. Defaults to summary; use --full or --out for more.")
     p.add_argument("history_id", type=int)
+    p.add_argument("--full", action="store_true",
+                   help="Print stripped full history metadata.")
+    p.add_argument("--out", default=None,
+                   help="Write stripped full history metadata to this file.")
     p.set_defaults(func=run_get)
 
     # codeer history conversations <id>
-    p = sub.add_parser("conversations", help="Get all turns in a history")
+    p = sub.add_parser(
+        "conversations",
+        help="Summarize all turns in a history. Complete turns/tool payloads require --out.",
+    )
     p.add_argument("history_id", type=int)
+    p.add_argument("--full", action="store_true",
+                   help="Require --out and write complete stripped turns there; stdout remains a summary.")
+    p.add_argument("--out", default=None,
+                   help="Write complete stripped turns to this file. Use for debugging or eval-case extraction.")
     p.set_defaults(func=run_conversations)
 
     # codeer history negative-feedback
@@ -41,7 +59,12 @@ def register(subparsers):
     p.add_argument("--agent", required=True)
     p.add_argument("--exclude-users", default=None,
                    help="Comma-separated external_user_ids to exclude")
-    p.add_argument("--limit", type=int, default=500)
+    p.add_argument("--limit", type=int, default=50,
+                   help="Number of histories to scan for feedback (default: 50; increase deliberately).")
+    p.add_argument("--full", action="store_true",
+                   help="Include longer excerpts; still avoids raw conversation payloads.")
+    p.add_argument("--out", default=None,
+                   help="Write the same compact negative-feedback rows to this file.")
     p.set_defaults(func=run_negative_feedback)
 
     # codeer history create --agent <id> --message ...
@@ -51,6 +74,8 @@ def register(subparsers):
     p.add_argument("--user", default=None, help="external_user_id to associate with the history")
     p.add_argument("--message", action="append", required=True,
                    help="User message to send. Repeat for multi-turn histories.")
+    p.add_argument("--out", default=None,
+                   help="Write complete create response/conversation artifact to this file; stdout stays compact.")
     p.set_defaults(func=run_create)
 
 
@@ -80,6 +105,60 @@ def _version_window(client, agent_id: str, version_number: int) -> tuple[str | N
     start = target.get("published_at") or target.get("created_at")
     end = next_version.get("published_at") or next_version.get("created_at") if next_version else None
     return start, end
+
+
+def _feedback_counts(row: dict) -> dict:
+    return row.get("feedback_conversation_counts") or row.get("feedback_counts") or {}
+
+
+def _history_summary(row: dict, *, full: bool = False) -> dict:
+    out = {
+        "id": row.get("id"),
+        "name": row.get("name") or row.get("title"),
+        "agent_id": row.get("agent_id") or (row.get("agent") or {}).get("id"),
+        "agent_name": row.get("agent_name") or (row.get("agent") or {}).get("name"),
+        "external_user_id": row.get("external_user_id"),
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+        "total_cost_credits": row.get("total_cost_credits"),
+        "feedback_counts": _feedback_counts(row),
+        "snippet_preview": truncate(row.get("snippet") or "", 240),
+    }
+    if full:
+        out["share_type"] = row.get("share_type")
+        meta = row.get("meta") or {}
+        out["meta"] = {
+            "evaluation_mode": meta.get("evaluation_mode"),
+            "external_user_id": meta.get("external_user_id"),
+            "conversation_agent_id": meta.get("conversation_agent_id"),
+            "channel_id": meta.get("channel_id"),
+        }
+    return out
+
+
+def _turn_summary(turn: dict, idx: int, *, full: bool = False) -> dict:
+    content = turn.get("content") or turn.get("message") or ""
+    tool_calls = turn.get("tool_calls") or turn.get("tools") or []
+    row = {
+        "turn_idx": idx,
+        "id": turn.get("id"),
+        "role": turn.get("role"),
+        "created_at": turn.get("created_at"),
+        "content_preview": truncate(content, 600 if full else 240),
+        "content_chars": len(content),
+        "tool_call_count": len(tool_calls) if isinstance(tool_calls, list) else None,
+        "feedback_count": len(turn.get("feedbacks") or []),
+    }
+    if full:
+        row["feedbacks"] = [
+            {
+                "type": fb.get("type"),
+                "tag": fb.get("tag"),
+                "content_preview": truncate(fb.get("content") or "", 240),
+            }
+            for fb in (turn.get("feedbacks") or [])
+        ]
+    return row
 
 
 def run_list(args, client) -> int:
@@ -119,19 +198,31 @@ def run_list(args, client) -> int:
             filtered.append(h)
         rows = filtered
 
-    print(json.dumps(rows, ensure_ascii=False, indent=2, default=str))
+    write_json(args.out, strip_noisy_fields(rows))
+    print_json([_history_summary(h, full=args.full) for h in rows])
     return 0
 
 
 def run_get(args, client) -> int:
     result = hist_mod.get(client, args.history_id)
-    print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+    full_result = strip_noisy_fields(result)
+    write_json(args.out, full_result)
+    print_json(full_result if args.full else _history_summary(result))
     return 0
 
 
 def run_conversations(args, client) -> int:
     result = hist_mod.get_conversations(client, args.history_id)
-    print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+    if args.full and not args.out:
+        log("error: full conversation payloads are unbounded; pass --out <path>")
+        return 2
+    write_json(args.out, strip_noisy_fields(result))
+    print_json({
+        "history_id": args.history_id,
+        "turn_count": len(result),
+        "wrote_full_detail": bool(args.out),
+        "turns": [_turn_summary(t, i, full=args.full) for i, t in enumerate(result)],
+    })
     return 0
 
 
@@ -146,7 +237,12 @@ def run_negative_feedback(args, client) -> int:
         exclude_users=exclude,
         limit=args.limit,
     )
-    print(json.dumps(rows, ensure_ascii=False, indent=2, default=str))
+    if args.full:
+        for row in rows:
+            row["user_message"] = truncate(row.get("user_message") or "", 600)
+            row["assistant_excerpt"] = truncate(row.get("assistant_excerpt") or "", 1200)
+    write_json(args.out, rows)
+    print_json(rows)
     return 0
 
 
@@ -196,5 +292,14 @@ def run_create(args, client) -> int:
         "messages": message_results,
         "conversations": conversations,
     }
-    print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
+    write_json(args.out, strip_noisy_fields(out))
+    print_json({
+        "agent_id": agent_id,
+        "history_id": history_id,
+        "external_user_id": args.user,
+        "url": out["url"],
+        "message_count": len(message_results),
+        "turn_count": len(conversations),
+        "wrote_full_detail": bool(args.out),
+    })
     return 0

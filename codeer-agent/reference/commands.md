@@ -18,7 +18,6 @@ Only `kb/` (source content for upload) stays at root level.
 | `codeer agent apply` | Create or update agent (always creates a new DRAFT version) |
 | `codeer agent diff` | Show diff between versions |
 | `codeer agent versions` | List agent version history |
-| `codeer agent publish` | Publish a draft version |
 | `codeer kb list` | List knowledge bases in workspace |
 | `codeer kb upload` | Create/reuse KB + upload files + poll until indexed |
 | `codeer eval list` | List eval cases for an agent |
@@ -35,6 +34,33 @@ Only `kb/` (source content for upload) stays at root level.
 | `codeer history create` | Create a real persisted conversation history through the published agent |
 | `codeer history negative-feedback` | Surface turns with negative feedback |
 | `codeer history conversations` | Read a specific conversation history |
+
+---
+
+## Safe CLI-first workflow
+
+When the repository source is unavailable, use the installed CLI as the full
+interface contract:
+
+```bash
+codeer check --json
+codeer agent list
+codeer agent get <agent-id> --full
+codeer kb list
+codeer eval list --agent <agent-id>
+codeer eval evaluators
+```
+
+Before any server mutation, preview the intended write:
+
+```bash
+codeer agent apply --payload agent.json --dry-run
+codeer eval cases-apply --agent <agent-id> --cases eval_cases.json --dry-run
+codeer eval rubrics-apply --rubrics rubrics.json --dry-run
+codeer kb upload --dir kb --name "Product KB" --dry-run
+```
+
+Apply only after the user approves the dry-run summary.
 
 ---
 
