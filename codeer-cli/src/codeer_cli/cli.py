@@ -2,7 +2,7 @@
 
     codeer check
     codeer agent list|get|apply|diff|versions
-    codeer kb list|files|upload
+    codeer kb list|files|upload|faq-list|faq-get|faq-create|faq-update|faq-delete
     codeer eval list|evaluators|evaluator-create|evaluator-update|run|export|reconcile|cases-apply|rubrics|rubrics-apply
     codeer history list|get|conversations|negative-feedback
 """
@@ -38,6 +38,7 @@ Preview mutations before applying:
   codeer eval cases-apply --agent <agent-id> --cases eval_cases.json --dry-run
   codeer eval rubrics-apply --rubrics rubrics.json --dry-run
   codeer kb upload --dir kb --name "Product KB" --dry-run
+  codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --dry-run
 
 Use --out <path> for large raw artifacts; stdout defaults to compact summaries.
 """,

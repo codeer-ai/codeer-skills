@@ -50,11 +50,54 @@ def register(subparsers):
     p.add_argument("--poll-timeout", type=int, default=POLL_TIMEOUT)
     p.set_defaults(func=run_upload)
 
+    p = sub.add_parser("faq-list", help="List Context Object FAQ entries")
+    p.add_argument("--context-object-id", type=int, default=None,
+                   help="Filter to a KB file snapshot_object_id")
+    p.add_argument("--limit", type=int, default=100, help="Page size, 1-200")
+    p.add_argument("--offset", type=int, default=0, help="Page offset")
+    p.add_argument("--full", action="store_true",
+                   help="Print full FAQ metadata.")
+    p.add_argument("--out", default=None,
+                   help="Write full FAQ metadata to this file; stdout stays compact unless --full.")
+    p.set_defaults(func=run_faq_list)
+
+    p = sub.add_parser("faq-get", help="Get one Context Object FAQ entry")
+    p.add_argument("faq_id", type=int)
+    p.add_argument("--out", default=None, help="Write result JSON to this file too")
+    p.set_defaults(func=run_faq_get)
+
+    p = sub.add_parser("faq-create", help="Create a Context Object FAQ entry; run --dry-run first")
+    p.add_argument("--context-object-id", type=int, required=True,
+                   help="KB file snapshot_object_id from `codeer kb files`")
+    p.add_argument("--question", required=True)
+    p.add_argument("--dry-run", action="store_true",
+                   help="Print intended request without writing server state.")
+    p.add_argument("--out", default=None, help="Write result JSON to this file too")
+    p.set_defaults(func=run_faq_create)
+
+    p = sub.add_parser("faq-update", help="Update a Context Object FAQ entry; run --dry-run first")
+    p.add_argument("faq_id", type=int)
+    p.add_argument("--context-object-id", type=int, default=None,
+                   help="Move FAQ to a different KB file snapshot_object_id")
+    p.add_argument("--question", default=None)
+    p.add_argument("--dry-run", action="store_true",
+                   help="Print intended request without writing server state.")
+    p.add_argument("--out", default=None, help="Write result JSON to this file too")
+    p.set_defaults(func=run_faq_update)
+
+    p = sub.add_parser("faq-delete", help="Delete a Context Object FAQ entry; run --dry-run first")
+    p.add_argument("faq_id", type=int)
+    p.add_argument("--dry-run", action="store_true",
+                   help="Print intended request without writing server state.")
+    p.add_argument("--out", default=None, help="Write result JSON to this file too")
+    p.set_defaults(func=run_faq_delete)
+
 
 def _node_summary(node: dict) -> dict:
     return {
         "id": node.get("id") or node.get("node_id"),
         "node_id": node.get("node_id"),
+        "snapshot_object_id": node.get("snapshot_object_id"),
         "name": node.get("name") or node.get("original_name"),
         "original_name": node.get("original_name"),
         "type": node.get("type") or node.get("node_type"),
@@ -64,6 +107,27 @@ def _node_summary(node: dict) -> dict:
         "description_preview": truncate(node.get("description") or "", 160),
         "children_count": node.get("children_count") or node.get("child_count"),
     }
+
+
+def _faq_summary(faq: dict) -> dict:
+    return {
+        "id": faq.get("id"),
+        "context_object_id": faq.get("context_object_id"),
+        "question": faq.get("question"),
+        "has_question_embedding": faq.get("has_question_embedding"),
+        "updated_at": faq.get("updated_at"),
+    }
+
+
+def _print_and_write(path: str | None, value: dict | list[dict]) -> None:
+    print_json(value)
+    write_json(path, value)
+
+
+def _dry_run(path: str | None, result: dict) -> int:
+    print_json(result)
+    write_json(path, result)
+    return 0
 
 
 def run_list(args, client) -> int:
@@ -182,3 +246,105 @@ def run_upload(args, client) -> int:
         Path(args.out).write_text(out_text + "\n")
         log(f"wrote {args.out}")
     return 0 if not not_ready else 1
+
+
+def run_faq_list(args, client) -> int:
+    faqs = kb_mod.list_context_obj_faqs(
+        client,
+        context_object_id=args.context_object_id,
+        limit=args.limit,
+        offset=args.offset,
+    )
+    full_faqs = strip_noisy_fields(faqs)
+    write_json(args.out, full_faqs)
+    print_json(full_faqs if args.full else [_faq_summary(f) for f in faqs])
+    return 0
+
+
+def run_faq_get(args, client) -> int:
+    faq = strip_noisy_fields(kb_mod.get_context_obj_faq(client, faq_id=args.faq_id))
+    _print_and_write(args.out, faq)
+    return 0
+
+
+def run_faq_create(args, client) -> int:
+    body = {"context_object_id": args.context_object_id, "question": args.question}
+    if args.dry_run:
+        return _dry_run(
+            args.out,
+            {
+                "dry_run": True,
+                "operation": "kb_faq_create",
+                "method": "POST",
+                "path": "/external/context-object-faqs",
+                "body": body,
+                "would_write_server_state": True,
+                "next_step": "Review this summary, then rerun without --dry-run after approval.",
+            },
+        )
+
+    faq = strip_noisy_fields(
+        kb_mod.create_context_obj_faq(
+            client,
+            context_object_id=args.context_object_id,
+            question=args.question,
+        )
+    )
+    _print_and_write(args.out, faq)
+    return 0
+
+
+def run_faq_update(args, client) -> int:
+    if args.context_object_id is None and args.question is None:
+        log("error: provide --context-object-id or --question")
+        return 2
+
+    body: dict[str, object] = {}
+    if args.context_object_id is not None:
+        body["context_object_id"] = args.context_object_id
+    if args.question is not None:
+        body["question"] = args.question
+
+    if args.dry_run:
+        return _dry_run(
+            args.out,
+            {
+                "dry_run": True,
+                "operation": "kb_faq_update",
+                "method": "PATCH",
+                "path": f"/external/context-object-faqs/{args.faq_id}",
+                "body": body,
+                "would_write_server_state": True,
+                "next_step": "Review this summary, then rerun without --dry-run after approval.",
+            },
+        )
+
+    faq = strip_noisy_fields(
+        kb_mod.update_context_obj_faq(
+            client,
+            faq_id=args.faq_id,
+            context_object_id=args.context_object_id,
+            question=args.question,
+        )
+    )
+    _print_and_write(args.out, faq)
+    return 0
+
+
+def run_faq_delete(args, client) -> int:
+    if args.dry_run:
+        return _dry_run(
+            args.out,
+            {
+                "dry_run": True,
+                "operation": "kb_faq_delete",
+                "method": "DELETE",
+                "path": f"/external/context-object-faqs/{args.faq_id}",
+                "would_write_server_state": True,
+                "next_step": "Review this summary, then rerun without --dry-run after approval.",
+            },
+        )
+
+    response = strip_noisy_fields(kb_mod.delete_context_obj_faq(client, faq_id=args.faq_id))
+    _print_and_write(args.out, response)
+    return 0

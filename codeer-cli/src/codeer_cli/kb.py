@@ -40,6 +40,10 @@ def _base(organization_id: str, workspace_id: str) -> str:
     return "/external/knowledge-bases"
 
 
+def _faq_base() -> str:
+    return "/external/context-object-faqs"
+
+
 def list_nodes(
     client: CodeerClient,
     *,
@@ -224,3 +228,51 @@ def read_file_content(
     node_id: str,
 ) -> dict:
     return client.get(f"{_base(organization_id, workspace_id)}/files/{node_id}/content")
+
+
+def list_context_obj_faqs(
+    client: CodeerClient,
+    *,
+    context_object_id: Optional[int] = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict]:
+    params: dict[str, Any] = {"limit": limit, "offset": offset}
+    if context_object_id is not None:
+        params["context_object_id"] = context_object_id
+    return client.get(_faq_base(), params=params)
+
+
+def get_context_obj_faq(client: CodeerClient, *, faq_id: int) -> dict:
+    return client.get(f"{_faq_base()}/{faq_id}")
+
+
+def create_context_obj_faq(
+    client: CodeerClient,
+    *,
+    context_object_id: int,
+    question: str,
+) -> dict:
+    return client.post(
+        _faq_base(),
+        json={"context_object_id": context_object_id, "question": question},
+    )
+
+
+def update_context_obj_faq(
+    client: CodeerClient,
+    *,
+    faq_id: int,
+    context_object_id: Optional[int] = None,
+    question: Optional[str] = None,
+) -> dict:
+    body: dict[str, Any] = {}
+    if context_object_id is not None:
+        body["context_object_id"] = context_object_id
+    if question is not None:
+        body["question"] = question
+    return client.patch(f"{_faq_base()}/{faq_id}", json=body)
+
+
+def delete_context_obj_faq(client: CodeerClient, *, faq_id: int) -> dict:
+    return client.delete(f"{_faq_base()}/{faq_id}")

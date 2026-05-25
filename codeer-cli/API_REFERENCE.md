@@ -66,6 +66,38 @@ Base path: `/organizations/{org_id}/workspaces/{ws_id}/knowledge_bases`
 Attach KB files to an agent by listing their node IDs in the agent's
 `unified_tools[].knowledge_node_ids`.
 
+### Context Object FAQ
+
+Base path: `/external/context-object-faqs`
+
+| Method & path | Purpose |
+| --- | --- |
+| `GET /context-object-faqs` | List FAQ entries, optionally filtered by `context_object_id` |
+| `GET /context-object-faqs/{faq_id}` | Read one FAQ entry |
+| `POST /context-object-faqs` | Create an FAQ entry |
+| `PATCH /context-object-faqs/{faq_id}` | Update the linked context object and/or question |
+| `DELETE /context-object-faqs/{faq_id}` | Delete an FAQ entry |
+
+Create body:
+
+```json
+{"context_object_id": 123, "question": "How do I reset billing?"}
+```
+
+Update body accepts either or both fields:
+
+```json
+{"context_object_id": 456, "question": "How do I update billing?"}
+```
+
+`context_object_id` is the KB file's `snapshot_object_id` from the KB node
+listing. The compact CLI output includes it:
+
+```bash
+codeer kb files --kb-id <kb-id>
+codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --dry-run
+```
+
 ## Stage 3 — Live Test on a specific version
 
 | Method & path | Purpose |

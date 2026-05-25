@@ -67,6 +67,8 @@ A mechanism for routing specific questions directly to a canonical KB file.
 - During `retrieve_context_objs`, FAQ embeddings are matched against the user's query
 - Matched FAQ items are flagged as `retrieval_route="faq_reserved"` and prioritized in results
 - This gives retrieval a direct question-to-source signal, bypassing pure semantic similarity
+- In CLI KB output, the FAQ target `ContextObj.id` appears as the file node's
+  `snapshot_object_id`
 
 ### When to use
 

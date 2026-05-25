@@ -114,3 +114,18 @@ Flags:
 Avoid piping large raw JSON directly into agent chat. Prefer `--out`, then ask
 the coding agent to inspect targeted summaries, IDs, failing cases, or selected
 snippets from the saved file.
+
+## Context Object FAQ
+
+Use Context Object FAQ entries to route high-value questions to a canonical KB
+file when semantic retrieval misses the right source. The FAQ target is a KB
+file's `snapshot_object_id`, shown by `codeer kb files`.
+
+```bash
+codeer kb files --kb-id <kb-id>
+codeer kb faq-list --context-object-id <snapshot-object-id>
+codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --dry-run
+```
+
+After reviewing the dry-run output, rerun the create/update/delete command
+without `--dry-run` to apply it.

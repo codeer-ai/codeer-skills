@@ -20,6 +20,11 @@ Only `kb/` (source content for upload) stays at root level.
 | `codeer agent versions` | List agent version history |
 | `codeer kb list` | List knowledge bases in workspace |
 | `codeer kb upload` | Create/reuse KB + upload files + poll until indexed |
+| `codeer kb faq-list` | List Context Object FAQ entries |
+| `codeer kb faq-get` | Read one Context Object FAQ entry |
+| `codeer kb faq-create` | Create a question-to-KB-file FAQ route |
+| `codeer kb faq-update` | Update a Context Object FAQ question or target file |
+| `codeer kb faq-delete` | Delete a Context Object FAQ entry |
 | `codeer eval list` | List eval cases for an agent |
 | `codeer eval evaluators` | List evaluators in workspace |
 | `codeer eval evaluator-create` | Create an evaluator in the workspace |
@@ -58,9 +63,34 @@ codeer agent apply --payload agent.json --dry-run
 codeer eval cases-apply --agent <agent-id> --cases eval_cases.json --dry-run
 codeer eval rubrics-apply --rubrics rubrics.json --dry-run
 codeer kb upload --dir kb --name "Product KB" --dry-run
+codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --dry-run
 ```
 
 Apply only after the user approves the dry-run summary.
+
+## `codeer kb faq-*` commands
+
+Context Object FAQ links a representative question to a canonical KB file.
+Use it only after confirming the file is uploaded, attached, and `READY`, and
+semantic retrieval is missing that file despite a reasonable query.
+
+The FAQ target is the file node's `snapshot_object_id`, shown by:
+
+```bash
+codeer kb files --kb-id <kb-id>
+```
+
+Commands:
+
+| Command | Purpose |
+| --- | --- |
+| `codeer kb faq-list [--context-object-id ID]` | List FAQ routes |
+| `codeer kb faq-get <faq-id>` | Inspect one FAQ route |
+| `codeer kb faq-create --context-object-id ID --question TEXT --dry-run` | Preview creation |
+| `codeer kb faq-update <faq-id> [--context-object-id ID] [--question TEXT] --dry-run` | Preview update |
+| `codeer kb faq-delete <faq-id> --dry-run` | Preview deletion |
+
+After user approval, rerun the same mutation command without `--dry-run`.
 
 ---
 
