@@ -85,8 +85,7 @@ class CodeerClient:
         if not api_key:
             raise AuthError(
                 0,
-                "Missing API key. Export CODEER_API_KEY or run `codeer profile add <name>` "
-                "and `codeer profile use <name>`.",
+                "Missing API key. Export CODEER_API_KEY or run `codeer profile add <name>`.",
             )
 
         overrides.pop("workspace_id", None)

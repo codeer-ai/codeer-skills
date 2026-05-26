@@ -16,7 +16,6 @@ published to PyPI, install it as an isolated command line tool:
 ```bash
 uv tool install codeer-cli
 codeer profile add work
-codeer profile use work
 codeer check
 ```
 

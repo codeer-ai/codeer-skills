@@ -124,7 +124,7 @@ def run_add(args, client=None) -> int:
         data["default"] = args.name
     _write_profiles(data)
     print(f"Saved profile {args.name}")
-    return 0
+    return run_use(args)
 
 
 def run_use(args, client=None) -> int:
