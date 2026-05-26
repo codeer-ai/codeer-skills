@@ -3,8 +3,87 @@
 Use registered `codeer` domain commands only. If an operation is not supported
 by the CLI, say that it is not supported by the CLI and stop for user direction.
 
-All generated files go under **`.codeer/`** in the project root.
 Only `kb/` (source content for upload) stays at root level.
+All working files go under **`.codeer/`** in the project root.
+
+---
+
+## `.codeer/` file lifecycle
+
+The server is the source of truth for all agent, eval case, and rubric data.
+Local files are either **caches** of server state or **drafts** staged for apply.
+
+```
+.codeer/
+├── current/                            # working directory for active cycle
+│   ├── agent.json                      # cache:  codeer agent get
+│   ├── eval_cases.json                 # cache:  codeer eval list
+│   ├── rubrics.json                    # cache:  codeer eval rubrics
+│   ├── eval_table/                     # cache:  codeer eval export (on demand)
+│   │   ├── eval_table_full.json
+│   │   ├── eval_table_summary.md
+│   │   └── eval_table.csv
+│   ├── local_draft_agent.json          # draft:  codeer agent apply
+│   ├── local_draft_eval_cases.json     # draft:  codeer eval cases-apply
+│   ├── local_draft_rubrics.json        # draft:  codeer eval rubrics-apply
+│   └── progress.json                   # batch tracking across eval runs
+│
+└── pinned/                             # user-triggered, auto-dated
+    └── YYYY-MM-DD/                     # append -2, -3 for same-day pins
+```
+
+### Rules
+
+1. **`current/` overwrites in place** — no date-stamping, no versioning.
+   Refresh caches from the server at the start of each cycle.
+2. **`pinned/` is append-only** — before overwriting something the user may
+   want to keep, ask "pin these results?" and copy to `pinned/<date>/`.
+3. **No files outside `current/` and `pinned/`** — nothing at `.codeer/` root.
+4. **No scripts** — `.py`, `.mjs`, `.html`, `.cjs` are prohibited under
+   `.codeer/`. If the CLI cannot do it, say so and stop for user direction.
+5. **Drafts use `local_draft_` prefix** — distinguishes staging files from
+   server caches. Delete drafts after successful apply + cache refresh.
+6. **ID cache files are not used** — no `kb_ids.json`, `agent_ids.json`,
+   `case_ids.json`. The CLI resolves IDs from env vars or server queries.
+
+### Cycle lifecycle
+
+| Phase | What happens to `current/` |
+| --- | --- |
+| Cycle start | Refresh caches: `codeer agent get`, `codeer eval list`, `codeer eval rubrics` |
+| During cycle | Drafts created, diffs shown, applied. Eval exports overwrite `eval_table/`. Debug artifacts overwrite in place per batch. |
+| Pin (optional) | Copy `current/eval_table/` (or any subset) to `pinned/<date>/` |
+| Cycle end (publish) | `current/` stays as final state; next cycle start overwrites it |
+
+### Batch progress tracking
+
+When eval cases are split into batches, track status in `current/progress.json`:
+
+```json
+{
+  "total_cases": 120,
+  "batches": [
+    {
+      "batch": 1,
+      "label": "books-pricing",
+      "case_ids": ["uuid1", "uuid2"],
+      "status": "done",
+      "final_score": 0.92,
+      "fix_summary": "relaxed price-optional rubric"
+    },
+    {
+      "batch": 2,
+      "label": "routing",
+      "case_ids": ["uuid3"],
+      "status": "in-progress"
+    }
+  ]
+}
+```
+
+All debug-loop artifacts (rubrics before/after, rerun results) overwrite the
+same files in `current/` regardless of which batch is active. When a batch
+completes, record the summary in `progress.json` and move to the next batch.
 
 ---
 
@@ -59,9 +138,9 @@ codeer eval evaluators
 Before any server mutation, preview the intended write:
 
 ```bash
-codeer agent apply --payload agent.json --dry-run
-codeer eval cases-apply --agent <agent-id> --cases eval_cases.json --dry-run
-codeer eval rubrics-apply --rubrics rubrics.json --dry-run
+codeer agent apply --payload .codeer/current/local_draft_agent.json --dry-run
+codeer eval cases-apply --agent <agent-id> --cases .codeer/current/local_draft_eval_cases.json --dry-run
+codeer eval rubrics-apply --rubrics .codeer/current/local_draft_rubrics.json --dry-run
 codeer kb upload --dir kb --name "Product KB" --dry-run
 codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --dry-run
 ```

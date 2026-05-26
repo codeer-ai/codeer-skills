@@ -86,9 +86,17 @@ before making any fix:
 ```bash
 codeer eval run \
     --agent <agent_id> --history <published_history_id> \
-    --evaluators <evaluator_id> \
-    --out .codeer/eval_baseline.json
+    --evaluators <evaluator_id>
 ```
+
+Export the baseline results and pin them so they survive the fix cycle:
+
+```bash
+codeer eval export --agent <agent_id> --out .codeer/current/eval_table/
+```
+
+Ask the user: "Pin these baseline results before we start fixing?" If
+yes, copy `current/eval_table/` to `pinned/<date>-baseline/`.
 
 New failure cases should fail; protection cases should pass. Then hand off
 to **eval-debug** for the fix cycle.

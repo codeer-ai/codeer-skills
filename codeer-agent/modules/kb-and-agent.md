@@ -31,9 +31,10 @@ an existing agent.
 5. **Tools used** — which tools the agent needs and why (knowledge base,
    web search, request form, call agent, memory, http request, etc.).
 
-Save the answers to `.codeer/scope.md`. This document feeds directly into
-the system prompt (allowed outcomes + boundaries), KB content scope, and
-eval case design.
+Keep the answers in conversation context — they feed directly into the
+system prompt (allowed outcomes + boundaries), KB content scope, and eval
+case design. Do not persist scope as a file; once the agent is on the
+server, scope is captured in eval case coverage.
 
 ---
 
@@ -63,12 +64,12 @@ eval case design.
 
 ```bash
 codeer kb upload \
-    --dir kb/ --name "<KB display name>" \
-    --out .codeer/kb_ids.json
+    --dir kb/ --name "<KB display name>"
 ```
 
-`.codeer/kb_ids.json` now contains `kb_id`, `node_ids`, `name_to_id` —
-feed these into the agent payload.
+The CLI prints `kb_id` and `node_ids` to stdout — use these when
+constructing the agent payload. Do not persist IDs to a local file;
+query the server with `codeer kb list` if you need them later.
 
 Wait for all files to reach READY status before proceeding. Files in
 PROCESSING state are not yet available for retrieval.
@@ -77,8 +78,9 @@ PROCESSING state are not yet available for retrieval.
 
 ## Step 3 — Create agent
 
-Write `.codeer/agent_payload.json`. Pull allowed outcomes and boundaries
-from `.codeer/scope.md`; attach KB node IDs from `.codeer/kb_ids.json`.
+Write `.codeer/current/local_draft_agent.json`. Pull allowed outcomes and
+boundaries from the scope alignment discussion; attach KB node IDs from
+`codeer kb list` output.
 
 Discuss with the user:
 
@@ -91,11 +93,17 @@ Then present the full payload diff before applying:
 
 ```bash
 codeer agent apply \
-    --payload .codeer/agent_payload.json --out .codeer/agent_ids.json
+    --payload .codeer/current/local_draft_agent.json
 ```
 
 `codeer agent apply` always creates a new DRAFT version. The agent is not
 live until explicitly published.
+
+After a successful apply, refresh the server cache:
+
+```bash
+codeer agent get <agent_id> --full --out .codeer/current/agent.json
+```
 
 ---
 

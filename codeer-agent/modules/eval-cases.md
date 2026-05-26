@@ -61,7 +61,13 @@ After user approves (with any adjustments):
 
 ```bash
 codeer eval cases-apply \
-    --cases .codeer/eval_cases.json --agent <agent_id> --out .codeer/case_ids.json
+    --cases .codeer/current/local_draft_eval_cases.json --agent <agent_id>
+```
+
+After apply, refresh the server cache:
+
+```bash
+codeer eval list --agent <agent_id> --out .codeer/current/eval_cases.json
 ```
 
 Then output the eval-cases server link so the user can verify.
@@ -85,8 +91,15 @@ check. You must specify which evaluator to test against:
 ```bash
 codeer eval run \
     --agent <agent_id> \
-    --evaluators <evaluator_id> \
-    --out .codeer/eval_results.json
+    --evaluators <evaluator_id>
+```
+
+The CLI prints non-perfect analysis to stdout — use that for diagnosis.
+For a full export (user review, spreadsheet analysis), run:
+
+```bash
+codeer eval export \
+    --agent <agent_id> --out .codeer/current/eval_table/
 ```
 
 Then hand off to **eval-debug** for any non-perfect scores.
@@ -159,3 +172,49 @@ modify an evaluator. Common reasons:
 Use `codeer eval evaluators` to list available evaluators. If the CLI
 supports evaluator creation/update, use it; otherwise say it is not
 supported by the CLI.
+
+---
+
+## Batch workflow
+
+When the eval suite has many cases (50+), split them into batches and
+work through one batch at a time. This keeps each review cycle
+manageable and avoids running expensive full-suite evals repeatedly
+during the debug loop.
+
+### Splitting into batches
+
+Use the MECE categories as the natural batch boundaries. Each batch
+should be small enough to review without fatigue (typically 10–20 cases).
+
+### Running a batch
+
+Run eval on only the batch's case IDs:
+
+```bash
+codeer eval run \
+    --agent <agent_id> \
+    --cases <comma-separated-case-ids> \
+    --evaluators <evaluator_id>
+```
+
+Diagnose and fix within the batch before moving on (hand off to
+**eval-debug** as usual).
+
+### Tracking progress
+
+Record batch status in `.codeer/current/progress.json`. Update this file
+when a batch completes — record the final score and a short fix summary.
+
+When starting a new session, read `progress.json` to understand which
+batches are done and which remain. All debug-loop artifacts (rubrics,
+eval results, exports) overwrite the same files in `current/` regardless
+of which batch is active — `progress.json` is the only cross-batch
+state.
+
+### Full regression check
+
+After all batches are done, run a full-suite eval as a regression check
+before publishing. If the user wants to preserve the batch-level
+progress, pin `current/progress.json` before the full-suite run
+overwrites it.
