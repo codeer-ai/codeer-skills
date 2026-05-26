@@ -23,6 +23,7 @@ Local files are either **caches** of server state or **drafts** staged for apply
 │   │   ├── eval_table_full.json
 │   │   ├── eval_table_summary.md
 │   │   └── eval_table.csv
+│   ├── eval_results.json               # cache:  codeer eval run --out (full-suite runs)
 │   ├── local_draft_agent.json          # draft:  codeer agent apply
 │   ├── local_draft_eval_cases.json     # draft:  codeer eval cases-apply
 │   ├── local_draft_rubrics.json        # draft:  codeer eval rubrics-apply

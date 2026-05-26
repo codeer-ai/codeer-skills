@@ -88,13 +88,16 @@ Repeat from 2a for the next category.
 After all categories are covered, run eval across ALL cases as a regression
 check. You must specify which evaluator to test against:
 
+For a full-suite run with many cases, use `--out` to avoid flooding the
+context window:
+
 ```bash
 codeer eval run \
     --agent <agent_id> \
-    --evaluators <evaluator_id>
+    --evaluators <evaluator_id> \
+    --out .codeer/current/eval_results.json
 ```
 
-The CLI prints non-perfect analysis to stdout — use that for diagnosis.
 For a full export (user review, spreadsheet analysis), run:
 
 ```bash
@@ -189,7 +192,8 @@ should be small enough to review without fatigue (typically 10–20 cases).
 
 ### Running a batch
 
-Run eval on only the batch's case IDs:
+Run eval on only the batch's case IDs. For small batches (≤20 cases),
+stdout is fine — the non-perfect analysis fits in context:
 
 ```bash
 codeer eval run \
