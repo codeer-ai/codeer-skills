@@ -1,17 +1,26 @@
 # Codeer Agent Auth Onboarding
 
-The `codeer` CLI uses an admin workspace API key. Keep the key outside the
-repo and outside agent chat. Do not paste it into Codex, Claude Code, or Claude
+The `codeer` CLI uses an admin workspace API key. Keep the key outside the repo
+and outside agent chat. Do not paste it into Codex, Claude Code, or Claude
 cowork prompts.
 
-## Required environment
+## Recommended setup
+
+Use a named CLI profile. The profile stores the selected profile name in the
+project and keeps the API key in the user-level Codeer CLI config.
 
 ```bash
-export CODEER_API_KEY=<admin-workspace-api-key>
+codeer profile add work
+codeer profile use work
+codeer check
 ```
 
-`CODEER_API_BASE` defaults to `https://api.codeer.ai`. Set it only when using
-local, beta, or preview:
+`codeer profile add` prompts for the API key without echoing it.
+
+## API base
+
+`CODEER_API_BASE` defaults to `https://api.codeer.ai`. Override it only when
+using local, beta, or preview:
 
 ```bash
 export CODEER_API_BASE=http://localhost:8000
@@ -32,13 +41,13 @@ export CODEER_AGENT_ID=<agent-id>
 ## Create the API key
 
 Create an admin workspace API key from Codeer, then store the key in your local
-environment or secret manager. The API only returns the plain key once.
+Codeer CLI profile or secret manager. The API only returns the plain key once.
 Use Codeer UI or admin tooling to create the key with the admin workspace role.
 
 ## Codex
 
-Set `CODEER_API_KEY` in the local shell/session environment that launches
-Codex. Keep the key out of the workspace. Then run:
+Install the skill, then make sure the `codeer` CLI is installed and the selected
+profile works:
 
 ```bash
 codeer check
@@ -57,15 +66,26 @@ If a project has one default agent, set only `CODEER_AGENT_ID` in the project
 }
 ```
 
-Provide `CODEER_API_KEY` from the shell or a secret injection mechanism outside
+Keep the API key in the Codeer CLI profile or another secret mechanism outside
 the project. Avoid putting the API key in `.claude/settings.json` if that file
 is visible to agents or committed.
 
 ## Claude cowork
 
-Pass the API base, API key, workspace, and organization through the cowork
-runtime environment. Each cowork shell call may be independent, so ensure the
-runtime injects the variables into every call that runs `codeer`.
+Make sure every cowork shell call can access the installed `codeer` binary and
+the selected CLI profile. If cowork shells do not share user-level CLI config,
+inject credentials through the runtime secret mechanism instead.
+
+## One-off environment fallback
+
+For a temporary shell session, you can still provide an API key directly:
+
+```bash
+export CODEER_API_KEY=<admin-workspace-api-key>
+codeer check
+```
+
+Use this only when a CLI profile is not practical.
 
 ## Verify
 

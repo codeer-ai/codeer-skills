@@ -7,7 +7,7 @@ description: Build, evaluate, publish, and analyze Codeer agents over the Codeer
 
 Everything you need to build, evaluate, and improve a Codeer agent against
 whatever files the user has in their current directory. Authenticates through
-an admin workspace API key supplied by the user's runtime environment.
+the installed `codeer` CLI, usually via a named CLI profile.
 
 ## Guardrails
 
@@ -37,8 +37,8 @@ for user direction.
 ## Setup
 
 The `codeer` CLI must already be installed and authenticated before this skill
-uses it. See **onboarding.md** for auth, workspace scope, and per-environment
-setup.
+uses it. See **onboarding.md** for profile setup, workspace scope, and
+per-environment notes.
 
 For local development of the CLI from this monorepo, use an editable install:
 

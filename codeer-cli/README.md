@@ -4,20 +4,11 @@ Standalone CLI for managing Codeer agents over the Codeer API.
 
 ## User install
 
-After the package is published to PyPI, install the CLI as an isolated command
-line tool:
+Install the CLI from PyPI with `pipx`:
 
 ```bash
-uv tool install codeer-cli
+pipx install codeer-cli
 ```
-
-Until the package is published, install directly from this repository:
-
-```bash
-uv tool install 'git+https://github.com/<org>/codeer-skills.git#subdirectory=codeer-cli'
-```
-
-Replace `<org>` with the GitHub organization or user that hosts this repository.
 
 Verify that the command is available:
 
@@ -25,20 +16,39 @@ Verify that the command is available:
 codeer --help
 ```
 
+If `pipx` is not installed:
+
+```bash
+python -m pip install --user pipx
+python -m pipx ensurepath
+```
+
+Then restart the terminal and run:
+
+```bash
+pipx install codeer-cli
+```
+
+As a fallback, you can install into your user Python environment:
+
+```bash
+python -m pip install --user codeer-cli
+```
+
 ## Credentials
 
 The CLI expects credentials to be configured outside any skill workspace. Add a
-named profile, then verify the setup:
+named profile, select it, then verify the setup:
 
 ```bash
 codeer profile add work
+codeer profile use work
 codeer check
 ```
 
-`codeer profile add` prompts for the API key without echoing it and selects the
-profile in the current project. The local project stores only the selected
-profile name in `.codeer/profile`; API keys remain in the user-level config
-file.
+`codeer profile add` prompts for the API key without echoing it. The local
+project stores only the selected profile name in `.codeer/profile`; API keys
+remain in the user-level config file.
 
 For a one-off shell session, you can also export an API key directly:
 
@@ -87,6 +97,21 @@ Validate setup before API work:
 
 ```bash
 codeer check
+```
+
+## Upgrade and uninstall
+
+Upgrade the CLI:
+
+```bash
+pipx upgrade codeer-cli
+codeer check
+```
+
+Remove the CLI:
+
+```bash
+pipx uninstall codeer-cli
 ```
 
 ## Output policy for coding agents
