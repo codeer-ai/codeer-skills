@@ -10,6 +10,9 @@ Codex/Claude skills for building, evaluating, and managing [Codeer](https://code
 
 ## Installation
 
+For customer-facing setup docs, see
+[docs/customer-install/](docs/customer-install/).
+
 Install and authenticate the CLI separately from the skill:
 
 ```bash
@@ -86,9 +89,15 @@ Make sure:
 ```
 codeer-skills/
 ├── codeer-cli/               ← standalone CLI package
-└── codeer-agent/
-    ├── SKILL.md              ← orientation, setup, lifecycle walkthrough
-    ├── onboarding.md         ← auth and environment setup
-    ├── modules/              ← lifecycle workflows
-    └── reference/            ← concepts, commands, errors
+├── codeer-agent/
+│   ├── SKILL.md              ← orientation, setup, lifecycle walkthrough
+│   ├── onboarding.md         ← auth and environment setup
+│   ├── modules/              ← lifecycle workflows
+│   └── reference/            ← concepts, commands, errors
+└── docs/
+    └── customer-install/
+        ├── README.md                 ← customer setup guide
+        ├── customer-install-zh-TW.md ← editable Traditional Chinese guide
+        ├── customer-install-zh-TW.pdf
+        └── assets/                   ← screenshots used by the guide
 ```

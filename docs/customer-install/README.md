@@ -3,20 +3,37 @@
 This guide helps you set up the Codeer CLI and Codeer Agent Skill for Claude
 Code or Codex.
 
-Use this guide if you already use Claude Code or Codex, but do not want to
-manage Codeer through the web UI only.
+Use this guide if you want Claude Code or Codex to help with the Codeer Agent
+lifecycle: planning agents from your files and KB, analyzing production
+histories, designing behavior eval cases, debugging failed behaviors, and
+showing proposed changes before anything is applied.
 
 ## What You Will Install
 
 There are two separate pieces:
 
-1. **Codeer CLI**: the `codeer` command-line tool. Install this with `pipx`.
-2. **Codeer Agent Skill**: the instructions Claude Code or Codex uses to work
-   with Codeer agents, knowledge base files, eval cases, and production
-   histories.
+1. **Codeer CLI**: the local `codeer` command-line tool. It signs in to Codeer,
+   calls the Codeer API, and runs commands such as `codeer agent`,
+   `codeer eval`, `codeer history`, and `codeer kb`.
+2. **Codeer Agent Skill**: the workflow instructions Claude Code or Codex uses
+   to understand the Codeer Agent lifecycle: how to plan an agent, prepare KB,
+   design behavior cases, analyze production histories, and ask before making
+   changes.
 
 The Skill does not include your API key. Keep API keys outside chats, prompts,
 and shared project files.
+
+## What You Can Do With This Skill
+
+- Plan and create an Agent v0 from a folder of KB, product docs, SOPs, or other
+  source files.
+- Generate behavior case categories, cases, and rubrics before applying them.
+- Use failed behavior cases to decide whether to adjust KB, the Agent, retrieval,
+  or Standard / Rubric.
+- Analyze production histories and negative feedback to find failure patterns
+  and coverage gaps.
+- Help you start the next iteration with evidence and a preview of proposed
+  changes before anything is applied.
 
 ## Requirements
 
@@ -85,7 +102,10 @@ python -m pip install --user codeer-cli
 
 ## 3. Configure Codeer CLI Credentials
 
-Create a local CLI profile:
+Create a local CLI profile. The profile name `work` is only an example. You can
+choose any name that is easy to recognize, such as `codeer`, `prod`,
+`client-a`, or `support-agent`. If you choose a different name, use the same
+name in the later `codeer profile use ...` command.
 
 ```bash
 codeer profile add work
@@ -139,10 +159,9 @@ $skill-installer install https://github.com/codeer-ai/codeer-skills/tree/main/co
 
 Restart Codex if the skill does not appear after installation.
 
-## 5. Verify the Setup
+## 5. Verify the CLI and API Setup
 
-Open Claude Code or Codex in the project where you want to manage the Codeer
-agent, then ask it to run:
+First verify the local CLI and Codeer API credentials:
 
 ```bash
 codeer check
@@ -154,7 +173,42 @@ Then list the workspace agents:
 codeer agent list
 ```
 
-If both commands work, the CLI credentials and Skill setup are ready.
+If both commands work, the CLI credentials are ready.
+
+## 6. Verify the Skill
+
+Open Claude Code or Codex in the project where you want to manage the Codeer
+agent, then ask:
+
+```text
+Please confirm whether the Codeer Agent Skill is loaded. Explain how you can
+help me plan an Agent from KB/files, create behavior cases, analyze production
+history, and show me proposed changes before applying them.
+```
+
+The answer should mention the Codeer Agent lifecycle, behavior cases,
+production history, and asking for confirmation before creating, updating, or
+publishing Codeer resources.
+
+## 7. What To Do Next
+
+If you do not have an agent yet, point Claude Code or Codex at your KB folder,
+product docs, SOPs, or source files and ask it to discuss what Agent v0 should
+be built.
+
+If you have an agent but no behavior cases yet, ask it to design behavior
+categories, cases, and rubrics before applying anything.
+
+If you have behavior cases but some are failing, ask it to analyze whether the
+fix belongs in the KB, the Agent instructions, retrieval, or the Standard /
+Rubric.
+
+If the agent is already in production, ask it to analyze production histories
+and negative feedback to find patterns and coverage gaps.
+
+If you are preparing the next version, ask it to propose changes, show a
+preview of what will change, and wait for approval before applying or
+publishing.
 
 ## Common Issues
 

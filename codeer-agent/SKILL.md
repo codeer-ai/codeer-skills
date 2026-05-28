@@ -38,14 +38,7 @@ for user direction.
 
 The `codeer` CLI must already be installed and authenticated before this skill
 uses it. See **onboarding.md** for profile setup, workspace scope, and
-per-environment notes.
-
-For local development of the CLI from this monorepo, use an editable install:
-
-```bash
-cd /path/to/codeer-skills/codeer-cli
-uv tool install --editable .
-```
+installation from the public GitHub skill URL.
 
 **At the start of any Codeer-skill session, run `codeer check`**
 to validate auth, workspace, and agent config.
