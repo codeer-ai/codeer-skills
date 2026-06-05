@@ -42,14 +42,35 @@ Write cases for this category only. Each case carries per-evaluator rubrics.
 the user explicitly cares about style. Style/Tone judges _how_; Content
 Compliance judges _what_.
 
-**Rubric self-sufficiency rule**: The evaluator only has its system prompt
-and the rubric — not the agent's KB, retrieved chunks, tools, settings, or
-diagnosis notes. Rubrics must carry all criteria the judge needs.
+**Evaluator-aware self-sufficiency rule**: Check the related evaluator's
+system prompt/template before writing the rubric. Do not assume the evaluator
+can see the agent prompt, KB files, retrieved chunks, tool traces, expected
+output, or diagnosis notes unless that information is explicitly included by
+the evaluator template. After accounting for the evaluator's actual inputs,
+make the rubric as self-sufficient as practical.
 
 **Scope matching**: For broad user questions, require only what the question
 naturally asks for. Do not require prices, exhaustive lists, logistics
 details, or stock confirmation unless the user asked for that dimension or
 the product requirement depends on it.
+
+**Rubric quality standard**: Good rubrics should be easy to maintain:
+
+- Use short bullet points instead of dense prose.
+- Use positive criteria when unacceptable answers form an open-ended or
+  infinite set.
+- Use negative criteria when the prohibited behavior is narrow and concrete.
+
+Common check patterns:
+
+- **Content Accuracy Check**: Prefer positive expectations for what the answer
+  should include. Use "must not" only for specific known errors.
+- **Source Support Check**: Do not hard-code stale facts. Specify which claims
+  need source support and which sources count as valid.
+- **Tool Use Check**: Negative lists are acceptable because tool-call rules are
+  usually a finite set, e.g. "must not call request_form".
+- **Style & Format Check**: Positive or negative framing can both work; choose
+  whichever is clearer and easier to maintain.
 
 ### 2c. Present for review
 
