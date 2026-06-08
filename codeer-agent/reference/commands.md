@@ -98,8 +98,16 @@ completes, record the summary in `progress.json` and move to the next batch.
 | `codeer agent apply` | Create or update agent (always creates a new DRAFT version) |
 | `codeer agent diff` | Show diff between versions |
 | `codeer agent versions` | List agent version history |
+| `codeer agent impact` | Check downstream agents affected by this agent |
+| `codeer agent publish` | Publish an approved agent version |
 | `codeer kb list` | List knowledge bases in workspace |
 | `codeer kb upload` | Create/reuse KB + upload files + poll until indexed |
+| `codeer kb crawl-create` | Create a website-crawler KB folder |
+| `codeer kb crawl-update` | Update a website crawl target |
+| `codeer kb crawl-state` | Read website crawl state for a crawler folder |
+| `codeer kb crawl-sync` | Start a website crawl sync job |
+| `codeer kb crawl-cancel` | Cancel the active website crawl job |
+| `codeer kb crawl-failures` | List failed pages for a website crawl job |
 | `codeer kb faq-list` | List Context Object FAQ entries |
 | `codeer kb faq-get` | Read one Context Object FAQ entry |
 | `codeer kb faq-create` | Create a question-to-KB-file FAQ route |
@@ -143,10 +151,48 @@ codeer agent apply --payload .codeer/current/local_draft_agent.json --dry-run
 codeer eval cases-apply --agent <agent-id> --cases .codeer/current/local_draft_eval_cases.json --dry-run
 codeer eval rubrics-apply --rubrics .codeer/current/local_draft_rubrics.json --dry-run
 codeer kb upload --dir kb --name "Product KB" --dry-run
+codeer kb crawl-create --url "https://docs.example.com" --folder-name "Docs" --dry-run
 codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --dry-run
+codeer agent publish --agent <agent-id> --version <n> --dry-run
 ```
 
 Apply only after the user approves the dry-run summary.
+
+## `codeer agent impact` and `publish`
+
+Check downstream dependencies before publishing changes that could affect
+agent-to-agent calls:
+
+```bash
+codeer agent impact --agent <agent_id>
+```
+
+Publish only after the eval loop is complete and the user approves the
+specific target version:
+
+```bash
+codeer agent publish --agent <agent_id> --version <n> --dry-run
+codeer agent publish --agent <agent_id> --version <n>
+```
+
+You can pass `--history <agent_history_id>` instead of `--version <n>` when
+the exact `AgentHistory` UUID is known.
+
+## `codeer kb crawl-*` commands
+
+Website crawler commands create and manage website-backed KB folders through
+the API-key external endpoints.
+
+| Command | Purpose |
+| --- | --- |
+| `codeer kb crawl-create --url URL [--folder-name NAME] [--config-json JSON] --dry-run` | Preview crawler folder creation |
+| `codeer kb crawl-update --target-id ID --url URL [--config-json JSON] --dry-run` | Preview crawler target update |
+| `codeer kb crawl-state --folder-id UUID` | Read target/job state for a crawler folder |
+| `codeer kb crawl-sync --target-id ID --dry-run` | Preview starting a sync job |
+| `codeer kb crawl-cancel --target-id ID --dry-run` | Preview cancelling the active job |
+| `codeer kb crawl-failures --job-id ID [--status CSV]` | Inspect failed pages |
+
+After user approval, rerun the same mutation command without `--dry-run`.
 
 ## `codeer kb faq-*` commands
 

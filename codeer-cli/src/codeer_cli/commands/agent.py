@@ -69,6 +69,21 @@ def register(subparsers):
                    help="Write stripped full version snapshots to this file; stdout stays compact.")
     p.set_defaults(func=run_versions)
 
+    p = sub.add_parser("impact", help="Check downstream agents affected by this agent")
+    p.add_argument("--agent", required=True)
+    p.add_argument("--out", default=None, help="Write full impact detail to this file too")
+    p.set_defaults(func=run_impact)
+
+    p = sub.add_parser("publish", help="Publish an agent version; run --dry-run first")
+    p.add_argument("--agent", required=True)
+    g = p.add_mutually_exclusive_group(required=True)
+    g.add_argument("--history", default=None, help="AgentHistory UUID to publish")
+    g.add_argument("--version", type=int, default=None, help="AgentHistory version_number to publish")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Resolve target version and print intended mutation without writing server state.")
+    p.add_argument("--out", default=None, help="Write result JSON to this file too")
+    p.set_defaults(func=run_publish)
+
 
 def _tool_summary(tools: list[dict] | None) -> list[dict]:
     out = []
@@ -226,6 +241,62 @@ def run_versions(args, client) -> int:
             row["tool_count"] = len(v.get("unified_tools") or v.get("tools") or [])
         rows.append(row)
     print_json(rows)
+    return 0
+
+
+def run_impact(args, client) -> int:
+    result = strip_noisy_fields(agents_mod.check_impact(client, args.agent))
+    write_json(args.out, result)
+    print_json(result)
+    return 0
+
+
+def _resolve_history_for_publish(
+    client: CodeerClient,
+    agent_id: str,
+    history_id: Optional[str],
+    version: Optional[int],
+) -> dict:
+    if history_id:
+        return agents_mod.get_version(client, agent_id, history_id)
+    if version is not None:
+        for candidate in agents_mod.list_versions(client, agent_id):
+            if candidate.get("version_number") == version:
+                return agents_mod.get_version(client, agent_id, candidate["id"])
+        raise SystemExit(f"no version {version} on agent {agent_id}")
+    raise SystemExit("must pass --history or --version")
+
+
+def run_publish(args, client) -> int:
+    history = _resolve_history_for_publish(client, args.agent, args.history, args.version)
+    history_id = history["id"]
+    summary = {
+        "agent_id": args.agent,
+        "history_id": history_id,
+        "version_number": history.get("version_number"),
+        "status": history.get("status"),
+        "was_published": history.get("was_published"),
+        "version_note": history.get("version_note") or "",
+    }
+
+    if args.dry_run:
+        result = {
+            "dry_run": True,
+            "operation": "agent_publish",
+            "method": "POST",
+            "path": f"/external/agents/{args.agent}/versions/{history_id}:publish",
+            "target": summary,
+            "would_write_server_state": True,
+            "next_step": "Review this summary, then rerun without --dry-run after approval.",
+        }
+        print_json(result)
+        write_json(args.out, result)
+        return 0
+
+    result = strip_noisy_fields(agents_mod.publish_version(client, args.agent, history_id))
+    output = {"target": summary, "response": result}
+    print_json(output)
+    write_json(args.out, output)
     return 0
 
 

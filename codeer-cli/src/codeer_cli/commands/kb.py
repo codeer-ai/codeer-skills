@@ -92,6 +92,51 @@ def register(subparsers):
     p.add_argument("--out", default=None, help="Write result JSON to this file too")
     p.set_defaults(func=run_faq_delete)
 
+    p = sub.add_parser("crawl-create", help="Create a website-crawler KB folder; run --dry-run first")
+    p.add_argument("--url", required=True, help="Starting URL to crawl")
+    p.add_argument("--folder-name", default=None, help="KB folder name")
+    p.add_argument("--config-json", default=None, help="JSON object for crawl_config")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Print intended request without writing server state.")
+    p.add_argument("--out", default=None, help="Write result JSON to this file too")
+    p.set_defaults(func=run_crawl_create)
+
+    p = sub.add_parser("crawl-update", help="Update a website crawl target; run --dry-run first")
+    p.add_argument("--target-id", type=int, required=True)
+    p.add_argument("--url", required=True, help="Updated starting URL")
+    p.add_argument("--config-json", default=None, help="JSON object for crawl_config")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Print intended request without writing server state.")
+    p.add_argument("--out", default=None, help="Write result JSON to this file too")
+    p.set_defaults(func=run_crawl_update)
+
+    p = sub.add_parser("crawl-state", help="Read website crawl state for a crawler folder")
+    p.add_argument("--folder-id", required=True, help="KnowledgeNode folder UUID")
+    p.add_argument("--out", default=None, help="Write result JSON to this file too")
+    p.set_defaults(func=run_crawl_state)
+
+    p = sub.add_parser("crawl-sync", help="Start a website crawl sync job; run --dry-run first")
+    p.add_argument("--target-id", type=int, required=True)
+    p.add_argument("--dry-run", action="store_true",
+                   help="Print intended request without writing server state.")
+    p.add_argument("--out", default=None, help="Write result JSON to this file too")
+    p.set_defaults(func=run_crawl_sync)
+
+    p = sub.add_parser("crawl-cancel", help="Cancel the active website crawl job; run --dry-run first")
+    p.add_argument("--target-id", type=int, required=True)
+    p.add_argument("--dry-run", action="store_true",
+                   help="Print intended request without writing server state.")
+    p.add_argument("--out", default=None, help="Write result JSON to this file too")
+    p.set_defaults(func=run_crawl_cancel)
+
+    p = sub.add_parser("crawl-failures", help="List failed pages for a website crawl job")
+    p.add_argument("--job-id", type=int, required=True)
+    p.add_argument("--status", default="DOWNLOAD_FAILED,FAILED")
+    p.add_argument("--limit", type=int, default=50)
+    p.add_argument("--offset", type=int, default=0)
+    p.add_argument("--out", default=None, help="Write result JSON to this file too")
+    p.set_defaults(func=run_crawl_failures)
+
 
 def _node_summary(node: dict) -> dict:
     return {
@@ -128,6 +173,15 @@ def _dry_run(path: str | None, result: dict) -> int:
     print_json(result)
     write_json(path, result)
     return 0
+
+
+def _parse_config_json(config_json: str | None) -> dict | None:
+    if not config_json:
+        return None
+    value = json.loads(config_json)
+    if not isinstance(value, dict):
+        raise SystemExit("--config-json must decode to a JSON object")
+    return value
 
 
 def run_list(args, client) -> int:
@@ -346,5 +400,129 @@ def run_faq_delete(args, client) -> int:
         )
 
     response = strip_noisy_fields(kb_mod.delete_context_obj_faq(client, faq_id=args.faq_id))
+    _print_and_write(args.out, response)
+    return 0
+
+
+def run_crawl_create(args, client) -> int:
+    crawl_config = _parse_config_json(args.config_json)
+    body: dict[str, object] = {"start_url": args.url}
+    if args.folder_name is not None:
+        body["folder_name"] = args.folder_name
+    if crawl_config is not None:
+        body["crawl_config"] = crawl_config
+
+    if args.dry_run:
+        return _dry_run(
+            args.out,
+            {
+                "dry_run": True,
+                "operation": "kb_crawl_create",
+                "method": "POST",
+                "path": "/external/knowledge-bases/website-crawls",
+                "body": body,
+                "would_write_server_state": True,
+                "next_step": "Review this summary, then rerun without --dry-run after approval.",
+            },
+        )
+
+    response = strip_noisy_fields(
+        kb_mod.create_website_crawl(
+            client,
+            start_url=args.url,
+            folder_name=args.folder_name,
+            crawl_config=crawl_config,
+        )
+    )
+    _print_and_write(args.out, response)
+    return 0
+
+
+def run_crawl_update(args, client) -> int:
+    crawl_config = _parse_config_json(args.config_json)
+    body: dict[str, object] = {"start_url": args.url}
+    if crawl_config is not None:
+        body["crawl_config"] = crawl_config
+
+    if args.dry_run:
+        return _dry_run(
+            args.out,
+            {
+                "dry_run": True,
+                "operation": "kb_crawl_update",
+                "method": "PATCH",
+                "path": f"/external/knowledge-bases/website-crawls/{args.target_id}",
+                "body": body,
+                "would_write_server_state": True,
+                "next_step": "Review this summary, then rerun without --dry-run after approval.",
+            },
+        )
+
+    response = strip_noisy_fields(
+        kb_mod.update_website_crawl(
+            client,
+            target_id=args.target_id,
+            start_url=args.url,
+            crawl_config=crawl_config,
+        )
+    )
+    _print_and_write(args.out, response)
+    return 0
+
+
+def run_crawl_state(args, client) -> int:
+    response = strip_noisy_fields(kb_mod.get_website_crawl_state(client, folder_id=args.folder_id))
+    _print_and_write(args.out, response)
+    return 0
+
+
+def run_crawl_sync(args, client) -> int:
+    if args.dry_run:
+        return _dry_run(
+            args.out,
+            {
+                "dry_run": True,
+                "operation": "kb_crawl_sync",
+                "method": "POST",
+                "path": f"/external/knowledge-bases/website-crawls/{args.target_id}:sync",
+                "would_write_server_state": True,
+                "next_step": "Review this summary, then rerun without --dry-run after approval.",
+            },
+        )
+
+    response = strip_noisy_fields(kb_mod.sync_website_crawl(client, target_id=args.target_id))
+    _print_and_write(args.out, response)
+    return 0
+
+
+def run_crawl_cancel(args, client) -> int:
+    if args.dry_run:
+        return _dry_run(
+            args.out,
+            {
+                "dry_run": True,
+                "operation": "kb_crawl_cancel",
+                "method": "POST",
+                "path": f"/external/knowledge-bases/website-crawls/{args.target_id}:cancel",
+                "would_write_server_state": True,
+                "next_step": "Review this summary, then rerun without --dry-run after approval.",
+            },
+        )
+
+    response = strip_noisy_fields(kb_mod.cancel_website_crawl(client, target_id=args.target_id))
+    _print_and_write(args.out, response)
+    return 0
+
+
+def run_crawl_failures(args, client) -> int:
+    response = strip_noisy_fields(
+        kb_mod.get_website_crawl_failures(
+            client,
+            job_id=args.job_id,
+            status=args.status,
+            limit=args.limit,
+            offset=args.offset,
+        )
+    )
     _print_and_write(args.out, response)
     return 0

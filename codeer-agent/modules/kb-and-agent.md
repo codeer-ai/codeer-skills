@@ -54,6 +54,10 @@ server, scope is captured in eval case coverage.
 1. Crawl or write `kb/*.md` files. Keep filenames descriptive — the agent
    sees filenames via `list_kb_files`.
 2. Consider crawler settings if fetching from web sources.
+   Use `codeer kb crawl-create --url ... --folder-name ... --dry-run`
+   for website-backed KB folders; after approval, create the target, then
+   monitor with `codeer kb crawl-state --folder-id ...` and inspect failures
+   with `codeer kb crawl-failures --job-id ...`.
 3. Postprocess files if needed:
    - Split large files at logical boundaries (headings, topics)
    - Merge tiny files that belong together
@@ -111,9 +115,16 @@ codeer agent get <agent_id> --full --out .codeer/current/agent.json
 
 Only after eval debugging is complete and the user gives explicit go-ahead.
 
+Check downstream impact before publishing changes that may affect other
+agents:
+
 ```bash
-codeer agent publish --agent <agent_id>
+codeer agent impact --agent <agent_id>
 ```
 
-Downstream impact checks are not supported by the CLI. If the user asks
-for that check, say it is not supported by the CLI and stop for direction.
+Preview the publish target before writing server state:
+
+```bash
+codeer agent publish --agent <agent_id> --version <version_number> --dry-run
+codeer agent publish --agent <agent_id> --version <version_number>
+```

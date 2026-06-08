@@ -36,7 +36,7 @@ def _guess_mime(filename: str) -> str:
     return guess or "application/octet-stream"
 
 
-def _base(organization_id: str, workspace_id: str) -> str:
+def _base(organization_id: str = "", workspace_id: str = "") -> str:
     return "/external/knowledge-bases"
 
 
@@ -276,3 +276,57 @@ def update_context_obj_faq(
 
 def delete_context_obj_faq(client: CodeerClient, *, faq_id: int) -> dict:
     return client.delete(f"{_faq_base()}/{faq_id}")
+
+
+def create_website_crawl(
+    client: CodeerClient,
+    *,
+    start_url: str,
+    folder_name: Optional[str] = None,
+    crawl_config: Optional[dict[str, Any]] = None,
+) -> dict:
+    body: dict[str, Any] = {"start_url": start_url}
+    if folder_name is not None:
+        body["folder_name"] = folder_name
+    if crawl_config is not None:
+        body["crawl_config"] = crawl_config
+    return client.post(f"{_base()}/website-crawls", json=body)
+
+
+def update_website_crawl(
+    client: CodeerClient,
+    *,
+    target_id: int,
+    start_url: str,
+    crawl_config: Optional[dict[str, Any]] = None,
+) -> dict:
+    body: dict[str, Any] = {"start_url": start_url}
+    if crawl_config is not None:
+        body["crawl_config"] = crawl_config
+    return client.patch(f"{_base()}/website-crawls/{target_id}", json=body)
+
+
+def sync_website_crawl(client: CodeerClient, *, target_id: int) -> dict:
+    return client.post(f"{_base()}/website-crawls/{target_id}:sync", json={})
+
+
+def cancel_website_crawl(client: CodeerClient, *, target_id: int) -> dict:
+    return client.post(f"{_base()}/website-crawls/{target_id}:cancel", json={})
+
+
+def get_website_crawl_state(client: CodeerClient, *, folder_id: str) -> dict:
+    return client.get(f"{_base()}/nodes/{folder_id}/website-crawl-state")
+
+
+def get_website_crawl_failures(
+    client: CodeerClient,
+    *,
+    job_id: int,
+    status: str = "DOWNLOAD_FAILED,FAILED",
+    limit: int = 50,
+    offset: int = 0,
+) -> dict:
+    return client.get(
+        f"{_base()}/website-crawl-jobs/{job_id}/failures",
+        params={"status": status, "limit": limit, "offset": offset},
+    )

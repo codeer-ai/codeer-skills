@@ -153,3 +153,8 @@ def get_version(client: CodeerClient, agent_id: str, history_id: str) -> dict:
 def check_impact(client: CodeerClient, agent_id: str) -> dict:
     """List downstream agents that call this one. Call before publishing breaking changes."""
     return client.get(f"/external/agents/{agent_id}/impact")
+
+
+def publish_version(client: CodeerClient, agent_id: str, history_id: str) -> dict:
+    """Promote one AgentHistory version to the published runtime version."""
+    return client.post(f"/external/agents/{agent_id}/versions/{history_id}:publish", json={})
