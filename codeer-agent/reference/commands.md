@@ -185,12 +185,44 @@ the API-key external endpoints.
 
 | Command | Purpose |
 | --- | --- |
-| `codeer kb crawl-create --url URL [--folder-name NAME] [--config-json JSON] --dry-run` | Preview crawler folder creation |
-| `codeer kb crawl-update --target-id ID --url URL [--config-json JSON] --dry-run` | Preview crawler target update |
+| `codeer kb crawl-create --url URL [--folder-name NAME] [crawler flags] --dry-run` | Preview crawler folder creation |
+| `codeer kb crawl-update --target-id ID --url URL [crawler flags] --dry-run` | Preview crawler target update |
 | `codeer kb crawl-state --folder-id UUID` | Read target/job state for a crawler folder |
 | `codeer kb crawl-sync --target-id ID --dry-run` | Preview starting a sync job |
 | `codeer kb crawl-cancel --target-id ID --dry-run` | Preview cancelling the active job |
 | `codeer kb crawl-failures --job-id ID [--status CSV]` | Inspect failed pages |
+
+Crawler flags for `crawl-create` and `crawl-update`:
+
+| Flag | `crawl_config` key | Notes |
+| --- | --- | --- |
+| `--limit N` | `limit` | Maximum pages to crawl; backend accepts 1-5000 |
+| `--max-depth N` | `maxDepth` | Maximum crawl depth; backend accepts 1-10 |
+| `--include-path PATH` | `includePaths` | Repeatable clean path pattern; supports `*` wildcard |
+| `--exclude-path PATH` | `excludePaths` | Repeatable clean path pattern; supports `*` wildcard |
+| `--allow-subdomains` | `allowSubdomains` | Allow subdomains of the start URL host |
+| `--allow-external-links` | `allowExternalLinks` | Allow links outside the start URL host |
+| `--ignore-query-parameters` / `--use-query-parameters` | `ignoreQueryParameters` | Whether query strings create distinct pages |
+| `--ignore-sitemap` / `--use-sitemap` | `ignoreSitemap` | Whether sitemap discovery is skipped |
+| `--only-main-content` / `--include-page-chrome` | `onlyMainContent` | Whether to strip navigation/footer/page chrome |
+| `--config-json JSON` | raw `crawl_config` | Advanced escape hatch; explicit flags override matching JSON keys |
+
+For `includePaths` and `excludePaths`, pass clean path patterns rather than
+raw regex. The backend encodes non-ASCII path segments and converts patterns to
+Firecrawl regex. Plain paths match the exact path and children
+(`/cart` matches `/cart/checkout` but not `/cartoon`). `*` matches the rest of
+the encoded path, regex metacharacters are treated literally, and `\*` means a
+literal star. Quote wildcard paths in the shell, e.g.:
+
+```bash
+codeer kb crawl-create \
+    --url https://example.com/docs \
+    --include-path "/docs*" \
+    --exclude-path "/docs/private*" \
+    --limit 250 \
+    --max-depth 3 \
+    --dry-run
+```
 
 After user approval, rerun the same mutation command without `--dry-run`.
 

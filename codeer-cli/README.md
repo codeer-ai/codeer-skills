@@ -140,6 +140,28 @@ Avoid piping large raw JSON directly into agent chat. Prefer `--out`, then ask
 the coding agent to inspect targeted summaries, IDs, failing cases, or selected
 snippets from the saved file.
 
+## Website crawler KBs
+
+Website-backed KB folders can be created and updated with `codeer kb crawl-*`.
+Always preview crawler mutations with `--dry-run` first:
+
+```bash
+codeer kb crawl-create \
+    --url https://example.com/docs \
+    --folder-name "Product Docs" \
+    --include-path "/docs*" \
+    --exclude-path "/docs/private*" \
+    --limit 250 \
+    --max-depth 3 \
+    --only-main-content \
+    --dry-run
+```
+
+`--include-path` and `--exclude-path` are repeatable clean path patterns. Quote
+paths containing `*` so the shell passes the wildcard to the CLI. Advanced
+settings can still be passed through `--config-json`; explicit crawler flags
+override matching JSON keys.
+
 ## Context Object FAQ
 
 Use Context Object FAQ entries to route high-value questions to a canonical KB

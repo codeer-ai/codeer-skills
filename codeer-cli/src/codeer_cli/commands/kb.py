@@ -11,6 +11,42 @@ POLL_INTERVAL = 3
 POLL_TIMEOUT = 600
 
 
+def _add_crawl_config_args(parser):
+    parser.add_argument("--config-json", default=None, help="JSON object for crawl_config")
+    parser.add_argument("--limit", type=int, default=None, help="Maximum pages to crawl (backend max: 5000)")
+    parser.add_argument("--max-depth", type=int, default=None, help="Maximum crawl depth (backend max: 10)")
+    parser.add_argument(
+        "--include-path",
+        action="append",
+        dest="include_paths",
+        default=None,
+        help="Clean path pattern to include; repeatable. Supports * wildcards.",
+    )
+    parser.add_argument(
+        "--exclude-path",
+        action="append",
+        dest="exclude_paths",
+        default=None,
+        help="Clean path pattern to exclude; repeatable. Supports * wildcards.",
+    )
+    parser.add_argument("--allow-subdomains", action="store_true", default=None,
+                        help="Allow crawling subdomains of the start URL host")
+    parser.add_argument("--allow-external-links", action="store_true", default=None,
+                        help="Allow crawling links outside the start URL host")
+    parser.add_argument("--ignore-query-parameters", action="store_true", dest="ignore_query_parameters", default=None,
+                        help="Treat URLs that differ only by query string as the same page")
+    parser.add_argument("--use-query-parameters", action="store_false", dest="ignore_query_parameters",
+                        help="Treat URLs with different query strings as distinct pages")
+    parser.add_argument("--ignore-sitemap", action="store_true", dest="ignore_sitemap", default=None,
+                        help="Skip sitemap discovery")
+    parser.add_argument("--use-sitemap", action="store_false", dest="ignore_sitemap",
+                        help="Allow sitemap discovery")
+    parser.add_argument("--only-main-content", action="store_true", dest="only_main_content", default=None,
+                        help="Extract only the main content area")
+    parser.add_argument("--include-page-chrome", action="store_false", dest="only_main_content",
+                        help="Keep page navigation, footer, and other chrome")
+
+
 def register(subparsers):
     k = subparsers.add_parser("kb", help="Knowledge base operations")
     sub = k.add_subparsers(dest="action", required=True)
@@ -95,7 +131,7 @@ def register(subparsers):
     p = sub.add_parser("crawl-create", help="Create a website-crawler KB folder; run --dry-run first")
     p.add_argument("--url", required=True, help="Starting URL to crawl")
     p.add_argument("--folder-name", default=None, help="KB folder name")
-    p.add_argument("--config-json", default=None, help="JSON object for crawl_config")
+    _add_crawl_config_args(p)
     p.add_argument("--dry-run", action="store_true",
                    help="Print intended request without writing server state.")
     p.add_argument("--out", default=None, help="Write result JSON to this file too")
@@ -104,7 +140,7 @@ def register(subparsers):
     p = sub.add_parser("crawl-update", help="Update a website crawl target; run --dry-run first")
     p.add_argument("--target-id", type=int, required=True)
     p.add_argument("--url", required=True, help="Updated starting URL")
-    p.add_argument("--config-json", default=None, help="JSON object for crawl_config")
+    _add_crawl_config_args(p)
     p.add_argument("--dry-run", action="store_true",
                    help="Print intended request without writing server state.")
     p.add_argument("--out", default=None, help="Write result JSON to this file too")
@@ -182,6 +218,31 @@ def _parse_config_json(config_json: str | None) -> dict | None:
     if not isinstance(value, dict):
         raise SystemExit("--config-json must decode to a JSON object")
     return value
+
+
+def _crawl_config_from_args(args) -> dict | None:
+    config = _parse_config_json(args.config_json)
+    has_config = config is not None
+    if config is None:
+        config = {}
+
+    for key, attr in (
+        ("limit", "limit"),
+        ("maxDepth", "max_depth"),
+        ("includePaths", "include_paths"),
+        ("excludePaths", "exclude_paths"),
+        ("allowSubdomains", "allow_subdomains"),
+        ("allowExternalLinks", "allow_external_links"),
+        ("ignoreQueryParameters", "ignore_query_parameters"),
+        ("ignoreSitemap", "ignore_sitemap"),
+        ("onlyMainContent", "only_main_content"),
+    ):
+        value = getattr(args, attr)
+        if value is not None:
+            config[key] = value
+            has_config = True
+
+    return config if has_config else None
 
 
 def run_list(args, client) -> int:
@@ -405,7 +466,7 @@ def run_faq_delete(args, client) -> int:
 
 
 def run_crawl_create(args, client) -> int:
-    crawl_config = _parse_config_json(args.config_json)
+    crawl_config = _crawl_config_from_args(args)
     body: dict[str, object] = {"start_url": args.url}
     if args.folder_name is not None:
         body["folder_name"] = args.folder_name
@@ -439,7 +500,7 @@ def run_crawl_create(args, client) -> int:
 
 
 def run_crawl_update(args, client) -> int:
-    crawl_config = _parse_config_json(args.config_json)
+    crawl_config = _crawl_config_from_args(args)
     body: dict[str, object] = {"start_url": args.url}
     if crawl_config is not None:
         body["crawl_config"] = crawl_config

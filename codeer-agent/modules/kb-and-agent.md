@@ -55,9 +55,11 @@ server, scope is captured in eval case coverage.
    sees filenames via `list_kb_files`.
 2. Consider crawler settings if fetching from web sources.
    Use `codeer kb crawl-create --url ... --folder-name ... --dry-run`
-   for website-backed KB folders; after approval, create the target, then
-   monitor with `codeer kb crawl-state --folder-id ...` and inspect failures
-   with `codeer kb crawl-failures --job-id ...`.
+   for website-backed KB folders. Use `--include-path` / `--exclude-path`
+   with quoted clean path patterns for scope control; `*` is supported as a
+   wildcard, and plain paths match that path plus children. After approval,
+   create the target, then monitor with `codeer kb crawl-state --folder-id ...`
+   and inspect failures with `codeer kb crawl-failures --job-id ...`.
 3. Postprocess files if needed:
    - Split large files at logical boundaries (headings, topics)
    - Merge tiny files that belong together
