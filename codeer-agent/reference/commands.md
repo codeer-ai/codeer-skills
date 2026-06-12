@@ -228,7 +228,8 @@ After user approval, rerun the same mutation command without `--dry-run`.
 
 ## `codeer kb faq-*` commands
 
-Context Object FAQ links a representative question to a canonical KB file.
+Context Object FAQ links a representative question to a canonical KB file, with
+optional line ranges for routing to a stable passage inside that file.
 Use it only after confirming the file is uploaded, attached, and `READY`, and
 semantic retrieval is missing that file despite a reasonable query.
 
@@ -244,11 +245,13 @@ Commands:
 | --- | --- |
 | `codeer kb faq-list [--context-object-id ID]` | List FAQ routes |
 | `codeer kb faq-get <faq-id>` | Inspect one FAQ route |
-| `codeer kb faq-create --context-object-id ID --question TEXT --dry-run` | Preview creation |
-| `codeer kb faq-update <faq-id> [--context-object-id ID] [--question TEXT] --dry-run` | Preview update |
+| `codeer kb faq-create --context-object-id ID --question TEXT [--range START:END] --dry-run` | Preview creation |
+| `codeer kb faq-update <faq-id> [--context-object-id ID] [--question TEXT] [--range START:END] --dry-run` | Preview update |
 | `codeer kb faq-delete <faq-id> --dry-run` | Preview deletion |
 
 After user approval, rerun the same mutation command without `--dry-run`.
+Repeat `--range` to reserve multiple passages. On update, supplied ranges
+replace the FAQ's existing ranges.
 
 ---
 

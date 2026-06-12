@@ -252,11 +252,12 @@ def create_context_obj_faq(
     *,
     context_object_id: int,
     question: str,
+    ranges: Optional[list[dict[str, int]]] = None,
 ) -> dict:
-    return client.post(
-        _faq_base(),
-        json={"context_object_id": context_object_id, "question": question},
-    )
+    body: dict[str, Any] = {"context_object_id": context_object_id, "question": question}
+    if ranges is not None:
+        body["ranges"] = ranges
+    return client.post(_faq_base(), json=body)
 
 
 def update_context_obj_faq(
@@ -265,12 +266,15 @@ def update_context_obj_faq(
     faq_id: int,
     context_object_id: Optional[int] = None,
     question: Optional[str] = None,
+    ranges: Optional[list[dict[str, int]]] = None,
 ) -> dict:
     body: dict[str, Any] = {}
     if context_object_id is not None:
         body["context_object_id"] = context_object_id
     if question is not None:
         body["question"] = question
+    if ranges is not None:
+        body["ranges"] = ranges
     return client.patch(f"{_faq_base()}/{faq_id}", json=body)
 
 

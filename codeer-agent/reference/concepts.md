@@ -66,6 +66,7 @@ A mechanism for routing specific questions directly to a canonical KB file.
 - A FAQ entry pairs a **question** (with its own embedding) with a **ContextObj** (KB file)
 - During `retrieve_context_objs`, FAQ embeddings are matched against the user's query
 - Matched FAQ items are flagged as `retrieval_route="faq_reserved"` and prioritized in results
+- Optional FAQ line ranges reserve chunks that overlap a stable passage in the target file
 - This gives retrieval a direct question-to-source signal, bypassing pure semantic similarity
 - In CLI KB output, the FAQ target `ContextObj.id` appears as the file node's
   `snapshot_object_id`
@@ -75,6 +76,7 @@ A mechanism for routing specific questions directly to a canonical KB file.
 - The canonical file is already uploaded, attached, and indexed (status: READY)
 - The agent's query is reasonable, but semantic search often misses or ranks the target file too low
 - A high-value question must reliably land on one source of truth
+- The relevant passage has stable line numbers, if using line ranges
 
 ### When NOT to use
 
@@ -82,6 +84,7 @@ A mechanism for routing specific questions directly to a canonical KB file.
 - Unclear file structure or bad naming (fix the content first)
 - Bad tool-use instructions in the prompt (agent isn't querying at all)
 - Rubric/source-of-truth conflicts (human decision needed first)
+- Frequently regenerated files with drifting line numbers, unless you are prepared to refresh the ranges
 
 ---
 

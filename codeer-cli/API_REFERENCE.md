@@ -81,21 +81,23 @@ Base path: `/external/context-object-faqs`
 Create body:
 
 ```json
-{"context_object_id": 123, "question": "How do I reset billing?"}
+{"context_object_id": 123, "question": "How do I reset billing?", "ranges": [{"start_line": 12, "end_line": 18}]}
 ```
 
-Update body accepts either or both fields:
+Update body accepts any of these fields:
 
 ```json
-{"context_object_id": 456, "question": "How do I update billing?"}
+{"context_object_id": 456, "question": "How do I update billing?", "ranges": [{"start_line": 20, "end_line": 24}]}
 ```
 
 `context_object_id` is the KB file's `snapshot_object_id` from the KB node
-listing. The compact CLI output includes it:
+listing. `ranges` is optional; use it when the FAQ route should reserve chunks
+overlapping a stable line range inside that file. The compact CLI output includes
+the target id:
 
 ```bash
 codeer kb files --kb-id <kb-id>
-codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --dry-run
+codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --range 12:18 --dry-run
 ```
 
 ## Stage 3 — Live Test on a specific version

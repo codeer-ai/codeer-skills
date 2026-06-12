@@ -166,12 +166,14 @@ override matching JSON keys.
 
 Use Context Object FAQ entries to route high-value questions to a canonical KB
 file when semantic retrieval misses the right source. The FAQ target is a KB
-file's `snapshot_object_id`, shown by `codeer kb files`.
+file's `snapshot_object_id`, shown by `codeer kb files`. Add `--range
+START_LINE:END_LINE` when the route should reserve chunks overlapping a stable
+line range inside that file.
 
 ```bash
 codeer kb files --kb-id <kb-id>
 codeer kb faq-list --context-object-id <snapshot-object-id>
-codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --dry-run
+codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --range 12:18 --dry-run
 ```
 
 After reviewing the dry-run output, rerun the create/update/delete command

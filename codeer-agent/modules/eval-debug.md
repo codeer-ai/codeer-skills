@@ -171,7 +171,8 @@ search reliably misses the target file despite reasonable agent queries.
 Add representative question variants and link them to the canonical
 context object/file. The FAQ question embedding reserves the linked file
 during `retrieve_context_objs`, giving retrieval a direct question-to-source
-routing signal.
+routing signal. Add line ranges only when the source passage is stable and the
+question should land on a specific part of the file.
 
 CLI workflow:
 
@@ -179,6 +180,7 @@ CLI workflow:
    `codeer kb files --kb-id <kb-id>`
 2. Preview the FAQ route:
    `codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --dry-run`
+   Add `--range START_LINE:END_LINE` when the route should reserve a specific passage.
 3. Show the dry-run output and wait for user approval.
 4. Apply by rerunning without `--dry-run`.
 5. Re-run the affected eval case first, then the broader batch if it passes.

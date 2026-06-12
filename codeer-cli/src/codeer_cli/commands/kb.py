@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import time
 from pathlib import Path
@@ -106,6 +107,8 @@ def register(subparsers):
     p.add_argument("--context-object-id", type=int, required=True,
                    help="KB file snapshot_object_id from `codeer kb files`")
     p.add_argument("--question", required=True)
+    p.add_argument("--range", dest="ranges", action="append", type=_parse_faq_range, default=None,
+                   help="Reserve matching chunks that overlap START_LINE:END_LINE; repeatable")
     p.add_argument("--dry-run", action="store_true",
                    help="Print intended request without writing server state.")
     p.add_argument("--out", default=None, help="Write result JSON to this file too")
@@ -116,6 +119,8 @@ def register(subparsers):
     p.add_argument("--context-object-id", type=int, default=None,
                    help="Move FAQ to a different KB file snapshot_object_id")
     p.add_argument("--question", default=None)
+    p.add_argument("--range", dest="ranges", action="append", type=_parse_faq_range, default=None,
+                   help="Replace reserved ranges with START_LINE:END_LINE; repeatable")
     p.add_argument("--dry-run", action="store_true",
                    help="Print intended request without writing server state.")
     p.add_argument("--out", default=None, help="Write result JSON to this file too")
@@ -195,6 +200,7 @@ def _faq_summary(faq: dict) -> dict:
         "id": faq.get("id"),
         "context_object_id": faq.get("context_object_id"),
         "question": faq.get("question"),
+        "ranges": faq.get("ranges") or [],
         "has_question_embedding": faq.get("has_question_embedding"),
         "updated_at": faq.get("updated_at"),
     }
@@ -209,6 +215,20 @@ def _dry_run(path: str | None, result: dict) -> int:
     print_json(result)
     write_json(path, result)
     return 0
+
+
+def _parse_faq_range(value: str) -> dict[str, int]:
+    try:
+        start_raw, end_raw = value.split(":", 1)
+        start_line = int(start_raw)
+        end_line = int(end_raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("expected START_LINE:END_LINE") from exc
+    if start_line < 1 or end_line < 1:
+        raise argparse.ArgumentTypeError("line numbers must be >= 1")
+    if end_line < start_line:
+        raise argparse.ArgumentTypeError("END_LINE must be >= START_LINE")
+    return {"start_line": start_line, "end_line": end_line}
 
 
 def _parse_config_json(config_json: str | None) -> dict | None:
@@ -384,6 +404,8 @@ def run_faq_get(args, client) -> int:
 
 def run_faq_create(args, client) -> int:
     body = {"context_object_id": args.context_object_id, "question": args.question}
+    if args.ranges is not None:
+        body["ranges"] = args.ranges
     if args.dry_run:
         return _dry_run(
             args.out,
@@ -403,6 +425,7 @@ def run_faq_create(args, client) -> int:
             client,
             context_object_id=args.context_object_id,
             question=args.question,
+            ranges=args.ranges,
         )
     )
     _print_and_write(args.out, faq)
@@ -410,8 +433,8 @@ def run_faq_create(args, client) -> int:
 
 
 def run_faq_update(args, client) -> int:
-    if args.context_object_id is None and args.question is None:
-        log("error: provide --context-object-id or --question")
+    if args.context_object_id is None and args.question is None and args.ranges is None:
+        log("error: provide --context-object-id, --question, or --range")
         return 2
 
     body: dict[str, object] = {}
@@ -419,6 +442,8 @@ def run_faq_update(args, client) -> int:
         body["context_object_id"] = args.context_object_id
     if args.question is not None:
         body["question"] = args.question
+    if args.ranges is not None:
+        body["ranges"] = args.ranges
 
     if args.dry_run:
         return _dry_run(
@@ -440,6 +465,7 @@ def run_faq_update(args, client) -> int:
             faq_id=args.faq_id,
             context_object_id=args.context_object_id,
             question=args.question,
+            ranges=args.ranges,
         )
     )
     _print_and_write(args.out, faq)
