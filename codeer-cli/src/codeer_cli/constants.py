@@ -19,6 +19,7 @@ UNIFIED_TOOL_TYPES: frozenset[str] = frozenset({
     "payment",
     "memory",
     "http_request",
+    "text2speech",
 })
 
 # Valid type values for a field inside ``custom_form_schema.fields[]``.
