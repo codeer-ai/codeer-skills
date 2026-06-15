@@ -61,7 +61,7 @@ uv tool install --editable .
 
 Cowork should provide an installed `codeer` binary plus credentials from the
 Codeer CLI profile or an external CLI credential store. Do not place
-`session.env`, `.env`, or API keys in the skill workspace.
+API keys in the skill workspace.
 
 ```bash
 codeer check
@@ -76,6 +76,18 @@ Make sure:
   `CODEER_ORGANIZATION_ID`, `--workspace`, or `--org`.
 - If a project has one default agent, provide `CODEER_AGENT_ID` as a
   non-secret environment variable.
+
+For platform debugging or PR preview work, the CLI also provides an explicit
+raw session-cookie mode. It is opt-in and does not affect `codeer check`,
+`codeer agent`, `codeer kb`, `codeer eval`, or `codeer history`:
+
+```bash
+codeer api --env-file session.env get /accounts/me
+codeer api --env-file preview_session.env get /accounts/me
+```
+
+See [codeer-agent/PREVIEW_ENV.md](codeer-agent/PREVIEW_ENV.md) for preview
+domain and credential details.
 
 ## Prerequisites
 

@@ -78,6 +78,12 @@ Use --out <path> for large raw artifacts; stdout defaults to compact summaries.
     except ImportError:
         pass
 
+    try:
+        from .commands import api as api_cmd
+        api_cmd.register(sub)
+    except ImportError:
+        pass
+
     args = parser.parse_args(argv)
 
     if not hasattr(args, "func"):

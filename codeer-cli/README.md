@@ -78,6 +78,48 @@ Agent scope is optional and can be set as a non-secret environment variable:
 CODEER_AGENT_ID=<agent-id>
 ```
 
+## Raw session API mode
+
+For PR preview debugging or platform operations that are not covered by the
+API-key external CLI commands, use the explicit `codeer api` command with a
+browser session env file:
+
+```bash
+codeer api --env-file session.env get /accounts/me
+codeer api --env-file preview_session.env get /accounts/me
+codeer api --env-file preview_session.env post /agents --json-file payload.json
+```
+
+The env file must contain:
+
+```env
+CODEER_API_BASE=https://api.codeer.ai
+CODEER_APP_BASE=https://app.codeer.ai
+CODEER_SESSION_ID=<browser sessionid>
+CODEER_CSRF_TOKEN=<browser csrftoken>
+```
+
+`CODEER_APP_BASE` is optional but recommended because it is used for
+`Origin` and `Referer` headers. For preview environments, set
+`CODEER_API_BASE` to `https://pr<N>.api.preview.codeer.ai` and
+`CODEER_APP_BASE` to `https://pr<N>.preview.codeer.ai`.
+
+`codeer api` accepts arbitrary methods and raw platform paths. Paths like
+`/accounts/me` are sent to `/api/v1/accounts/me`; paths beginning with
+`/api/` or absolute URLs are used unchanged.
+
+Examples:
+
+```bash
+codeer api --env-file preview_session.env get /agents/all --param wid=<workspace_id>
+codeer api --env-file preview_session.env patch /agents/<agent_id> --json-file agent_patch.json
+codeer api --env-file preview_session.env stream post /chats/<chat_id>/messages --json-file message.json
+```
+
+This mode uses browser cookies and can access broader platform endpoints than
+the API-key external commands. Keep `session.env` and `preview_session.env`
+local; they are ignored by this repository's `.gitignore`.
+
 ## Development install
 
 Use an editable install while the CLI is changing quickly:
