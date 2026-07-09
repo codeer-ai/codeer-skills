@@ -62,5 +62,7 @@ def print_json(value: Any) -> None:
 def write_json(path: str | None, value: Any) -> None:
     if not path:
         return
-    Path(path).write_text(json.dumps(value, ensure_ascii=False, indent=2, default=str) + "\n")
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(value, ensure_ascii=False, indent=2, default=str) + "\n")
     log(f"wrote full detail to {path}")

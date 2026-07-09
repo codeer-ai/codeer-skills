@@ -359,10 +359,12 @@ those IDs when turning a real conversation into follow-up eval cases later.
 `--history` and `--latest` are mutually exclusive. If neither is passed,
 the CLI uses the newest AgentHistory.
 
-Eval cases run only for assigned case/evaluator pairs. If `--evaluator` or
-`--evaluators` is supplied, the CLI runs the intersection of requested cases
-and assigned evaluator pairs, then reports unassigned pairs as skipped. If no
-evaluator is supplied, it runs all assigned pairs for the selected cases.
+If `--evaluator` or `--evaluators` is supplied, the CLI runs the requested
+cases with those evaluator IDs. If no evaluator is supplied, the CLI uses
+external rubric batches to find case/evaluator pairs with configured rubrics.
+Internally, runs should be triggered through the external eval runs endpoint
+and grouped by evaluator. Do not call legacy internal trigger endpoints from
+the public CLI.
 
 ---
 

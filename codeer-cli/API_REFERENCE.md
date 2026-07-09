@@ -222,17 +222,18 @@ normalized `tool_calls`, `tool_calls_summary`, and `tool_total_duration_ms`;
 in `eval_table_full.json`. Per-tool time is computed from `start_at/end_at`.
 
 **`evaluator_id` is singular — one call returns results for one evaluator
-only.** Cases are also bound to specific evaluator assignments. To see the
-full picture for a case, first read the case/evaluator assignments, then call
-results once per assigned evaluator. `codeer eval run` and
-`codeer eval rubrics` handle this automatically; if calling the API directly,
-prefer `eval_mod.get_case_evaluator_infos(case_ids=[...])` as the source of
-truth for which pairs should run.
+only.** To see the full picture for a case, call results once per evaluator
+you care about. `codeer eval run` and `codeer eval rubrics` handle this
+automatically; when no evaluator is supplied, the public CLI uses external
+rubric batches to find case/evaluator pairs with configured rubrics.
 
 Regression workflow (apply prompt change → re-run all assigned pairs → spot
 side effects): `codeer eval run --agent <agent_id>` runs the latest
 AgentHistory by default. For the common "many cases, one tester" flow, use
 `codeer eval run --agent <agent_id> --cases <ids> --evaluator <evaluator_id>`.
+When triggering runs, call `POST /external/eval/runs` once per evaluator with
+that evaluator's case IDs. Do not call legacy internal trigger endpoints from
+the public CLI.
 
 ## Stage 7 — Publish
 

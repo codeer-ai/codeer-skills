@@ -3,17 +3,34 @@ from __future__ import annotations
 import unittest
 
 from codeer_cli import eval_ as eval_mod
-from codeer_cli.commands.eval_cmd import _assigned_evaluators_by_case, _planned_eval_pairs
+from codeer_cli.commands.eval_cmd import (
+    _assigned_evaluators_by_case,
+    _pairs_from_rubric_batches,
+    _planned_eval_pairs,
+    _remove_non_runnable_skipped_pairs,
+    _skipped_pairs_from_trigger_response,
+)
 
 
 class FakeClient:
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, dict]] = []
 
+    def get(self, path: str, **kwargs):
+        self.calls.append(("GET", path, kwargs))
+        if path == "/external/eval/agents/agent-1/cases":
+            return {"cases": [{"id": "case-1"}, {"id": "case-2"}], "total": 2}
+        return []
+
     def post(self, path: str, **kwargs):
         self.calls.append(("POST", path, kwargs))
         if path == "/external/eval/cases":
             return {"id": "case-1"}
+        if path == "/external/eval/rubrics:batch":
+            return [
+                {"case_id": "case-1", "evaluator_id": "eval-1", "rubric": "Must pass"},
+                {"case_id": "case-2", "evaluator_id": "eval-1", "rubric": ""},
+            ]
         return {"ok": True}
 
     def put(self, path: str, **kwargs):
@@ -22,6 +39,46 @@ class FakeClient:
 
 
 class EvalPairClientTests(unittest.TestCase):
+    def test_list_cases_accepts_enveloped_server_response(self) -> None:
+        client = FakeClient()
+
+        cases = eval_mod.list_cases(client, "agent-1")  # type: ignore[arg-type]
+
+        self.assertEqual(cases, [{"id": "case-1"}, {"id": "case-2"}])
+        self.assertEqual(client.calls[0][0:2], ("GET", "/external/eval/agents/agent-1/cases"))
+
+    def test_external_trigger_endpoint_for_agent_history_runs(self) -> None:
+        client = FakeClient()
+
+        eval_mod.trigger(  # type: ignore[arg-type]
+            client,
+            case_ids=["case-1", "case-2"],
+            evaluator_ids=["eval-1"],
+            agent_history_id="hist-1",
+        )
+
+        self.assertEqual(client.calls[0][0:2], ("POST", "/external/eval/runs"))
+        self.assertEqual(
+            client.calls[0][2]["json"],
+            {
+                "case_ids": ["case-1", "case-2"],
+                "evaluator_ids": ["eval-1"],
+                "version_id": "hist-1",
+            },
+        )
+
+    def test_pairs_from_rubric_batches_keeps_configured_rubrics_only(self) -> None:
+        client = FakeClient()
+
+        pairs = _pairs_from_rubric_batches(  # type: ignore[arg-type]
+            client,
+            case_ids=["case-1", "case-2"],
+            evaluator_ids=["eval-1"],
+        )
+
+        self.assertEqual(pairs, [{"case_id": "case-1", "evaluator_id": "eval-1"}])
+        self.assertEqual(client.calls[0][0:2], ("POST", "/external/eval/rubrics:batch"))
+
     def test_assignment_helper_paths(self) -> None:
         client = FakeClient()
 
@@ -119,6 +176,42 @@ class EvalPairPlannerTests(unittest.TestCase):
             ],
         )
         self.assertEqual(skipped, [])
+
+    def test_trigger_response_skipped_pairs_are_normalized(self) -> None:
+        skipped = _skipped_pairs_from_trigger_response({
+            "skipped_pairs": [
+                {"case_id": "case-1", "evaluator_id": "eval-1", "reason": "not_assigned"},
+                {"case_id": "case-2", "evaluator_id": "eval-1"},
+                {"case_id": None, "evaluator_id": "eval-1", "reason": "not_assigned"},
+            ]
+        })
+
+        self.assertEqual(
+            skipped,
+            [
+                {"case_id": "case-1", "evaluator_id": "eval-1", "reason": "not_assigned"},
+                {"case_id": "case-2", "evaluator_id": "eval-1", "reason": "skipped"},
+            ],
+        )
+
+    def test_non_runnable_skipped_pairs_are_removed_from_poll_targets(self) -> None:
+        pairs = [
+            {"case_id": "case-1", "evaluator_id": "eval-1"},
+            {"case_id": "case-2", "evaluator_id": "eval-1"},
+            {"case_id": "case-3", "evaluator_id": "eval-1"},
+        ]
+        skipped = [
+            {"case_id": "case-2", "evaluator_id": "eval-1", "reason": "not_assigned"},
+            {"case_id": "case-3", "evaluator_id": "eval-1", "reason": "already_running"},
+        ]
+
+        self.assertEqual(
+            _remove_non_runnable_skipped_pairs(pairs, skipped),
+            [
+                {"case_id": "case-1", "evaluator_id": "eval-1"},
+                {"case_id": "case-3", "evaluator_id": "eval-1"},
+            ],
+        )
 
 
 if __name__ == "__main__":

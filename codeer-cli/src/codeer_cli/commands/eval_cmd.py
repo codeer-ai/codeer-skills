@@ -653,6 +653,64 @@ def _group_case_ids_by_evaluator(pairs: list[dict[str, str]]) -> dict[str, list[
     return dict(grouped)
 
 
+def _pairs_from_rubric_batches(
+    client,
+    *,
+    case_ids: list[str],
+    evaluator_ids: list[str],
+) -> list[dict[str, str]]:
+    pairs: list[dict[str, str]] = []
+    for evaluator_id in evaluator_ids:
+        for row in eval_mod.get_rubrics_batch(client, case_ids=case_ids, evaluator_id=evaluator_id):
+            if row.get("rubric"):
+                case_id = row.get("case_id") or row.get("evaluation_case_id")
+                if case_id:
+                    pairs.append({"case_id": str(case_id), "evaluator_id": evaluator_id})
+    return pairs
+
+
+def _pair_key(pair: dict[str, str]) -> tuple[str, str]:
+    return pair["case_id"], pair["evaluator_id"]
+
+
+def _skipped_pairs_from_trigger_response(response: Any) -> list[dict[str, str]]:
+    if not isinstance(response, dict):
+        return []
+    payload = response.get("data") if isinstance(response.get("data"), dict) else response
+    skipped = payload.get("skipped_pairs") if isinstance(payload, dict) else None
+    if not isinstance(skipped, list):
+        return []
+
+    out: list[dict[str, str]] = []
+    for row in skipped:
+        if not isinstance(row, dict):
+            continue
+        case_id = row.get("case_id")
+        evaluator_id = row.get("evaluator_id")
+        if not case_id or not evaluator_id:
+            continue
+        out.append({
+            "case_id": str(case_id),
+            "evaluator_id": str(evaluator_id),
+            "reason": str(row.get("reason") or "skipped"),
+        })
+    return out
+
+
+def _remove_non_runnable_skipped_pairs(
+    pairs: list[dict[str, str]],
+    skipped_pairs: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    non_runnable = {
+        _pair_key(pair)
+        for pair in skipped_pairs
+        if pair.get("reason") == "not_assigned"
+    }
+    if not non_runnable:
+        return pairs
+    return [pair for pair in pairs if _pair_key(pair) not in non_runnable]
+
+
 def run_run(args, client) -> int:
     workspace_id, _ = client.resolve_scope()
     if args.latest or not args.history:
@@ -682,18 +740,22 @@ def run_run(args, client) -> int:
     evaluator_ids = [args.evaluator] if args.evaluator else (_ids(args.evaluators) or [])
     requested_evaluator_ids = evaluator_ids or None
 
-    assignment_rows = eval_mod.get_case_evaluator_infos(client, case_ids=case_ids)
-    assigned_by_case = _assigned_evaluators_by_case(assignment_rows)
-    pairs, skipped_unassigned = _planned_eval_pairs(
-        case_ids=case_ids,
-        assigned_by_case=assigned_by_case,
-        requested_evaluator_ids=requested_evaluator_ids,
-    )
+    skipped_unassigned: list[dict[str, str]] = []
+    if requested_evaluator_ids:
+        pairs = [
+            {"case_id": case_id, "evaluator_id": evaluator_id}
+            for evaluator_id in requested_evaluator_ids
+            for case_id in case_ids
+        ]
+    else:
+        evaluator_ids = [e["id"] for e in eval_mod.list_evaluators(client, workspace_id)]
+        pairs = _pairs_from_rubric_batches(
+            client,
+            case_ids=case_ids,
+            evaluator_ids=evaluator_ids,
+        )
     if not pairs:
-        if skipped_unassigned:
-            log("error: none of the requested case/evaluator pairs are assigned")
-        else:
-            log("error: no assigned case/evaluator pairs to run")
+        log("error: no case/evaluator pairs to run")
         print_json({
             "agent_id": args.agent,
             "history_id": args.history,
@@ -710,14 +772,47 @@ def run_run(args, client) -> int:
     case_label_by_id = {c["id"]: truncate(c.get("input") or "", 60) for c in case_objs}
     evaluator_name_by_id = {e["id"]: e.get("name", e["id"]) for e in evaluators}
 
+    requested_pairs = list(pairs)
+    requested_pair_count = len(requested_pairs)
+    log(f"triggering: {requested_pair_count} case/evaluator pairs on history {args.history}")
+    trigger_response: list[dict[str, Any]] = []
+    skipped_pairs: list[dict[str, str]] = []
+    for ev_id, ev_case_ids in _group_case_ids_by_evaluator(pairs).items():
+        response = eval_mod.trigger(
+            client,
+            case_ids=ev_case_ids,
+            evaluator_ids=[ev_id],
+            agent_history_id=args.history,
+        )
+        response_skipped = _skipped_pairs_from_trigger_response(response)
+        skipped_pairs.extend(response_skipped)
+        trigger_response.append({
+            "evaluator_id": ev_id,
+            "case_ids": ev_case_ids,
+            "response": response,
+            "skipped_pairs": response_skipped,
+        })
+
+    pairs = _remove_non_runnable_skipped_pairs(pairs, skipped_pairs)
+    skipped_unassigned = [pair for pair in skipped_pairs if pair.get("reason") == "not_assigned"]
     if skipped_unassigned:
-        log(f"skipping {len(skipped_unassigned)} unassigned requested pairs")
-    log(f"triggering: {len(pairs)} assigned case/evaluator pairs on history {args.history}")
-    trigger_response = eval_mod.trigger_pairs(
-        client,
-        case_evaluator_pairs=pairs,
-        agent_history_id=args.history,
-    )
+        log(f"skipping {len(skipped_unassigned)} not-assigned pairs from polling")
+    if not pairs:
+        log("error: no runnable case/evaluator pairs after trigger response")
+        print_json({
+            "agent_id": args.agent,
+            "history_id": args.history,
+            "requested_case_count": len(case_ids),
+            "requested_evaluator_count": len(requested_evaluator_ids or evaluator_ids),
+            "requested_pair_count": requested_pair_count,
+            "triggered_pair_count": 0,
+            "skipped_pair_count": len(skipped_pairs),
+            "skipped_unassigned_count": len(skipped_unassigned),
+            "trigger_response": trigger_response,
+            "skipped_pairs": skipped_pairs,
+            "skipped_unassigned": skipped_unassigned,
+        })
+        return 2
 
     deadline = time.time() + args.poll_timeout
     results_by_eval: dict[str, list[dict]] = {}
@@ -825,22 +920,27 @@ def run_run(args, client) -> int:
         "history_id": args.history,
         "requested_case_count": len(case_ids),
         "requested_evaluator_count": len(requested_evaluator_ids or evaluator_ids),
+        "requested_pair_count": requested_pair_count,
         "triggered_pair_count": len(pairs),
         "scored_pair_count": len(scored_pair_keys),
+        "skipped_pair_count": len(skipped_pairs),
         "skipped_unassigned_count": len(skipped_unassigned),
         "all_perfect": all_perfect,
         "result_count": len(result_summaries),
         "non_perfect_count": len(non_perfect),
         "wrote_full_detail": bool(args.out),
         "trigger_response": trigger_response,
+        "skipped_pairs": skipped_pairs,
         "skipped_unassigned": skipped_unassigned,
         "results": result_summaries,
     }
     full_out = {
         "agent_id": args.agent,
         "history_id": args.history,
+        "requested_pairs": requested_pairs,
         "triggered_pairs": pairs,
         "trigger_response": trigger_response,
+        "skipped_pairs": skipped_pairs,
         "skipped_unassigned": skipped_unassigned,
         "all_perfect": all_perfect,
         "results": flat,
@@ -1466,34 +1566,43 @@ def run_rubrics(args, client) -> int:
         log("error: no cases for this agent")
         return 2
 
-    assignment_rows = eval_mod.get_case_evaluator_infos(client, case_ids=case_ids)
-    assigned_by_case = _assigned_evaluators_by_case(assignment_rows)
-
     if args.evaluators:
         evaluator_ids = _ids(args.evaluators) or []
         evaluators = [eval_mod.get_evaluator(client, eid) for eid in evaluator_ids]
-    elif args.all_pairs:
+    else:
         evaluators = eval_mod.list_evaluators(client, workspace_id)
         evaluator_ids = [e["id"] for e in evaluators]
+
+    rubrics = eval_mod.get_case_rubrics(
+        client, agent_id=args.agent, workspace_id=workspace_id,
+        evaluator_ids=evaluator_ids, case_ids=case_ids,
+    )
+    assigned_by_case = {
+        cid: {
+            ev_id: {"evaluator_id": ev_id, "rubric": rubric_text}
+            for ev_id, rubric_text in (rubrics.get(cid) or {}).items()
+            if rubric_text
+        }
+        for cid in case_ids
+    }
+
+    if args.evaluators or args.all_pairs:
+        pass
     else:
         evaluator_ids = _dedupe_preserve_order([
             evaluator_id
             for case_id in case_ids
             for evaluator_id in assigned_by_case.get(case_id, {})
         ])
-        evaluators = [eval_mod.get_evaluator(client, eid) for eid in evaluator_ids]
+        evaluator_id_set = set(evaluator_ids)
+        evaluators = [e for e in evaluators if e["id"] in evaluator_id_set]
     evaluator_name = {e["id"]: e.get("name", e["id"]) for e in evaluators}
     if not evaluator_ids:
-        log("error: no assigned evaluators for these cases")
+        log("error: no evaluators with configured rubrics for these cases")
         return 2
 
-    mode = "all requested pairs" if args.evaluators or args.all_pairs else "assigned pairs"
+    mode = "all requested pairs" if args.evaluators or args.all_pairs else "pairs with configured rubrics"
     log(f"reading {mode}: {len(case_ids)} cases, {len(evaluator_ids)} evaluators...")
-
-    rubrics = eval_mod.get_case_rubrics(
-        client, agent_id=args.agent, workspace_id=workspace_id,
-        evaluator_ids=evaluator_ids, case_ids=case_ids,
-    )
 
     if args.full:
         for cid in case_ids:

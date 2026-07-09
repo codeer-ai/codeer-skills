@@ -54,8 +54,26 @@ def create_case(
     return client.post("/external/eval/cases", json=body)
 
 
+def _unwrap_list_response(value: Any, *keys: str) -> list[dict]:
+    """Normalize list endpoints that may return either a bare list or envelope."""
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict):
+        for key in keys:
+            rows = value.get(key)
+            if isinstance(rows, list):
+                return rows
+    return []
+
+
 def list_cases(client: CodeerClient, agent_id: str) -> list[dict]:
-    return client.get(f"/external/eval/agents/{agent_id}/cases")
+    return _unwrap_list_response(
+        client.get(f"/external/eval/agents/{agent_id}/cases"),
+        "cases",
+        "evaluation_cases",
+        "data",
+        "items",
+    )
 
 
 def get_case(client: CodeerClient, case_id: str) -> dict:
