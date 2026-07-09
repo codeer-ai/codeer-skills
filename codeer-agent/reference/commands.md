@@ -102,6 +102,8 @@ completes, record the summary in `progress.json` and move to the next batch.
 | `codeer agent publish` | Publish an approved agent version |
 | `codeer kb list` | List knowledge bases in workspace |
 | `codeer kb upload` | Create/reuse KB + upload files + poll until indexed |
+| `codeer kb node-rename` | Rename a KB root, folder, or file node |
+| `codeer kb node-delete` | Delete a KB root, folder, or file node and descendants |
 | `codeer kb crawl-create` | Create a website-crawler KB folder |
 | `codeer kb crawl-update` | Update a website crawl target |
 | `codeer kb crawl-state` | Read website crawl state for a crawler folder |
@@ -114,13 +116,19 @@ completes, record the summary in `progress.json` and move to the next batch.
 | `codeer kb faq-update` | Update a Context Object FAQ question or target file |
 | `codeer kb faq-delete` | Delete a Context Object FAQ entry |
 | `codeer eval list` | List eval cases for an agent |
+| `codeer eval label-list` | List workspace eval case labels |
+| `codeer eval label-create` | Create a reusable eval case label |
+| `codeer eval label-update` | Rename or recolor an eval case label |
+| `codeer eval label-delete` | Delete an eval case label and clear associations |
+| `codeer eval case-update` | Update one eval case by UUID, including `input` |
+| `codeer eval case-delete` | Delete one eval case by UUID |
 | `codeer eval evaluators` | List evaluators in workspace |
 | `codeer eval evaluator-create` | Create an evaluator in the workspace |
 | `codeer eval evaluator-update` | Update a workspace-scoped evaluator |
-| `codeer eval run` | Trigger eval, poll, print non-perfect analysis |
+| `codeer eval run` | Trigger assigned case/evaluator pairs, poll, print non-perfect analysis |
 | `codeer eval export` | Full eval table export (CSV + JSON + summary MD) |
 | `codeer eval cases-apply` | Bulk-create/update eval cases with per-evaluator rubrics |
-| `codeer eval rubrics` | Read per-(case, evaluator) rubrics |
+| `codeer eval rubrics` | Read assigned per-(case, evaluator) rubrics |
 | `codeer eval rubrics-apply` | Apply rubric edits (pairs with `eval rubrics`) |
 | `codeer eval reconcile` | Read-only audit: compare local manifest vs server state |
 | `codeer history list` | List conversation histories for an agent |
@@ -150,13 +158,63 @@ Before any server mutation, preview the intended write:
 codeer agent apply --payload .codeer/current/local_draft_agent.json --dry-run
 codeer eval cases-apply --agent <agent-id> --cases .codeer/current/local_draft_eval_cases.json --dry-run
 codeer eval rubrics-apply --rubrics .codeer/current/local_draft_rubrics.json --dry-run
+codeer eval label-create --name "Routing" --color "#0969da" --dry-run
 codeer kb upload --dir kb --name "Product KB" --dry-run
+codeer kb node-rename --node-id <node-id> --name "New Name" --dry-run
+codeer kb node-delete --node-id <node-id> --dry-run
 codeer kb crawl-create --url "https://docs.example.com" --folder-name "Docs" --dry-run
 codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --dry-run
 codeer agent publish --agent <agent-id> --version <n> --dry-run
 ```
 
 Apply only after the user approves the dry-run summary.
+
+## KB node rename/delete
+
+Knowledge Base roots, folders, and files are all KnowledgeNodes. Use
+`node-rename` and `node-delete` when you already know the node id from
+`codeer kb list` or `codeer kb files`.
+
+```bash
+codeer kb node-rename --node-id <node-id> --name "New Name" --dry-run
+codeer kb node-delete --node-id <node-id> --dry-run
+```
+
+`node-delete` deletes the target node and all descendants. Always show the
+dry-run output to the user and wait for approval before rerunning without
+`--dry-run`.
+
+## Eval case labels
+
+Eval case labels are reusable workspace objects. Use them to tag cases by
+coverage slice, such as `routing`, `pricing`, or `out-of-scope`. They are
+separate from the manifest's legacy `label` field, which is only a local
+review/display name.
+
+Typical workflow:
+
+```bash
+codeer eval label-list
+codeer eval label-create --name "routing" --color "#0969da" --dry-run
+codeer eval case-update --case <case-id> --label-ids <label-id> --dry-run
+```
+
+For bulk case manifests, use either existing IDs:
+
+```json
+{
+  "label": "routing-basic-001",
+  "labels": ["routing"],
+  "label_ids": ["12"],
+  "input": "...",
+  "rubrics": {"<evaluator-id>": "..."}
+}
+```
+
+`labels` is resolved by name against workspace labels. If a manifest references
+new label names, run `codeer eval cases-apply --create-labels --dry-run` to
+preview creating them and assigning them to cases. After approval, rerun without
+`--dry-run`.
 
 ## `codeer agent impact` and `publish`
 
@@ -245,13 +303,14 @@ Commands:
 | --- | --- |
 | `codeer kb faq-list [--context-object-id ID]` | List FAQ routes |
 | `codeer kb faq-get <faq-id>` | Inspect one FAQ route |
-| `codeer kb faq-create --context-object-id ID --question TEXT [--range START:END] --dry-run` | Preview creation |
-| `codeer kb faq-update <faq-id> [--context-object-id ID] [--question TEXT] [--range START:END] --dry-run` | Preview update |
+| `codeer kb faq-create --context-object-id ID --question TEXT [--range START_LINE:START_COLUMN-END_LINE:END_COLUMN] --dry-run` | Preview creation |
+| `codeer kb faq-update <faq-id> [--context-object-id ID] [--question TEXT] [--range START_LINE:START_COLUMN-END_LINE:END_COLUMN] --dry-run` | Preview update |
 | `codeer kb faq-delete <faq-id> --dry-run` | Preview deletion |
 
 After user approval, rerun the same mutation command without `--dry-run`.
-Repeat `--range` to reserve multiple passages. On update, supplied ranges
-replace the FAQ's existing ranges.
+Repeat `--range` to reserve multiple passages. Ranges must include both line and
+column positions so the Codeer UI can map them onto rendered Markdown. On
+update, supplied ranges replace the FAQ's existing ranges.
 
 ---
 
@@ -292,12 +351,18 @@ those IDs when turning a real conversation into follow-up eval cases later.
 | `--history` | string | — | Pin eval to a specific version (AgentHistory UUID) |
 | `--latest` | flag | **default behavior** | Auto-select newest version |
 | `--cases` | string | all | Comma-separated case UUIDs to run |
-| `--evaluators` | string | **required** | Comma-separated evaluator UUIDs to use |
+| `--evaluator` | string | assigned pairs | One evaluator UUID; common path for many cases with one tester |
+| `--evaluators` | string | assigned pairs | Comma-separated evaluator UUIDs |
 | `--poll-timeout` | int | 900 | Polling timeout in seconds |
 | `--out` | string | — | Write results JSON to this path |
 
 `--history` and `--latest` are mutually exclusive. If neither is passed,
-`--latest` behavior applies automatically.
+the CLI uses the newest AgentHistory.
+
+Eval cases run only for assigned case/evaluator pairs. If `--evaluator` or
+`--evaluators` is supplied, the CLI runs the intersection of requested cases
+and assigned evaluator pairs, then reports unassigned pairs as skipped. If no
+evaluator is supplied, it runs all assigned pairs for the selected cases.
 
 ---
 

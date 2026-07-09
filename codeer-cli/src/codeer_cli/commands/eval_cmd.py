@@ -46,6 +46,72 @@ def register(subparsers):
                    help="Write stripped full case payloads to this file; stdout stays compact unless --full.")
     p.set_defaults(func=run_list)
 
+    # codeer eval label-list/create/update/delete
+    p = sub.add_parser("label-list", help="List eval case labels in the workspace")
+    p.add_argument("--workspace", default=None, help="Workspace UUID (default: active API-key workspace)")
+    p.add_argument("--out", default=None)
+    p.set_defaults(func=run_label_list)
+
+    p = sub.add_parser("label-create", help="Create an eval case label; run --dry-run first")
+    p.add_argument("--name", required=True)
+    p.add_argument("--color", default=None, help="Hex color like #0969da (default: server default)")
+    p.add_argument("--workspace", default=None, help="Workspace UUID (default: active API-key workspace)")
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--out", default=None)
+    p.set_defaults(func=run_label_create)
+
+    p = sub.add_parser("label-update", help="Update an eval case label; run --dry-run first")
+    p.add_argument("--label", required=True, dest="label_id", help="Eval case label ID")
+    p.add_argument("--name", default=None)
+    p.add_argument("--color", default=None, help="Hex color like #0969da")
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--out", default=None)
+    p.set_defaults(func=run_label_update)
+
+    p = sub.add_parser("label-delete", help="Delete an eval case label; run --dry-run first")
+    p.add_argument("--label", required=True, dest="label_id", help="Eval case label ID")
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--out", default=None)
+    p.set_defaults(func=run_label_delete)
+
+    # codeer eval case-update
+    p = sub.add_parser("case-update", help="Update one eval case by UUID; run --dry-run first")
+    p.add_argument("--case", required=True, dest="case_id", help="Eval case UUID")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--input", help="New eval case input text")
+    g.add_argument("--input-file", help="Path to new eval case input text")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--expected-output", help="New expected_output text")
+    g.add_argument("--expected-output-file", help="Path to new expected_output text")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--rubric", help="New case-level rubric text")
+    g.add_argument("--rubric-file", help="Path to new case-level rubric text")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--note", help="New case note text")
+    g.add_argument("--note-file", help="Path to new case note text")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--meta-json", help="New case meta JSON object")
+    g.add_argument("--meta-file", help="Path to new case meta JSON object")
+    p.add_argument("--attachment-ids", default=None,
+                   help="Comma-separated file UUIDs to set as the case attachments")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--label-ids", default=None,
+                   help="Comma-separated eval case label IDs to set on the case")
+    g.add_argument("--clear-labels", action="store_true",
+                   help="Remove all labels from the case")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Validate inputs and print intended mutation without writing server state.")
+    p.add_argument("--out", default=None)
+    p.set_defaults(func=run_case_update)
+
+    # codeer eval case-delete
+    p = sub.add_parser("case-delete", help="Delete one eval case by UUID; run --dry-run first")
+    p.add_argument("--case", required=True, dest="case_id", help="Eval case UUID")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Print intended deletion without writing server state.")
+    p.add_argument("--out", default=None)
+    p.set_defaults(func=run_case_delete)
+
     # codeer eval evaluators
     p = sub.add_parser(
         "evaluators",
@@ -88,7 +154,9 @@ def register(subparsers):
     g.add_argument("--latest", action="store_true",
                    help="Auto-select the newest AgentHistory (default)")
     p.add_argument("--cases", default=None, help="Comma-separated case UUIDs (default: all)")
-    p.add_argument("--evaluators", required=True, help="Comma-separated evaluator UUIDs")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--evaluator", default=None, help="Evaluator UUID; common path for running many cases with one tester")
+    g.add_argument("--evaluators", default=None, help="Comma-separated evaluator UUIDs")
     p.add_argument("--poll-timeout", type=int, default=POLL_TIMEOUT)
     p.add_argument("--full", action="store_true",
                    help="Use longer previews in stdout. Raw outputs/tool calls still require --out.")
@@ -121,16 +189,20 @@ def register(subparsers):
     p.add_argument("--agent", required=True)
     p.add_argument("--attachments-dir", default=None, dest="attachments_dir")
     p.add_argument("--allow-duplicates", action="store_true")
+    p.add_argument("--create-labels", action="store_true",
+                   help="Create missing labels referenced by manifest case labels.")
     p.add_argument("--dry-run", action="store_true",
                    help="Validate manifest and print intended mutations without writing server state.")
     p.add_argument("--out", default=None)
     p.set_defaults(func=run_cases_apply)
 
     # codeer eval rubrics
-    p = sub.add_parser("rubrics", help="Read per-(case, evaluator) rubrics")
+    p = sub.add_parser("rubrics", help="Read assigned per-(case, evaluator) rubrics")
     p.add_argument("--agent", required=True)
     p.add_argument("--evaluators", default=None, help="Comma-separated evaluator UUIDs")
     p.add_argument("--cases", default=None, help="Comma-separated case UUIDs")
+    p.add_argument("--all-pairs", action="store_true",
+                   help="With omitted --evaluators, scan every workspace evaluator instead of assigned pairs only.")
     p.add_argument("--full", action="store_true",
                    help="Print complete rubric text. Default prints matrix summaries/previews.")
     p.add_argument("--out", default=None,
@@ -151,6 +223,7 @@ def register(subparsers):
 # ---------------------------------------------------------------------------
 
 def _case_summary(case: dict, *, full: bool = False) -> dict:
+    labels = case.get("labels") or []
     row = {
         "id": case.get("id"),
         "input_preview": truncate(case.get("input") or "", 240 if full else 80),
@@ -158,6 +231,11 @@ def _case_summary(case: dict, *, full: bool = False) -> dict:
         "expected_output_chars": len(case.get("expected_output") or ""),
         "note_preview": truncate(case.get("note") or "", 180 if full else 100),
         "attachment_count": len(case.get("attachments") or case.get("attachment_ids") or []),
+        "labels": [
+            {"id": label.get("id"), "name": label.get("name"), "color": label.get("color")}
+            for label in labels
+            if isinstance(label, dict)
+        ],
     }
     if full:
         row["created_at"] = case.get("created_at")
@@ -203,6 +281,232 @@ def run_list(args, client) -> int:
         "wrote_full_detail": bool(args.out),
         "cases": payload,
     })
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# eval case labels
+# ---------------------------------------------------------------------------
+
+def _workspace_arg_or_default(client, workspace_id: str | None) -> str:
+    if workspace_id:
+        return workspace_id
+    ws, _ = client.resolve_scope()
+    return ws
+
+
+def _label_summary(label: dict) -> dict:
+    return {
+        "id": label.get("id"),
+        "name": label.get("name"),
+        "color": label.get("color"),
+        "workspace_id": label.get("workspace_id"),
+    }
+
+
+def run_label_list(args, client) -> int:
+    workspace_id = _workspace_arg_or_default(client, args.workspace)
+    labels = eval_mod.list_case_labels(client, workspace_id=workspace_id)
+    out = {
+        "workspace_id": workspace_id,
+        "label_count": len(labels),
+        "labels": [_label_summary(label) for label in labels],
+    }
+    print_json(out)
+    write_json(args.out, out)
+    return 0
+
+
+def run_label_create(args, client) -> int:
+    workspace_id = _workspace_arg_or_default(client, args.workspace)
+    if args.dry_run:
+        out = {
+            "dry_run": True,
+            "operation": "label_create",
+            "method": "POST",
+            "path": f"/eval/workspaces/{workspace_id}/case-labels",
+            "workspace_id": workspace_id,
+            "name": args.name,
+            "color": args.color,
+            "would_write_server_state": True,
+            "next_step": "Review this summary, then rerun without --dry-run after approval.",
+        }
+        print_json(out)
+        write_json(args.out, out)
+        return 0
+
+    label = eval_mod.create_case_label(
+        client, workspace_id=workspace_id, name=args.name, color=args.color
+    )
+    out = _label_summary(strip_noisy_fields(label))
+    print_json(out)
+    write_json(args.out, out)
+    return 0
+
+
+def run_label_update(args, client) -> int:
+    if args.name is None and args.color is None:
+        log("error: provide --name and/or --color")
+        return 2
+
+    if args.dry_run:
+        out = {
+            "dry_run": True,
+            "operation": "label_update",
+            "method": "PUT",
+            "path": f"/eval/case-labels/{args.label_id}",
+            "label_id": args.label_id,
+            "updates": {"name": args.name, "color": args.color},
+            "would_write_server_state": True,
+            "next_step": "Review this summary, then rerun without --dry-run after approval.",
+        }
+        print_json(out)
+        write_json(args.out, out)
+        return 0
+
+    label = eval_mod.update_case_label(
+        client, label_id=args.label_id, name=args.name, color=args.color
+    )
+    out = _label_summary(strip_noisy_fields(label))
+    print_json(out)
+    write_json(args.out, out)
+    return 0
+
+
+def run_label_delete(args, client) -> int:
+    if args.dry_run:
+        out = {
+            "dry_run": True,
+            "operation": "label_delete",
+            "method": "DELETE",
+            "path": f"/eval/case-labels/{args.label_id}",
+            "label_id": args.label_id,
+            "would_write_server_state": True,
+            "next_step": "Review this summary, then rerun without --dry-run after approval.",
+        }
+        print_json(out)
+        write_json(args.out, out)
+        return 0
+
+    deleted = strip_noisy_fields(eval_mod.delete_case_label(client, label_id=args.label_id))
+    print_json(deleted)
+    write_json(args.out, deleted)
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# eval case-update / case-delete
+# ---------------------------------------------------------------------------
+
+def _read_text_arg(value: str | None, file_path: str | None) -> str | None:
+    if file_path is not None:
+        return Path(file_path).read_text()
+    return value
+
+
+def _read_meta_arg(value: str | None, file_path: str | None) -> dict | None:
+    if file_path is not None:
+        raw = Path(file_path).read_text()
+    elif value is not None:
+        raw = value
+    else:
+        return None
+
+    meta = json.loads(raw)
+    if not isinstance(meta, dict):
+        raise ValueError("case meta must be a JSON object")
+    return meta
+
+
+def run_case_update(args, client) -> int:
+    try:
+        input_text = _read_text_arg(args.input, args.input_file)
+        expected_output = _read_text_arg(args.expected_output, args.expected_output_file)
+        rubric = _read_text_arg(args.rubric, args.rubric_file)
+        note = _read_text_arg(args.note, args.note_file)
+        meta = _read_meta_arg(args.meta_json, args.meta_file)
+    except (OSError, json.JSONDecodeError, ValueError) as e:
+        log(f"error: {e}")
+        return 2
+    attachment_ids = _ids(args.attachment_ids)
+    label_ids = [] if args.clear_labels else _ids(args.label_ids)
+
+    has_update = any(
+        value is not None
+        for value in (input_text, expected_output, rubric, note, meta, attachment_ids, label_ids)
+    ) or args.clear_labels
+    if not has_update:
+        log(
+            "error: provide at least one of --input, --input-file, --expected-output, "
+            "--expected-output-file, --rubric, --rubric-file, --note, --note-file, "
+            "--meta-json, --meta-file, --attachment-ids, --label-ids, --clear-labels"
+        )
+        return 2
+
+    if args.dry_run:
+        current = strip_noisy_fields(eval_mod.get_case(client, args.case_id))
+        out = {
+            "dry_run": True,
+            "operation": "case_update",
+            "method": "PUT",
+            "path": f"/external/eval/cases/{args.case_id}",
+            "case_id": args.case_id,
+            "current": _case_summary(current, full=True),
+            "updates": {
+                "input_chars": len(input_text) if input_text is not None else None,
+                "expected_output_chars": (
+                    len(expected_output) if expected_output is not None else None
+                ),
+                "rubric_chars": len(rubric) if rubric is not None else None,
+                "note_chars": len(note) if note is not None else None,
+                "meta": meta,
+                "attachment_ids": attachment_ids,
+                "label_ids": label_ids,
+            },
+            "would_write_server_state": True,
+            "next_step": "Review this summary, then rerun without --dry-run after approval.",
+        }
+        print_json(out)
+        write_json(args.out, out)
+        return 0
+
+    updated = eval_mod.update_case(
+        client,
+        args.case_id,
+        input=input_text,
+        expected_output=expected_output,
+        rubric=rubric,
+        attachment_ids=attachment_ids,
+        label_ids=label_ids,
+        meta=meta,
+        note=note,
+    )
+    out = strip_noisy_fields(updated)
+    print_json(out)
+    write_json(args.out, out)
+    return 0
+
+
+def run_case_delete(args, client) -> int:
+    if args.dry_run:
+        current = strip_noisy_fields(eval_mod.get_case(client, args.case_id))
+        out = {
+            "dry_run": True,
+            "operation": "case_delete",
+            "method": "DELETE",
+            "path": f"/external/eval/cases/{args.case_id}",
+            "case_id": args.case_id,
+            "current": _case_summary(current, full=True),
+            "would_write_server_state": True,
+            "next_step": "Review this summary, then rerun without --dry-run after approval.",
+        }
+        print_json(out)
+        write_json(args.out, out)
+        return 0
+
+    deleted = strip_noisy_fields(eval_mod.delete_case(client, args.case_id))
+    print_json(deleted)
+    write_json(args.out, deleted)
     return 0
 
 
@@ -299,6 +603,56 @@ def run_evaluator_update(args, client) -> int:
 # eval run
 # ---------------------------------------------------------------------------
 
+def _assigned_evaluators_by_case(info_rows: list[dict]) -> dict[str, dict[str, dict]]:
+    out: dict[str, dict[str, dict]] = {}
+    for row in info_rows:
+        case_id = row.get("case_id")
+        if not case_id:
+            continue
+        out[str(case_id)] = {
+            str(info.get("evaluator_id")): info
+            for info in (row.get("evaluators") or [])
+            if info.get("evaluator_id")
+        }
+    return out
+
+
+def _planned_eval_pairs(
+    *,
+    case_ids: list[str],
+    assigned_by_case: dict[str, dict[str, dict]],
+    requested_evaluator_ids: list[str] | None,
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    pairs: list[dict[str, str]] = []
+    skipped: list[dict[str, str]] = []
+
+    if requested_evaluator_ids:
+        for case_id in case_ids:
+            assigned = assigned_by_case.get(case_id, {})
+            for evaluator_id in requested_evaluator_ids:
+                if evaluator_id in assigned:
+                    pairs.append({"case_id": case_id, "evaluator_id": evaluator_id})
+                else:
+                    skipped.append({
+                        "case_id": case_id,
+                        "evaluator_id": evaluator_id,
+                        "reason": "not_assigned",
+                    })
+        return pairs, skipped
+
+    for case_id in case_ids:
+        for evaluator_id in assigned_by_case.get(case_id, {}):
+            pairs.append({"case_id": case_id, "evaluator_id": evaluator_id})
+    return pairs, skipped
+
+
+def _group_case_ids_by_evaluator(pairs: list[dict[str, str]]) -> dict[str, list[str]]:
+    grouped: dict[str, list[str]] = defaultdict(list)
+    for pair in pairs:
+        grouped[pair["evaluator_id"]].append(pair["case_id"])
+    return dict(grouped)
+
+
 def run_run(args, client) -> int:
     workspace_id, _ = client.resolve_scope()
     if args.latest or not args.history:
@@ -325,41 +679,76 @@ def run_run(args, client) -> int:
         log("error: no cases to run")
         return 2
 
-    evaluator_ids = _ids(args.evaluators) or []
-    if not evaluator_ids:
-        log("error: --evaluators is required")
+    evaluator_ids = [args.evaluator] if args.evaluator else (_ids(args.evaluators) or [])
+    requested_evaluator_ids = evaluator_ids or None
+
+    assignment_rows = eval_mod.get_case_evaluator_infos(client, case_ids=case_ids)
+    assigned_by_case = _assigned_evaluators_by_case(assignment_rows)
+    pairs, skipped_unassigned = _planned_eval_pairs(
+        case_ids=case_ids,
+        assigned_by_case=assigned_by_case,
+        requested_evaluator_ids=requested_evaluator_ids,
+    )
+    if not pairs:
+        if skipped_unassigned:
+            log("error: none of the requested case/evaluator pairs are assigned")
+        else:
+            log("error: no assigned case/evaluator pairs to run")
+        print_json({
+            "agent_id": args.agent,
+            "history_id": args.history,
+            "requested_case_count": len(case_ids),
+            "requested_evaluator_count": len(evaluator_ids),
+            "triggered_pair_count": 0,
+            "skipped_unassigned": skipped_unassigned,
+        })
         return 2
+
+    evaluator_ids = _dedupe_preserve_order([pair["evaluator_id"] for pair in pairs])
     evaluators = [eval_mod.get_evaluator(client, eid) for eid in evaluator_ids]
 
     case_label_by_id = {c["id"]: truncate(c.get("input") or "", 60) for c in case_objs}
     evaluator_name_by_id = {e["id"]: e.get("name", e["id"]) for e in evaluators}
 
-    log(f"triggering: {len(case_ids)} cases x {len(evaluator_ids)} evaluators on history {args.history}")
-    eval_mod.trigger(client, case_ids=case_ids, evaluator_ids=evaluator_ids,
-                     agent_history_id=args.history)
+    if skipped_unassigned:
+        log(f"skipping {len(skipped_unassigned)} unassigned requested pairs")
+    log(f"triggering: {len(pairs)} assigned case/evaluator pairs on history {args.history}")
+    trigger_response = eval_mod.trigger_pairs(
+        client,
+        case_evaluator_pairs=pairs,
+        agent_history_id=args.history,
+    )
 
     deadline = time.time() + args.poll_timeout
     results_by_eval: dict[str, list[dict]] = {}
+    case_ids_by_evaluator = _group_case_ids_by_evaluator(pairs)
+    target_pair_keys = {(pair["case_id"], pair["evaluator_id"]) for pair in pairs}
     while time.time() < deadline:
         results_by_eval = {}
-        done = 0
-        total = len(case_ids) * len(evaluator_ids)
-        for ev_id in evaluator_ids:
+        done_pairs: set[tuple[str, str]] = set()
+        total = len(pairs)
+        for ev_id, ev_case_ids in case_ids_by_evaluator.items():
             rows = eval_mod.get_results(
-                client, case_ids=case_ids, evaluator_id=ev_id,
+                client, case_ids=ev_case_ids, evaluator_id=ev_id,
                 agent_history_id=args.history, workspace_id=workspace_id,
                 include_output=True, include_reasoning_steps=True,
             )
             results_by_eval[ev_id] = rows
-            done += sum(1 for r in rows if r.get("score") is not None)
-        log(f"  progress: {done}/{total}")
-        if done >= total:
+            for row in rows:
+                key = (row.get("case_id") or row.get("evaluation_case_id"), ev_id)
+                if key in target_pair_keys and row.get("score") is not None:
+                    done_pairs.add(key)
+        log(f"  progress: {len(done_pairs)}/{total}")
+        if len(done_pairs) >= total:
             break
         time.sleep(POLL_INTERVAL)
 
     flat: list[dict] = []
     for ev_id, rows in results_by_eval.items():
         for r in rows:
+            row_case_id = r.get("case_id") or r.get("evaluation_case_id")
+            if (row_case_id, ev_id) not in target_pair_keys:
+                continue
             result_summary = parse_eval_result(r)
             tool_calls = parse_eval_tool_calls(r)
             total_tool_duration_ms = sum(
@@ -384,7 +773,15 @@ def run_run(args, client) -> int:
                 "raw_result": r,
             })
 
-    all_perfect = all((r.get("score") or 0.0) >= 1.0 for r in flat) if flat else False
+    scored_pair_keys = {
+        (r.get("case_id"), r.get("evaluator_id"))
+        for r in flat
+        if r.get("score") is not None
+    }
+    all_perfect = (
+        len(scored_pair_keys) == len(target_pair_keys)
+        and all((r.get("score") or 0.0) >= 1.0 for r in flat)
+    )
     log("\n" + "=" * 80)
     log(f"RESULTS  agent={args.agent}  history={args.history}")
     log("=" * 80)
@@ -426,15 +823,25 @@ def run_run(args, client) -> int:
     out = {
         "agent_id": args.agent,
         "history_id": args.history,
+        "requested_case_count": len(case_ids),
+        "requested_evaluator_count": len(requested_evaluator_ids or evaluator_ids),
+        "triggered_pair_count": len(pairs),
+        "scored_pair_count": len(scored_pair_keys),
+        "skipped_unassigned_count": len(skipped_unassigned),
         "all_perfect": all_perfect,
         "result_count": len(result_summaries),
         "non_perfect_count": len(non_perfect),
         "wrote_full_detail": bool(args.out),
+        "trigger_response": trigger_response,
+        "skipped_unassigned": skipped_unassigned,
         "results": result_summaries,
     }
     full_out = {
         "agent_id": args.agent,
         "history_id": args.history,
+        "triggered_pairs": pairs,
+        "trigger_response": trigger_response,
+        "skipped_unassigned": skipped_unassigned,
         "all_perfect": all_perfect,
         "results": flat,
     }
@@ -795,6 +1202,50 @@ def _upload_attachment(client: CodeerClient, *, file_path: Path, workspace_id: s
     return uuid
 
 
+def _manifest_label_names(case: dict) -> list[str]:
+    raw = case.get("labels")
+    if raw is None:
+        return []
+    if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
+        raise ValueError(f"case '{case.get('label')}' labels must be a list of label names")
+    return [item.strip() for item in raw if item.strip()]
+
+
+def _manifest_label_ids(case: dict) -> list[str] | None:
+    raw = case.get("label_ids")
+    if raw is None:
+        return None
+    if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
+        raise ValueError(f"case '{case.get('label')}' label_ids must be a list of label ID strings")
+    return [item.strip() for item in raw if item.strip()]
+
+
+def _dedupe_preserve_order(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        out.append(item)
+    return out
+
+
+def _resolve_case_label_ids(case: dict, labels_by_name: dict[str, dict]) -> tuple[list[str] | None, list[str]]:
+    explicit_ids = _manifest_label_ids(case)
+    label_names = _manifest_label_names(case)
+    if explicit_ids is None and not label_names:
+        return None, []
+
+    resolved_ids = list(explicit_ids or [])
+    for name in label_names:
+        label = labels_by_name.get(name.casefold())
+        if label is None:
+            raise ValueError(f"case '{case.get('label')}' references unknown label '{name}'")
+        resolved_ids.append(str(label["id"]))
+    return _dedupe_preserve_order(resolved_ids), label_names
+
+
 def run_cases_apply(args, client) -> int:
     payload = json.loads(Path(args.cases).read_text())
     cases = payload.get("cases") or []
@@ -815,6 +1266,53 @@ def run_cases_apply(args, client) -> int:
         return 2
 
     workspace_id, _ = client.resolve_scope()
+    try:
+        manifest_label_names = sorted({
+            name
+            for case in cases
+            for name in _manifest_label_names(case)
+        }, key=str.casefold)
+        for case in cases:
+            _manifest_label_ids(case)
+    except ValueError as e:
+        log(f"error: {e}")
+        return 2
+
+    labels_by_name: dict[str, dict] = {}
+    created_labels: list[dict] = []
+    would_create_labels: list[str] = []
+    if manifest_label_names:
+        labels_by_name = {
+            (label.get("name") or "").casefold(): label
+            for label in eval_mod.list_case_labels(client, workspace_id=workspace_id)
+            if label.get("name")
+        }
+        missing_label_names = [
+            name for name in manifest_label_names
+            if name.casefold() not in labels_by_name
+        ]
+        if missing_label_names and not args.create_labels:
+            log(
+                "error: manifest references missing labels: "
+                + ", ".join(missing_label_names)
+                + ". Create them first with `codeer eval label-create`, "
+                + "or rerun cases-apply with --create-labels."
+            )
+            return 2
+        if args.dry_run:
+            would_create_labels = missing_label_names
+            for name in missing_label_names:
+                labels_by_name[name.casefold()] = {
+                    "id": f"(new:{name})",
+                    "name": name,
+                    "color": "#0969da",
+                }
+        else:
+            for name in missing_label_names:
+                log(f"creating label: {name}")
+                label = eval_mod.create_case_label(client, workspace_id=workspace_id, name=name)
+                labels_by_name[name.casefold()] = label
+                created_labels.append(_label_summary(label))
 
     existing_by_input: dict[str, dict] = {}
     if not args.allow_duplicates:
@@ -838,6 +1336,11 @@ def run_cases_apply(args, client) -> int:
             return 2
 
         label = case.get("label", "(unlabeled)")
+        try:
+            case_label_ids, case_label_names = _resolve_case_label_ids(case, labels_by_name)
+        except ValueError as e:
+            log(f"error: {e}")
+            return 2
         attachment_ids: list[str] = []
         for fname in case.get("attachment_files") or []:
             fp = (attach_dir / fname).resolve() if attach_dir else None
@@ -866,16 +1369,26 @@ def run_cases_apply(args, client) -> int:
                         or attachment_ids
                         or case.get("meta") is not None
                         or case.get("note") is not None
+                        or case_label_ids is not None
                     ),
+                    "labels": case_label_names,
+                    "label_ids": case_label_ids,
                     "rubric_count": len(rubrics),
                 })
                 continue
             log(f"reusing existing case: {label} ({case_id[:8]})")
-            if case.get("expected_output") is not None or attachment_ids or case.get("meta") is not None or case.get("note") is not None:
+            if (
+                case.get("expected_output") is not None
+                or attachment_ids
+                or case.get("meta") is not None
+                or case.get("note") is not None
+                or case_label_ids is not None
+            ):
                 eval_mod.update_case(
                     client, case_id,
                     expected_output=case.get("expected_output"),
                     attachment_ids=attachment_ids or None,
+                    label_ids=case_label_ids,
                     meta=case.get("meta"),
                     note=case.get("note"),
                 )
@@ -894,6 +1407,8 @@ def run_cases_apply(args, client) -> int:
                 "input_chars": len(case.get("input") or ""),
                 "expected_output_chars": len(case.get("expected_output") or ""),
                 "attachment_count": len(attachment_ids),
+                "labels": case_label_names,
+                "label_ids": case_label_ids,
                 "rubric_count": len(rubrics),
             })
             continue
@@ -903,6 +1418,7 @@ def run_cases_apply(args, client) -> int:
             client, agent_id=args.agent, input=case["input"],
             expected_output=case.get("expected_output"),
             attachment_ids=attachment_ids or None,
+            label_ids=case_label_ids,
             rubrics_by_evaluator=rubrics, meta=case.get("meta"),
             note=case.get("note"),
         )
@@ -910,12 +1426,19 @@ def run_cases_apply(args, client) -> int:
         labels.append(label)
         created.append({"case_id": result["id"], "label": label})
 
-    out = {"case_ids": case_ids, "labels": labels, "created": created, "reused": reused}
+    out = {
+        "case_ids": case_ids,
+        "labels": labels,
+        "created": created,
+        "reused": reused,
+        "created_case_labels": created_labels,
+    }
     if args.dry_run:
         out.update({
             "dry_run": True,
             "operation": "cases_apply",
             "agent_id": args.agent,
+            "would_create_case_labels": would_create_labels,
             "updates": dry_run_updates,
             "would_write_server_state": True,
             "next_step": "Review this summary, then rerun without --dry-run after approval.",
@@ -943,18 +1466,29 @@ def run_rubrics(args, client) -> int:
         log("error: no cases for this agent")
         return 2
 
+    assignment_rows = eval_mod.get_case_evaluator_infos(client, case_ids=case_ids)
+    assigned_by_case = _assigned_evaluators_by_case(assignment_rows)
+
     if args.evaluators:
         evaluator_ids = _ids(args.evaluators) or []
         evaluators = [eval_mod.get_evaluator(client, eid) for eid in evaluator_ids]
-    else:
+    elif args.all_pairs:
         evaluators = eval_mod.list_evaluators(client, workspace_id)
         evaluator_ids = [e["id"] for e in evaluators]
+    else:
+        evaluator_ids = _dedupe_preserve_order([
+            evaluator_id
+            for case_id in case_ids
+            for evaluator_id in assigned_by_case.get(case_id, {})
+        ])
+        evaluators = [eval_mod.get_evaluator(client, eid) for eid in evaluator_ids]
     evaluator_name = {e["id"]: e.get("name", e["id"]) for e in evaluators}
     if not evaluator_ids:
-        log("error: no evaluators in workspace")
+        log("error: no assigned evaluators for these cases")
         return 2
 
-    log(f"reading {len(case_ids)} cases x {len(evaluator_ids)} evaluators...")
+    mode = "all requested pairs" if args.evaluators or args.all_pairs else "assigned pairs"
+    log(f"reading {mode}: {len(case_ids)} cases, {len(evaluator_ids)} evaluators...")
 
     rubrics = eval_mod.get_case_rubrics(
         client, agent_id=args.agent, workspace_id=workspace_id,
@@ -967,8 +1501,14 @@ def run_rubrics(args, client) -> int:
             log(f"CASE {cid}")
             log(f"  input: {truncate(case_input.get(cid, ''), 120)}")
             for ev_id in evaluator_ids:
+                is_assigned = ev_id in assigned_by_case.get(cid, {})
+                if not is_assigned and not (args.evaluators or args.all_pairs):
+                    continue
                 ev_name = evaluator_name.get(ev_id, ev_id)
                 rubric_text = (rubrics.get(cid) or {}).get(ev_id, "")
+                if not is_assigned:
+                    log(f"  [{ev_name}] (not assigned)")
+                    continue
                 if not rubric_text:
                     log(f"  [{ev_name}] (rubric not set)")
                 else:
@@ -980,9 +1520,13 @@ def run_rubrics(args, client) -> int:
     for cid in case_ids:
         rubrics_summary = {}
         for ev_id in evaluator_ids:
+            is_assigned = ev_id in assigned_by_case.get(cid, {})
+            if not is_assigned and not (args.evaluators or args.all_pairs):
+                continue
             rubric_text = (rubrics.get(cid) or {}).get(ev_id, "")
             rubrics_summary[ev_id] = {
                 "evaluator_name": evaluator_name.get(ev_id, ev_id),
+                "is_assigned": is_assigned,
                 "is_set": bool(rubric_text),
                 "chars": len(rubric_text),
                 "preview": truncate(rubric_text, 240),
@@ -996,6 +1540,7 @@ def run_rubrics(args, client) -> int:
     out = {
         "agent_id": args.agent,
         "workspace_id": workspace_id,
+        "mode": mode,
         "evaluators": [{"id": e["id"], "name": e.get("name")} for e in evaluators],
         "cases": [
             {
@@ -1004,7 +1549,9 @@ def run_rubrics(args, client) -> int:
                 "rubrics_by_evaluator": {
                     ev_id: (rubrics.get(cid) or {}).get(ev_id)
                     for ev_id in evaluator_ids
+                    if ev_id in assigned_by_case.get(cid, {}) or args.evaluators or args.all_pairs
                 },
+                "assigned_evaluator_ids": list(assigned_by_case.get(cid, {})),
             }
             for cid in case_ids
         ],
@@ -1016,6 +1563,7 @@ def run_rubrics(args, client) -> int:
         print_json({
             "agent_id": args.agent,
             "workspace_id": workspace_id,
+            "mode": mode,
             "evaluator_count": len(evaluators),
             "case_count": len(case_ids),
             "wrote_full_detail": bool(args.out),

@@ -168,7 +168,8 @@ An agent maintains a version history via **AgentHistory** records.
 - `codeer eval run --latest` evaluates the newest draft (default behavior)
 - `codeer eval run --history <uuid>` pins evaluation to a specific version
 - These are mutually exclusive flags
-- `--evaluators <uuid>` is always required — never run against all evaluators
+- `--evaluator <uuid>` is the common path for many cases with one tester
+- If no evaluator is supplied, eval runs the assigned case/evaluator pairs
 
 ---
 

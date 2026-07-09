@@ -180,7 +180,8 @@ CLI workflow:
    `codeer kb files --kb-id <kb-id>`
 2. Preview the FAQ route:
    `codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --dry-run`
-   Add `--range START_LINE:END_LINE` when the route should reserve a specific passage.
+   Add `--range START_LINE:START_COLUMN-END_LINE:END_COLUMN` when the route
+   should reserve a specific passage and be visible in the UI overlay.
 3. Show the dry-run output and wait for user approval.
 4. Apply by rerunning without `--dry-run`.
 5. Re-run the affected eval case first, then the broader batch if it passes.

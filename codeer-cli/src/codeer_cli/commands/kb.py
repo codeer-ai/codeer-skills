@@ -87,6 +87,21 @@ def register(subparsers):
     p.add_argument("--poll-timeout", type=int, default=POLL_TIMEOUT)
     p.set_defaults(func=run_upload)
 
+    p = sub.add_parser("node-rename", help="Rename a KB root, folder, or file node; run --dry-run first")
+    p.add_argument("--node-id", required=True, help="KnowledgeNode UUID")
+    p.add_argument("--name", required=True, help="New display name")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Print intended request without writing server state.")
+    p.add_argument("--out", default=None, help="Write result JSON to this file too")
+    p.set_defaults(func=run_node_rename)
+
+    p = sub.add_parser("node-delete", help="Delete a KB root, folder, or file node and descendants; run --dry-run first")
+    p.add_argument("--node-id", required=True, help="KnowledgeNode UUID")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Print intended request without writing server state.")
+    p.add_argument("--out", default=None, help="Write result JSON to this file too")
+    p.set_defaults(func=run_node_delete)
+
     p = sub.add_parser("faq-list", help="List Context Object FAQ entries")
     p.add_argument("--context-object-id", type=int, default=None,
                    help="Filter to a KB file snapshot_object_id")
@@ -107,8 +122,7 @@ def register(subparsers):
     p.add_argument("--context-object-id", type=int, required=True,
                    help="KB file snapshot_object_id from `codeer kb files`")
     p.add_argument("--question", required=True)
-    p.add_argument("--range", dest="ranges", action="append", type=_parse_faq_range, default=None,
-                   help="Reserve matching chunks that overlap START_LINE:END_LINE; repeatable")
+    _add_faq_range_args(p)
     p.add_argument("--dry-run", action="store_true",
                    help="Print intended request without writing server state.")
     p.add_argument("--out", default=None, help="Write result JSON to this file too")
@@ -119,8 +133,7 @@ def register(subparsers):
     p.add_argument("--context-object-id", type=int, default=None,
                    help="Move FAQ to a different KB file snapshot_object_id")
     p.add_argument("--question", default=None)
-    p.add_argument("--range", dest="ranges", action="append", type=_parse_faq_range, default=None,
-                   help="Replace reserved ranges with START_LINE:END_LINE; repeatable")
+    _add_faq_range_args(p, verb="Replace")
     p.add_argument("--dry-run", action="store_true",
                    help="Print intended request without writing server state.")
     p.add_argument("--out", default=None, help="Write result JSON to this file too")
@@ -217,18 +230,50 @@ def _dry_run(path: str | None, result: dict) -> int:
     return 0
 
 
+def _add_faq_range_args(parser, *, verb: str = "Reserve") -> None:
+    parser.add_argument(
+        "--range",
+        dest="ranges",
+        action="append",
+        type=_parse_faq_range,
+        default=None,
+        help=(
+            f"{verb} matching passages as "
+            "START_LINE:START_COLUMN-END_LINE:END_COLUMN; repeatable"
+        ),
+    )
+
+
 def _parse_faq_range(value: str) -> dict[str, int]:
     try:
-        start_raw, end_raw = value.split(":", 1)
-        start_line = int(start_raw)
-        end_line = int(end_raw)
+        start_raw, end_raw = value.split("-", 1)
+        start_line_raw, start_column_raw = start_raw.split(":", 1)
+        end_line_raw, end_column_raw = end_raw.split(":", 1)
+        faq_range = {
+            "start_line": int(start_line_raw),
+            "start_column": int(start_column_raw),
+            "end_line": int(end_line_raw),
+            "end_column": int(end_column_raw),
+        }
     except ValueError as exc:
-        raise argparse.ArgumentTypeError("expected START_LINE:END_LINE") from exc
+        raise argparse.ArgumentTypeError(
+            "expected START_LINE:START_COLUMN-END_LINE:END_COLUMN"
+        ) from exc
+    _validate_faq_range_position(faq_range)
+    return faq_range
+
+
+def _validate_faq_range_position(faq_range: dict[str, int]) -> None:
+    start_line = faq_range["start_line"]
+    end_line = faq_range["end_line"]
+    start_column = faq_range["start_column"]
+    end_column = faq_range["end_column"]
     if start_line < 1 or end_line < 1:
         raise argparse.ArgumentTypeError("line numbers must be >= 1")
-    if end_line < start_line:
-        raise argparse.ArgumentTypeError("END_LINE must be >= START_LINE")
-    return {"start_line": start_line, "end_line": end_line}
+    if start_column < 0 or end_column < 0:
+        raise argparse.ArgumentTypeError("column numbers must be >= 0")
+    if (end_line, end_column) < (start_line, start_column):
+        raise argparse.ArgumentTypeError("end position must be >= start position")
 
 
 def _parse_config_json(config_json: str | None) -> dict | None:
@@ -381,6 +426,72 @@ def run_upload(args, client) -> int:
         Path(args.out).write_text(out_text + "\n")
         log(f"wrote {args.out}")
     return 0 if not not_ready else 1
+
+
+def run_node_rename(args, client) -> int:
+    workspace_id, organization_id = client.resolve_scope()
+    path = f"/external/knowledge-bases/nodes/{args.node_id}"
+    body = {"name": args.name}
+    if args.dry_run:
+        return _dry_run(
+            args.out,
+            {
+                "dry_run": True,
+                "operation": "kb_node_rename",
+                "method": "PATCH",
+                "path": path,
+                "workspace_id": workspace_id,
+                "organization_id": organization_id,
+                "node_id": args.node_id,
+                "body": body,
+                "would_write_server_state": True,
+                "next_step": "Review this summary, then rerun without --dry-run after approval.",
+            },
+        )
+
+    response = strip_noisy_fields(
+        kb_mod.update_node(
+            client,
+            organization_id=organization_id,
+            workspace_id=workspace_id,
+            node_id=args.node_id,
+            name=args.name,
+        )
+    )
+    _print_and_write(args.out, response)
+    return 0
+
+
+def run_node_delete(args, client) -> int:
+    workspace_id, organization_id = client.resolve_scope()
+    path = f"/external/knowledge-bases/nodes/{args.node_id}"
+    if args.dry_run:
+        return _dry_run(
+            args.out,
+            {
+                "dry_run": True,
+                "operation": "kb_node_delete",
+                "method": "DELETE",
+                "path": path,
+                "workspace_id": workspace_id,
+                "organization_id": organization_id,
+                "node_id": args.node_id,
+                "deletes_descendants": True,
+                "would_write_server_state": True,
+                "next_step": "Review this summary, then rerun without --dry-run after approval.",
+            },
+        )
+
+    response = strip_noisy_fields(
+        kb_mod.delete_node(
+            client,
+            organization_id=organization_id,
+            workspace_id=workspace_id,
+            node_id=args.node_id,
+        )
+    )
+    _print_and_write(args.out, response)
+    return 0
 
 
 def run_faq_list(args, client) -> int:

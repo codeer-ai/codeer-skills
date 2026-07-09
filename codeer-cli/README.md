@@ -125,7 +125,7 @@ Use this pattern during agent lifecycle work:
 ```bash
 codeer agent list
 codeer history list --agent <agent-id> --limit 50
-codeer eval run --agent <agent-id> --evaluators <evaluator-id> --out .codeer/eval_run.json
+codeer eval run --agent <agent-id> --cases <case-ids> --evaluator <evaluator-id> --out .codeer/eval_run.json
 ```
 
 Flags:
@@ -162,19 +162,37 @@ paths containing `*` so the shell passes the wildcard to the CLI. Advanced
 settings can still be passed through `--config-json`; explicit crawler flags
 override matching JSON keys.
 
+## KB node rename and delete
+
+Knowledge Base roots, folders, and files are all KnowledgeNodes. Use
+`codeer kb list` and `codeer kb files` to find node IDs, then preview mutations
+with `--dry-run`:
+
+```bash
+codeer kb node-rename --node-id <node-id> --name "New Name" --dry-run
+codeer kb node-delete --node-id <node-id> --dry-run
+```
+
+`node-delete` deletes the target node and all descendants. Review the dry-run
+output before rerunning without `--dry-run`.
+
 ## Context Object FAQ
 
 Use Context Object FAQ entries to route high-value questions to a canonical KB
 file when semantic retrieval misses the right source. The FAQ target is a KB
-file's `snapshot_object_id`, shown by `codeer kb files`. Add `--range
-START_LINE:END_LINE` when the route should reserve chunks overlapping a stable
-line range inside that file.
+file's `snapshot_object_id`, shown by `codeer kb files`. Add `--range` when the
+route should reserve a stable passage inside that file. Ranges must include both
+line and column positions so the Codeer UI can map them onto rendered Markdown.
 
 ```bash
 codeer kb files --kb-id <kb-id>
 codeer kb faq-list --context-object-id <snapshot-object-id>
-codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --range 12:18 --dry-run
+codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --range 12:0-12:42 --dry-run
+codeer kb faq-update <faq-id> --range 12:0-12:42 --dry-run
 ```
+
+`--range` accepts `START_LINE:START_COLUMN-END_LINE:END_COLUMN`; repeat it to
+reserve multiple passages.
 
 After reviewing the dry-run output, rerun the create/update/delete command
 without `--dry-run` to apply it.

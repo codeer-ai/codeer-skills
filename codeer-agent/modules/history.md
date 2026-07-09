@@ -86,7 +86,7 @@ before making any fix:
 ```bash
 codeer eval run \
     --agent <agent_id> --history <published_history_id> \
-    --evaluators <evaluator_id>
+    --evaluator <evaluator_id>
 ```
 
 Export the baseline results and pin them so they survive the fix cycle:

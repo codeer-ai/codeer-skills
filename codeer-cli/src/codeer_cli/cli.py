@@ -2,8 +2,8 @@
 
     codeer check
     codeer agent list|get|apply|diff|versions
-    codeer kb list|files|upload|faq-list|faq-get|faq-create|faq-update|faq-delete
-    codeer eval list|evaluators|evaluator-create|evaluator-update|run|export|reconcile|cases-apply|rubrics|rubrics-apply
+    codeer kb list|files|upload|node-rename|node-delete|faq-list|faq-get|faq-create|faq-update|faq-delete
+    codeer eval list|label-list|label-create|label-update|label-delete|case-update|case-delete|evaluators|evaluator-create|evaluator-update|run|export|reconcile|cases-apply|rubrics|rubrics-apply
     codeer history list|get|conversations|negative-feedback
 """
 
@@ -28,16 +28,24 @@ Safe workflow for coding agents:
   codeer agent list
   codeer agent get <agent-id> --full
   codeer kb list
+  codeer kb files --kb-id <kb-id>
   codeer eval list --agent <agent-id>
+  codeer eval label-list
+  codeer eval case-update --case <case-id> --input "..." --dry-run
   codeer eval evaluators
   codeer agent diff --agent <agent-id> --from-version <n> --to-version <n>
   codeer eval reconcile --agent <agent-id> --manifest .codeer/eval_cases.json
 
 Preview mutations before applying:
   codeer agent apply --payload agent.json --dry-run
+  codeer eval case-update --case <case-id> --input "..." --dry-run
+  codeer eval label-create --name "routing" --color "#0969da" --dry-run
+  codeer eval case-delete --case <case-id> --dry-run
   codeer eval cases-apply --agent <agent-id> --cases eval_cases.json --dry-run
   codeer eval rubrics-apply --rubrics rubrics.json --dry-run
   codeer kb upload --dir kb --name "Product KB" --dry-run
+  codeer kb node-rename --node-id <node-id> --name "New Name" --dry-run
+  codeer kb node-delete --node-id <node-id> --dry-run
   codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --dry-run
 
 Use --out <path> for large raw artifacts; stdout defaults to compact summaries.

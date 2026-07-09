@@ -138,6 +138,16 @@ def update_node(
     return client.patch(f"{_base(organization_id, workspace_id)}/nodes/{node_id}", json=body)
 
 
+def delete_node(
+    client: CodeerClient,
+    *,
+    organization_id: str,
+    workspace_id: str,
+    node_id: str,
+) -> dict:
+    return client.delete(f"{_base(organization_id, workspace_id)}/nodes/{node_id}")
+
+
 def upload_file(
     client: CodeerClient,
     *,

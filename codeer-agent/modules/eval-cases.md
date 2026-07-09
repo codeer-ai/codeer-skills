@@ -37,6 +37,12 @@ hallucination risk. State the count and rationale — the user can adjust.
 ### 2b. Generate cases + rubrics
 
 Write cases for this category only. Each case carries per-evaluator rubrics.
+On the server, that rubric row is also the case/evaluator assignment. A case
+only runs with evaluators it is assigned to, so every manifest case needs a
+`rubrics` entry for each tester that should judge it.
+Use server-side eval case labels when they make later filtering or reporting
+easier. Put reusable server labels in the manifest's `labels` array or
+`label_ids` array; keep `label` for the local case display name.
 
 **Evaluator priority**: Focus on the **Content Compliance Evaluator** unless
 the user explicitly cares about style. Style/Tone judges _how_; Content
@@ -85,6 +91,17 @@ codeer eval cases-apply \
     --cases .codeer/current/local_draft_eval_cases.json --agent <agent_id>
 ```
 
+If the manifest references new server label names, preview label creation and
+case assignment first:
+
+```bash
+codeer eval cases-apply \
+    --cases .codeer/current/local_draft_eval_cases.json \
+    --agent <agent_id> \
+    --create-labels \
+    --dry-run
+```
+
 After apply, refresh the server cache:
 
 ```bash
@@ -107,7 +124,7 @@ Repeat from 2a for the next category.
 ## Step 3 — Full sweep
 
 After all categories are covered, run eval across ALL cases as a regression
-check. You must specify which evaluator to test against:
+check. The most common run is many cases against one assigned evaluator:
 
 For a full-suite run with many cases, use `--out` to avoid flooding the
 context window:
@@ -115,9 +132,13 @@ context window:
 ```bash
 codeer eval run \
     --agent <agent_id> \
-    --evaluators <evaluator_id> \
+    --evaluator <evaluator_id> \
     --out .codeer/current/eval_results.json
 ```
+
+If you omit `--evaluator`/`--evaluators`, the CLI runs the case/evaluator
+pairs already assigned to each case. If you specify an evaluator, the CLI runs
+only cases assigned to that evaluator and reports any unassigned pairs.
 
 For a full export (user review, spreadsheet analysis), run:
 
@@ -220,7 +241,7 @@ stdout is fine — the non-perfect analysis fits in context:
 codeer eval run \
     --agent <agent_id> \
     --cases <comma-separated-case-ids> \
-    --evaluators <evaluator_id>
+    --evaluator <evaluator_id>
 ```
 
 Diagnose and fix within the batch before moving on (hand off to

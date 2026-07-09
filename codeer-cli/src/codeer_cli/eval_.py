@@ -22,6 +22,8 @@ def create_case(
     expected_output: Optional[str] = None,
     rubric: Optional[str] = None,
     attachment_ids: Optional[List[str]] = None,
+    label_ids: Optional[List[str]] = None,
+    evaluators: Optional[List[dict[str, Any]]] = None,
     meta: Optional[dict] = None,
     note: Optional[str] = None,
 ) -> dict:
@@ -41,6 +43,10 @@ def create_case(
         body["rubric"] = rubric
     if attachment_ids:
         body["attachment_ids"] = attachment_ids
+    if label_ids is not None:
+        body["label_ids"] = label_ids
+    if evaluators is not None:
+        body["evaluators"] = evaluators
     if meta:
         body["meta"] = meta
     if note is not None:
@@ -64,6 +70,7 @@ def update_case(
     expected_output: Optional[str] = None,
     rubric: Optional[str] = None,
     attachment_ids: Optional[List[str]] = None,
+    label_ids: Optional[List[str]] = None,
     meta: Optional[dict] = None,
     note: Optional[str] = None,
 ) -> dict:
@@ -76,11 +83,80 @@ def update_case(
         body["rubric"] = rubric
     if attachment_ids is not None:
         body["attachment_ids"] = attachment_ids
+    if label_ids is not None:
+        body["label_ids"] = label_ids
     if meta is not None:
         body["meta"] = meta
     if note is not None:
         body["note"] = note
     return client.put(f"/external/eval/cases/{case_id}", json=body)
+
+
+def delete_case(client: CodeerClient, case_id: str) -> dict:
+    return client.delete(f"/external/eval/cases/{case_id}")
+
+
+# --- case/evaluator assignments ------------------------------------------
+
+def get_case_evaluator_infos(client: CodeerClient, *, case_ids: List[str]) -> list[dict]:
+    """Read assigned evaluator metadata for each case.
+
+    Returns rows shaped like ``{"case_id": str, "evaluators": [...]}``, where
+    each evaluator entry is the assigned ``{"evaluator_id", "rubric"}`` pair.
+    """
+    return client.post("/eval/case-evaluator-infos:batch", json={"case_ids": case_ids})
+
+
+def replace_case_evaluator_infos(
+    client: CodeerClient,
+    *,
+    case_id: str,
+    evaluators: list[dict[str, Any]],
+) -> dict:
+    """Replace a case's assigned evaluators.
+
+    This is intentionally separate from rubric upsert: replacing removes
+    evaluator assignments that are not included in ``evaluators``.
+    """
+    return client.put(f"/eval/cases/{case_id}/case-evaluator-infos", json={"evaluators": evaluators})
+
+
+# --- case labels -----------------------------------------------------------
+
+def list_case_labels(client: CodeerClient, *, workspace_id: str) -> list[dict]:
+    return client.get(f"/eval/workspaces/{workspace_id}/case-labels")
+
+
+def create_case_label(
+    client: CodeerClient,
+    *,
+    workspace_id: str,
+    name: str,
+    color: Optional[str] = None,
+) -> dict:
+    body: dict[str, Any] = {"name": name}
+    if color is not None:
+        body["color"] = color
+    return client.post(f"/eval/workspaces/{workspace_id}/case-labels", json=body)
+
+
+def update_case_label(
+    client: CodeerClient,
+    *,
+    label_id: str,
+    name: Optional[str] = None,
+    color: Optional[str] = None,
+) -> dict:
+    body: dict[str, Any] = {}
+    if name is not None:
+        body["name"] = name
+    if color is not None:
+        body["color"] = color
+    return client.put(f"/eval/case-labels/{label_id}", json=body)
+
+
+def delete_case_label(client: CodeerClient, *, label_id: str) -> dict:
+    return client.delete(f"/eval/case-labels/{label_id}")
 
 
 
@@ -152,6 +228,22 @@ def trigger(
         "version_id": agent_history_id,
     }
     return client.post("/external/eval/runs", json=body)
+
+
+def trigger_pairs(
+    client: CodeerClient,
+    *,
+    case_evaluator_pairs: list[dict[str, str]],
+    agent_history_id: str,
+) -> dict:
+    """Kick off evaluation for explicit assigned case/evaluator pairs."""
+    return client.post(
+        "/eval/trigger",
+        json={
+            "case_evaluator_pairs": case_evaluator_pairs,
+            "agent_history_id": agent_history_id,
+        },
+    )
 
 
 def stop(client: CodeerClient, *, case_id: str, evaluator_id: str) -> Any:
@@ -393,6 +485,7 @@ def create_case_with_rubrics(
     rubrics_by_evaluator: dict[str, str],
     expected_output: Optional[str] = None,
     attachment_ids: Optional[List[str]] = None,
+    label_ids: Optional[List[str]] = None,
     meta: Optional[dict] = None,
     note: Optional[str] = None,
 ) -> dict:
@@ -402,9 +495,9 @@ def create_case_with_rubrics(
     is filled in for every evaluator it will be judged by.
 
     ``rubrics_by_evaluator`` maps ``evaluator_id → rubric_text``. Each entry
-    becomes a ``POST /eval/rubric`` call after the case is created. Use
-    different rubric wording per evaluator when the evaluators judge different
-    aspects (e.g. Style/Tone vs Content Compliance).
+    becomes a case/evaluator assignment on create. Use different rubric wording
+    per evaluator when the evaluators judge different aspects (e.g. Style/Tone
+    vs Content Compliance).
     """
     case = create_case(
         client,
@@ -412,12 +505,12 @@ def create_case_with_rubrics(
         input=input,
         expected_output=expected_output,
         attachment_ids=attachment_ids,
+        label_ids=label_ids,
+        evaluators=[
+            {"evaluator_id": ev_id, "rubric": rubric}
+            for ev_id, rubric in rubrics_by_evaluator.items()
+        ],
         meta=meta,
         note=note,
-    )
-    set_rubric_bulk(
-        client,
-        evaluation_case_id=case["id"],
-        rubrics_by_evaluator=rubrics_by_evaluator,
     )
     return case

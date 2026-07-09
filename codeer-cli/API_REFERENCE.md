@@ -81,23 +81,46 @@ Base path: `/external/context-object-faqs`
 Create body:
 
 ```json
-{"context_object_id": 123, "question": "How do I reset billing?", "ranges": [{"start_line": 12, "end_line": 18}]}
+{
+  "context_object_id": 123,
+  "question": "How do I reset billing?",
+  "ranges": [
+    {
+      "start_line": 12,
+      "start_column": 0,
+      "end_line": 12,
+      "end_column": 42
+    }
+  ]
+}
 ```
 
 Update body accepts any of these fields:
 
 ```json
-{"context_object_id": 456, "question": "How do I update billing?", "ranges": [{"start_line": 20, "end_line": 24}]}
+{
+  "context_object_id": 456,
+  "question": "How do I update billing?",
+  "ranges": [
+    {
+      "start_line": 20,
+      "start_column": 0,
+      "end_line": 20,
+      "end_column": 39
+    }
+  ]
+}
 ```
 
 `context_object_id` is the KB file's `snapshot_object_id` from the KB node
 listing. `ranges` is optional; use it when the FAQ route should reserve chunks
-overlapping a stable line range inside that file. The compact CLI output includes
-the target id:
+overlapping a stable passage inside that file. Include both line and column
+positions so the Codeer UI can map the range onto rendered Markdown. The compact
+CLI output includes the target id:
 
 ```bash
 codeer kb files --kb-id <kb-id>
-codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --range 12:18 --dry-run
+codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --range 12:0-12:42 --dry-run
 ```
 
 ## Stage 3 — Live Test on a specific version
@@ -126,10 +149,14 @@ for the apply → test → publish workflow. Pass the draft `AgentHistory.id` fr
 
 | Method & path | Purpose |
 | --- | --- |
-| `POST /eval/cases` | Create case (`input`, `expected_output?`, `rubric?`); rubric = user-docs "Standard" |
+| `GET /eval/workspaces/{workspace_id}/case-labels` | List reusable eval case labels |
+| `POST /eval/workspaces/{workspace_id}/case-labels` | Create reusable eval case label (`name`, `color?`) |
+| `PUT /eval/case-labels/{label_id}` | Update eval case label name/color |
+| `DELETE /eval/case-labels/{label_id}` | Delete eval case label and clear associations |
+| `POST /eval/cases` | Create case (`input`, `expected_output?`, `rubric?`, `label_ids?`); rubric = user-docs "Standard" |
 | `GET /eval/agents/{agent_id}/cases` | List cases for an agent |
 | `GET /eval/cases/{case_id}` | Read one |
-| `PUT /eval/cases/{case_id}` | Update |
+| `PUT /eval/cases/{case_id}` | Update, including replacing labels via `label_ids` |
 | `DELETE /eval/cases/{case_id}` | Delete |
 | `POST /eval/cases/upload-csv` | Bulk import |
 | `POST /eval/cases/bulk` | Bulk delete |
@@ -137,10 +164,28 @@ for the apply → test → publish workflow. Pass the draft `AgentHistory.id` fr
 | `GET /eval/evaluators?wid=<ws>` | List evaluators |
 | `PUT /eval/evaluators/{id}` | Update |
 | `DELETE /eval/evaluators/{id}` | Delete |
-| `POST /eval/trigger` | Run a set of cases with evaluators, optionally pinned to `agent_history_id` |
+| `POST /eval/case-evaluator-infos:batch` | Read assigned evaluators/rubrics for cases |
+| `PUT /eval/cases/{case_id}/case-evaluator-infos` | Replace assigned evaluators/rubrics for one case |
+| `POST /eval/trigger` | Run explicit assigned `case_evaluator_pairs` pinned to `agent_history_id` |
 | `POST /eval/stop` | Cancel running case+evaluator combo |
-| `POST /eval/rubric` | Set/override the rubric for one (case, evaluator) — write-only |
+| `POST /eval/rubric` | Set/override the rubric for one (case, evaluator); also creates assignment |
 | `POST /eval/rubrics/batch` | **Read** rubrics for a batch of (case, evaluator) pairs |
+
+Eval case labels are workspace-scoped reusable objects. The case create/update
+payload uses `label_ids` (stringified label IDs), not freeform label names:
+
+```json
+{
+  "agent_id": "<agent_uuid>",
+  "input": "How do I return an item?",
+  "expected_output": "Explain the return policy.",
+  "label_ids": ["12", "13"]
+}
+```
+
+Send `label_ids: []` on update to clear all labels from a case. The
+`codeer eval cases-apply` manifest can resolve label names through a separate
+`labels` array; the legacy `label` field remains a local review/display label.
 
 ## Stage 6 — Diagnose + update
 
@@ -177,17 +222,17 @@ normalized `tool_calls`, `tool_calls_summary`, and `tool_total_duration_ms`;
 in `eval_table_full.json`. Per-tool time is computed from `start_at/end_at`.
 
 **`evaluator_id` is singular — one call returns results for one evaluator
-only.** To see the full picture for a case, you must call this endpoint
-once per evaluator. A case might score 1.0 on Style/Tone but 0.3 on
-Content Compliance — checking only one evaluator hides the other failure.
-Always iterate all evaluators in the workspace (or at least all evaluators
-the agent's cases are judged by). `codeer eval run` and `codeer eval rubrics`
-handle this automatically; if calling the API directly, loop over
-`eval_mod.list_evaluators(workspace_id)` and call `get_results()` for each.
+only.** Cases are also bound to specific evaluator assignments. To see the
+full picture for a case, first read the case/evaluator assignments, then call
+results once per assigned evaluator. `codeer eval run` and
+`codeer eval rubrics` handle this automatically; if calling the API directly,
+prefer `eval_mod.get_case_evaluator_infos(case_ids=[...])` as the source of
+truth for which pairs should run.
 
-Regression workflow (apply prompt change → re-run all cases → spot side
-effects): `codeer eval run --agent <agent_id>` runs the latest AgentHistory
-by default. Review the full result set against the previous run summary.
+Regression workflow (apply prompt change → re-run all assigned pairs → spot
+side effects): `codeer eval run --agent <agent_id>` runs the latest
+AgentHistory by default. For the common "many cases, one tester" flow, use
+`codeer eval run --agent <agent_id> --cases <ids> --evaluator <evaluator_id>`.
 
 ## Stage 7 — Publish
 
@@ -262,10 +307,12 @@ analytics/column name, `question` is the user-facing prompt.
 ### 3. The `Standard` shown in Test Suite is a per-(case, evaluator) rubric
 
 `POST /eval/cases` has a `rubric` field — this is NOT what the Test Suite's
-`Standard` column reads. That column is populated by `POST /eval/rubric` keyed
-on `(evaluation_case_id, evaluator_id)`. Set it explicitly for each
-(case, evaluator) pair after creating the case, or use the eval helpers in
-`codeer-cli/src/codeer_cli/eval_.py` which do both in one call.
+`Standard` column reads. That column is populated by `CaseEvaluatorInfo` keyed
+on `(evaluation_case_id, evaluator_id)`. The same row is also the assignment
+that makes the pair eligible to run. Set it explicitly for each
+(case, evaluator) pair, or use the eval helpers in
+`codeer-cli/src/codeer_cli/eval_.py` which create assignments and rubrics
+together.
 
 To **read** rubrics back, use `POST /eval/rubrics/batch` with
 `{case_ids: [...], evaluator_id}` — it returns the raw rubric strings out of
@@ -434,22 +481,22 @@ If the user's source tree has deeper nesting, flatten it first with the
 `products／a.md` using `／` U+FF0F as separator) so `list_kb_files` regex
 can still recover structure. That skill's docs explain the full flow.
 
-### 13. Eval results and rubrics are **per-evaluator** — always iterate all evaluators
+### 13. Eval results and rubrics are **per assigned case/evaluator pair**
 
 Both `POST /eval/results/batch` and `POST /eval/rubrics/batch` take a
 **singular** `evaluator_id`, not a list. Each call returns data for one
-evaluator only. A common mistake is to check results for one evaluator
-(e.g. Content Compliance), see a perfect score, and conclude the case is
-passing — while the other evaluator (e.g. Style/Tone) scored it 0.3.
+evaluator only. A case only runs with evaluators it is assigned to through
+`CaseEvaluatorInfo`.
 
 When pulling eval data manually, always:
-1. List all evaluators: `eval_mod.list_evaluators(workspace_id)`.
-2. Call `get_results()` or `get_rubrics_batch()` once **per evaluator**.
-3. Join the results by `case_id` to get the full (case × evaluator) matrix.
+1. Read assignments with `eval_mod.get_case_evaluator_infos(case_ids=[...])`.
+2. Call `get_results()` or `get_rubrics_batch()` once per assigned evaluator.
+3. Join the results by `(case_id, evaluator_id)`.
 
 The CLI commands (`codeer eval run`, `codeer eval rubrics`,
 `codeer eval rubrics-apply`) and the `get_case_rubrics()` helper all handle
-this iteration automatically. Prefer them for normal operations.
+this iteration automatically. Use `codeer eval rubrics --all-pairs` only when
+you intentionally want the old full matrix scan.
 
 ---
 
