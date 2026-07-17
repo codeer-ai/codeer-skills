@@ -141,21 +141,20 @@ def replace_case_evaluator_infos(
 
 # --- case labels -----------------------------------------------------------
 
-def list_case_labels(client: CodeerClient, *, workspace_id: str) -> list[dict]:
-    return client.get(f"/eval/workspaces/{workspace_id}/case-labels")
+def list_case_labels(client: CodeerClient) -> list[dict]:
+    return client.get("/external/eval/case-labels")
 
 
 def create_case_label(
     client: CodeerClient,
     *,
-    workspace_id: str,
     name: str,
     color: Optional[str] = None,
 ) -> dict:
     body: dict[str, Any] = {"name": name}
     if color is not None:
         body["color"] = color
-    return client.post(f"/eval/workspaces/{workspace_id}/case-labels", json=body)
+    return client.post("/external/eval/case-labels", json=body)
 
 
 def update_case_label(
@@ -170,11 +169,11 @@ def update_case_label(
         body["name"] = name
     if color is not None:
         body["color"] = color
-    return client.put(f"/eval/case-labels/{label_id}", json=body)
+    return client.put(f"/external/eval/case-labels/{label_id}", json=body)
 
 
 def delete_case_label(client: CodeerClient, *, label_id: str) -> dict:
-    return client.delete(f"/eval/case-labels/{label_id}")
+    return client.delete(f"/external/eval/case-labels/{label_id}")
 
 
 

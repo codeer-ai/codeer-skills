@@ -133,6 +133,7 @@ completes, record the summary in `progress.json` and move to the next batch.
 | `codeer eval reconcile` | Read-only audit: compare local manifest vs server state |
 | `codeer history list` | List conversation histories for an agent |
 | `codeer history create` | Create a real persisted conversation history through the published agent |
+| `codeer history send` | Append one or more turns to an existing persisted history |
 | `codeer history negative-feedback` | Surface turns with negative feedback |
 | `codeer history conversations` | Read a specific conversation history |
 
@@ -190,6 +191,10 @@ Eval case labels are reusable workspace objects. Use them to tag cases by
 coverage slice, such as `routing`, `pricing`, or `out-of-scope`. They are
 separate from the manifest's legacy `label` field, which is only a local
 review/display name.
+
+Label commands always use the active API-key workspace and do not accept a
+workspace override. Switch CLI profiles before running them against another
+workspace.
 
 Typical workflow:
 
@@ -326,6 +331,8 @@ unpublished draft `AgentHistory` unless the server API gains support for that.
 | `--title` | string | first message prefix | Conversation title |
 | `--user` | string | — | `external_user_id` to associate with the history |
 | `--message` | string, repeatable | **required** | User turn to send, in order |
+| `--timeout` | float | `120` | Per-message response timeout in seconds |
+| `--out` | path | — | Write complete message and conversation details to a file |
 
 Example:
 
@@ -335,11 +342,40 @@ codeer history create \
     --title "Seed conversation" \
     --user "eval-seed@example.com" \
     --message "First user turn" \
-    --message "Follow-up user turn"
+    --message "Follow-up user turn" \
+    --timeout 120
 ```
 
 The output includes `history_id`, conversation IDs, and a history URL. Keep
 those IDs when turning a real conversation into follow-up eval cases later.
+
+If the request times out, read the history before retrying. The server may have
+persisted the turn after the CLI stopped waiting.
+
+## `codeer history send` flags
+
+Appends turns to an existing persisted history. It resolves the agent and
+external user from history metadata unless explicitly overridden. Like
+`history create`, it uses the agent's **current published version**; it does not
+continue with an older or unpublished `AgentHistory` version.
+
+| Flag | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `history_id` | integer | **required** | Existing persisted history ID |
+| `--agent` | string | history metadata, then `CODEER_AGENT_ID` | Agent ID fallback/override |
+| `--user` | string | history metadata | `external_user_id` fallback/override |
+| `--message` | string, repeatable | **required** | User turn to append, in order |
+| `--timeout` | float | `120` | Per-message response timeout in seconds |
+| `--out` | path | — | Write complete message and conversation details to a file |
+
+```bash
+codeer history send <history_id> \
+    --message "Use the recommended options" \
+    --timeout 120
+```
+
+On a timeout, inspect `codeer history conversations <history_id>` before
+retrying. A timed-out write may already have created the turn.
 
 ---
 

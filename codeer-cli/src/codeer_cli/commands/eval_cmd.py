@@ -48,14 +48,12 @@ def register(subparsers):
 
     # codeer eval label-list/create/update/delete
     p = sub.add_parser("label-list", help="List eval case labels in the workspace")
-    p.add_argument("--workspace", default=None, help="Workspace UUID (default: active API-key workspace)")
     p.add_argument("--out", default=None)
     p.set_defaults(func=run_label_list)
 
     p = sub.add_parser("label-create", help="Create an eval case label; run --dry-run first")
     p.add_argument("--name", required=True)
     p.add_argument("--color", default=None, help="Hex color like #0969da (default: server default)")
-    p.add_argument("--workspace", default=None, help="Workspace UUID (default: active API-key workspace)")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--out", default=None)
     p.set_defaults(func=run_label_create)
@@ -288,9 +286,7 @@ def run_list(args, client) -> int:
 # eval case labels
 # ---------------------------------------------------------------------------
 
-def _workspace_arg_or_default(client, workspace_id: str | None) -> str:
-    if workspace_id:
-        return workspace_id
+def _active_workspace(client) -> str:
     ws, _ = client.resolve_scope()
     return ws
 
@@ -305,8 +301,8 @@ def _label_summary(label: dict) -> dict:
 
 
 def run_label_list(args, client) -> int:
-    workspace_id = _workspace_arg_or_default(client, args.workspace)
-    labels = eval_mod.list_case_labels(client, workspace_id=workspace_id)
+    workspace_id = _active_workspace(client)
+    labels = eval_mod.list_case_labels(client)
     out = {
         "workspace_id": workspace_id,
         "label_count": len(labels),
@@ -318,13 +314,13 @@ def run_label_list(args, client) -> int:
 
 
 def run_label_create(args, client) -> int:
-    workspace_id = _workspace_arg_or_default(client, args.workspace)
+    workspace_id = _active_workspace(client)
     if args.dry_run:
         out = {
             "dry_run": True,
             "operation": "label_create",
             "method": "POST",
-            "path": f"/eval/workspaces/{workspace_id}/case-labels",
+            "path": "/external/eval/case-labels",
             "workspace_id": workspace_id,
             "name": args.name,
             "color": args.color,
@@ -335,9 +331,7 @@ def run_label_create(args, client) -> int:
         write_json(args.out, out)
         return 0
 
-    label = eval_mod.create_case_label(
-        client, workspace_id=workspace_id, name=args.name, color=args.color
-    )
+    label = eval_mod.create_case_label(client, name=args.name, color=args.color)
     out = _label_summary(strip_noisy_fields(label))
     print_json(out)
     write_json(args.out, out)
@@ -354,7 +348,7 @@ def run_label_update(args, client) -> int:
             "dry_run": True,
             "operation": "label_update",
             "method": "PUT",
-            "path": f"/eval/case-labels/{args.label_id}",
+            "path": f"/external/eval/case-labels/{args.label_id}",
             "label_id": args.label_id,
             "updates": {"name": args.name, "color": args.color},
             "would_write_server_state": True,
@@ -379,7 +373,7 @@ def run_label_delete(args, client) -> int:
             "dry_run": True,
             "operation": "label_delete",
             "method": "DELETE",
-            "path": f"/eval/case-labels/{args.label_id}",
+            "path": f"/external/eval/case-labels/{args.label_id}",
             "label_id": args.label_id,
             "would_write_server_state": True,
             "next_step": "Review this summary, then rerun without --dry-run after approval.",
@@ -1384,7 +1378,7 @@ def run_cases_apply(args, client) -> int:
     if manifest_label_names:
         labels_by_name = {
             (label.get("name") or "").casefold(): label
-            for label in eval_mod.list_case_labels(client, workspace_id=workspace_id)
+            for label in eval_mod.list_case_labels(client)
             if label.get("name")
         }
         missing_label_names = [
@@ -1410,7 +1404,7 @@ def run_cases_apply(args, client) -> int:
         else:
             for name in missing_label_names:
                 log(f"creating label: {name}")
-                label = eval_mod.create_case_label(client, workspace_id=workspace_id, name=name)
+                label = eval_mod.create_case_label(client, name=name)
                 labels_by_name[name.casefold()] = label
                 created_labels.append(_label_summary(label))
 

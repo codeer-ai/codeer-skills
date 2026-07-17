@@ -16,3 +16,5 @@ Run `codeer check` first — it catches most setup problems.
 | Eval results show `score: null` for some cases | Cases haven't been evaluated on that agent version yet | `null` means "not yet run", not "failed". Trigger eval for those cases, or check that the correct `agent_history_id` was passed. |
 | Changes land in the wrong workspace | Wrong CLI profile or API key is active | Switch to the intended profile with `codeer profile use <name>` and run `codeer check`. |
 | `codeer check` can't find credentials | No CLI profile is selected and no fallback `CODEER_API_KEY` is present | Configure a profile with `codeer profile add <name>` and `codeer profile use <name>`. See **onboarding.md**. |
+| Request timed out while creating or sending a history turn | The server did not respond before the per-message timeout | Run `codeer history conversations <history_id>` before retrying. The write outcome is uncertain and retrying blindly can duplicate a turn. |
+| Request failed with a connection or DNS error | The configured `CODEER_API_BASE` is unavailable or incorrect | Verify the active profile/API base and service availability, then rerun `codeer check`. |

@@ -179,12 +179,19 @@ codeer history create \
     --title "Seed conversation" \
     --user "eval-seed@example.com" \
     --message "First user turn" \
-    --message "Follow-up user turn"
+    --timeout 120
+
+codeer history send <history_id> \
+    --message "Follow-up user turn" \
+    --timeout 120
 ```
 
 This writes real `History` and `Conversation` rows and returns the `history_id`
 plus conversation IDs. The command uses the published agent version only; the
 API-key chat flow cannot pin an unpublished draft version.
+
+If either message request times out, inspect the history before retrying. The
+server may already have persisted the timed-out turn.
 
 For the eval case, set `meta.previous_conversations` to replay prior turns from
 the source history before the target conversation:

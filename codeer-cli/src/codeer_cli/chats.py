@@ -36,6 +36,7 @@ def send_published_agent_message(
     external_user_id: Optional[str] = None,
     attachment_ids: Optional[List[str]] = None,
     stream: bool = False,
+    timeout: Optional[float] = None,
 ) -> Iterator[dict] | dict:
     """Send a user message through the API-key external chat flow.
 
@@ -51,7 +52,7 @@ def send_published_agent_message(
     path = f"/chats/{chat_id}/messages"
     if stream:
         return client.stream_sse("POST", path, json=body)
-    return client.post(path, json=body)
+    return client.post(path, json=body, timeout=timeout)
 
 
 def send_message(
@@ -84,4 +85,3 @@ def list_messages(client: CodeerClient, chat_id: int) -> list[dict]:
 
 def list_chats(client: CodeerClient) -> list[dict]:
     return client.get("/chats")
-

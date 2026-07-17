@@ -149,10 +149,10 @@ for the apply → test → publish workflow. Pass the draft `AgentHistory.id` fr
 
 | Method & path | Purpose |
 | --- | --- |
-| `GET /eval/workspaces/{workspace_id}/case-labels` | List reusable eval case labels |
-| `POST /eval/workspaces/{workspace_id}/case-labels` | Create reusable eval case label (`name`, `color?`) |
-| `PUT /eval/case-labels/{label_id}` | Update eval case label name/color |
-| `DELETE /eval/case-labels/{label_id}` | Delete eval case label and clear associations |
+| `GET /external/eval/case-labels` | List reusable eval case labels in the API key workspace |
+| `POST /external/eval/case-labels` | Create reusable eval case label (`name`, `color?`) in the API key workspace |
+| `PUT /external/eval/case-labels/{label_id}` | Update an eval case label in the API key workspace |
+| `DELETE /external/eval/case-labels/{label_id}` | Delete an eval case label and clear associations |
 | `POST /eval/cases` | Create case (`input`, `expected_output?`, `rubric?`, `label_ids?`); rubric = user-docs "Standard" |
 | `GET /eval/agents/{agent_id}/cases` | List cases for an agent |
 | `GET /eval/cases/{case_id}` | Read one |
@@ -171,8 +171,11 @@ for the apply → test → publish workflow. Pass the draft `AgentHistory.id` fr
 | `POST /eval/rubric` | Set/override the rubric for one (case, evaluator); also creates assignment |
 | `POST /eval/rubrics/batch` | **Read** rubrics for a batch of (case, evaluator) pairs |
 
-Eval case labels are workspace-scoped reusable objects. The case create/update
-payload uses `label_ids` (stringified label IDs), not freeform label names:
+Eval case labels are workspace-scoped reusable objects. The external label
+endpoints infer the workspace from the API key and do not accept a workspace
+override; switch CLI profiles to operate on another workspace. The case
+create/update payload uses `label_ids` (stringified label IDs), not freeform
+label names:
 
 ```json
 {
@@ -247,11 +250,18 @@ the public CLI.
 
 | Method & path | Purpose |
 | --- | --- |
+| `POST /chats` | Create a persisted history using an agent's current published version |
+| `POST /chats/{id}/messages` | Append a turn to an existing persisted history using the current published version |
 | `GET /histories?agent_id=X&feedback_filter=improve_feedback&external_user_id=…` | List conversations with filters |
 | `GET /histories/{id}` | Read one history's metadata |
 | `GET /histories/{id}/conversations` | Full conversation turns incl. tool calls |
 | `POST /histories/{hid}/conversations/{cid}/feedbacks` | Leave freeform improvement feedback |
 | `POST /histories/{hid}/conversations/{cid}/score` | Numeric score |
+
+The CLI exposes the first two operations as `codeer history create` and
+`codeer history send`. Non-streaming message requests default to a 120-second
+per-message timeout. A timeout has an uncertain write outcome, so read the
+history before retrying to avoid duplicate turns.
 
 `feedback_filter` accepts the `FeedbackFilterType` enum values:
 `no_feedback`, `with_feedback`, `helpful_feedback`, `improve_feedback`.

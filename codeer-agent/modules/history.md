@@ -30,6 +30,15 @@ For channels without feedback signals, read conversations directly:
 codeer history conversations <history_id>
 ```
 
+To continue an existing persisted history after the user approves the write:
+
+```bash
+codeer history send <history_id> --message "Follow-up question" --timeout 120
+```
+
+This uses the agent's current published version. If it times out, inspect the
+history before retrying because the turn may already have been persisted.
+
 ---
 
 ## Step 2 — Analyze and categorize

@@ -19,7 +19,7 @@ workspace-local dotenv files or credential files.
 """
 
 from ._validate import ToolValidationError
-from .client import AuthError, CodeerClient, CodeerError
+from .client import AuthError, CodeerClient, CodeerError, TransportError
 from .parse import (
     AgentSummary,
     ConversationTurn,
@@ -43,7 +43,7 @@ from .parse import (
 )
 
 __all__ = [
-    "CodeerClient", "CodeerError", "AuthError", "ToolValidationError",
+    "CodeerClient", "CodeerError", "TransportError", "AuthError", "ToolValidationError",
     # parsers
     "AgentSummary", "ConversationTurn", "EvalResultSummary", "HistorySummary",
     "KBNode", "ToolCall", "EvalToolCall",

@@ -37,6 +37,16 @@ class ScopeResolutionError(CodeerError):
     """Raised when workspace or organization scope cannot be inferred."""
 
 
+class TransportError(CodeerError):
+    """Raised when an HTTP request fails before a response is available."""
+
+    def __init__(self, message: str, body: Any = None):
+        RuntimeError.__init__(self, message)
+        self.status = 0
+        self.message = message
+        self.body = body
+
+
 @dataclass
 class CodeerClient:
     """Thin wrapper around httpx.Client with Codeer API-key auth.
@@ -148,9 +158,32 @@ class CodeerClient:
         json: Any = None,
         files: Any = None,
         data: Any = None,
+        timeout: Optional[float] = None,
     ) -> Any:
         url = path if path.startswith("http") else f"/api/v1{path if path.startswith('/') else '/' + path}"
-        r = self._client.request(method, url, params=params, json=json, files=files, data=data)
+        request_kwargs: dict[str, Any] = {}
+        if timeout is not None:
+            request_kwargs["timeout"] = timeout
+        method_upper = method.upper()
+        try:
+            r = self._client.request(
+                method_upper,
+                url,
+                params=params,
+                json=json,
+                files=files,
+                data=data,
+                **request_kwargs,
+            )
+        except httpx.TimeoutException as exc:
+            raise self._transport_error(
+                method_upper,
+                path,
+                exc,
+                timeout_seconds=timeout if timeout is not None else self.timeout,
+            ) from exc
+        except httpx.RequestError as exc:
+            raise self._transport_error(method_upper, path, exc) from exc
         return self._parse(r)
 
     def get(self, path: str, **kwargs: Any) -> Any:
@@ -181,29 +214,68 @@ class CodeerClient:
         Each event is a dict like ``{"event": "message", "data": <parsed-json-or-str>}``.
         """
         url = path if path.startswith("http") else f"/api/v1{path if path.startswith('/') else '/' + path}"
-        with self._client.stream(method, url, params=params, json=json) as r:
-            if r.status_code >= 400:
-                body = r.read().decode("utf-8", "replace")
-                self._raise_for_error(r.status_code, body)
-            event = "message"
-            buf: list[str] = []
-            for line in r.iter_lines():
-                if line == "":
-                    if buf:
-                        raw = "\n".join(buf)
-                        yield {"event": event, "data": _maybe_json(raw)}
-                        buf = []
-                        event = "message"
-                    continue
-                if line.startswith(":"):
-                    continue
-                if line.startswith("event:"):
-                    event = line[len("event:"):].strip()
-                    continue
-                if line.startswith("data:"):
-                    buf.append(line[len("data:"):].lstrip())
-            if buf:
-                yield {"event": event, "data": _maybe_json("\n".join(buf))}
+        method_upper = method.upper()
+        try:
+            with self._client.stream(method_upper, url, params=params, json=json) as r:
+                if r.status_code >= 400:
+                    body = r.read().decode("utf-8", "replace")
+                    self._raise_for_error(r.status_code, body)
+                event = "message"
+                buf: list[str] = []
+                for line in r.iter_lines():
+                    if line == "":
+                        if buf:
+                            raw = "\n".join(buf)
+                            yield {"event": event, "data": _maybe_json(raw)}
+                            buf = []
+                            event = "message"
+                        continue
+                    if line.startswith(":"):
+                        continue
+                    if line.startswith("event:"):
+                        event = line[len("event:"):].strip()
+                        continue
+                    if line.startswith("data:"):
+                        buf.append(line[len("data:"):].lstrip())
+                if buf:
+                    yield {"event": event, "data": _maybe_json("\n".join(buf))}
+        except httpx.TimeoutException as exc:
+            raise self._transport_error(
+                method_upper,
+                path,
+                exc,
+                timeout_seconds=self.timeout,
+            ) from exc
+        except httpx.RequestError as exc:
+            raise self._transport_error(method_upper, path, exc) from exc
+
+    def _transport_error(
+        self,
+        method: str,
+        path: str,
+        exc: httpx.RequestError,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> TransportError:
+        outcome_uncertain = (
+            method not in {"GET", "HEAD", "OPTIONS"}
+            and not isinstance(exc, httpx.ConnectError)
+        )
+        if isinstance(exc, httpx.TimeoutException):
+            timeout_value = timeout_seconds if timeout_seconds is not None else self.timeout
+            message = f"Request timed out after {timeout_value:g}s: {method} {path}."
+            if outcome_uncertain:
+                message += " The server may have completed the request; inspect current state before retrying."
+        else:
+            message = f"Request failed: {method} {path}: {exc}"
+        return TransportError(
+            message,
+            {
+                "method": method,
+                "path": path,
+                "outcome_uncertain": outcome_uncertain,
+            },
+        )
 
     def _parse(self, r: httpx.Response) -> Any:
         text = r.text

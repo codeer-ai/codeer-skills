@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import math
 import os
 
 from .. import agents as agents_mod
 from .. import chats as chats_mod
 from .. import histories as hist_mod
+from ..client import TransportError
 from ._util import log, print_json, strip_noisy_fields, truncate, write_json
 
 
@@ -74,9 +76,26 @@ def register(subparsers):
     p.add_argument("--user", default=None, help="external_user_id to associate with the history")
     p.add_argument("--message", action="append", required=True,
                    help="User message to send. Repeat for multi-turn histories.")
+    p.add_argument("--timeout", type=float, default=120.0,
+                   help="Per-message response timeout in seconds (default: 120).")
     p.add_argument("--out", default=None,
                    help="Write complete create response/conversation artifact to this file; stdout stays compact.")
     p.set_defaults(func=run_create)
+
+    # codeer history send <id> --message ...
+    p = sub.add_parser("send", help="Continue an existing persisted conversation history")
+    p.add_argument("history_id", type=int)
+    p.add_argument("--agent", default=None,
+                   help="Agent ID override (defaults to the history's agent or CODEER_AGENT_ID)")
+    p.add_argument("--user", default=None,
+                   help="external_user_id override (defaults to the history's user)")
+    p.add_argument("--message", action="append", required=True,
+                   help="User message to send. Repeat to append multiple turns.")
+    p.add_argument("--timeout", type=float, default=120.0,
+                   help="Per-message response timeout in seconds (default: 120).")
+    p.add_argument("--out", default=None,
+                   help="Write complete send response/conversation artifact to this file; stdout stays compact.")
+    p.set_defaults(func=run_send)
 
 
 def _parse_exclude(raw: str | None) -> list[str]:
@@ -253,10 +272,50 @@ def _history_url(client, workspace_id: str, history_id: int) -> str:
     return f"{base}/workspaces/{workspace_id}/histories/{history_id}"
 
 
+def _send_messages(
+    client,
+    *,
+    history_id: int,
+    agent_id: str,
+    external_user_id: str | None,
+    messages: list[str],
+    timeout: float,
+) -> list[dict]:
+    results = []
+    for idx, message in enumerate(messages, 1):
+        log(f"sending turn {idx}/{len(messages)}")
+        try:
+            result = chats_mod.send_published_agent_message(
+                client,
+                chat_id=history_id,
+                message=message,
+                agent_id=agent_id,
+                external_user_id=external_user_id,
+                stream=False,
+                timeout=timeout,
+            )
+        except TransportError as exc:
+            body = dict(exc.body) if isinstance(exc.body, dict) else {}
+            body.update({"history_id": history_id, "turn": idx, "turn_count": len(messages)})
+            raise TransportError(
+                f"Failed while sending turn {idx}/{len(messages)} to history {history_id}: {exc.message}",
+                body,
+            ) from exc
+        results.append(result)
+    return results
+
+
+def _valid_timeout(timeout: float) -> bool:
+    return math.isfinite(timeout) and timeout > 0
+
+
 def run_create(args, client) -> int:
     agent_id = args.agent or os.environ.get("CODEER_AGENT_ID")
     if not agent_id:
         log("error: --agent is required or set CODEER_AGENT_ID")
+        return 2
+    if not _valid_timeout(args.timeout):
+        log("error: --timeout must be a finite number greater than zero")
         return 2
 
     workspace_id, _ = client.resolve_scope()
@@ -269,19 +328,14 @@ def run_create(args, client) -> int:
         external_user_id=args.user,
     )
     history_id = chat["id"]
-    message_results = []
-
-    for idx, message in enumerate(args.message, 1):
-        log(f"sending turn {idx}/{len(args.message)}")
-        result = chats_mod.send_published_agent_message(
-            client,
-            chat_id=history_id,
-            message=message,
-            agent_id=agent_id,
-            external_user_id=args.user,
-            stream=False,
-        )
-        message_results.append(result)
+    message_results = _send_messages(
+        client,
+        history_id=history_id,
+        agent_id=agent_id,
+        external_user_id=args.user,
+        messages=args.message,
+        timeout=args.timeout,
+    )
 
     conversations = hist_mod.get_conversations(client, history_id)
     out = {
@@ -297,6 +351,64 @@ def run_create(args, client) -> int:
         "agent_id": agent_id,
         "history_id": history_id,
         "external_user_id": args.user,
+        "url": out["url"],
+        "message_count": len(message_results),
+        "turn_count": len(conversations),
+        "wrote_full_detail": bool(args.out),
+    })
+    return 0
+
+
+def run_send(args, client) -> int:
+    if not _valid_timeout(args.timeout):
+        log("error: --timeout must be a finite number greater than zero")
+        return 2
+
+    history = hist_mod.get(client, args.history_id)
+    history_agent = history.get("agent") or {}
+    history_meta = history.get("meta") or {}
+    agent_id = (
+        args.agent
+        or history.get("agent_id")
+        or history_agent.get("id")
+        or history_meta.get("conversation_agent_id")
+        or os.environ.get("CODEER_AGENT_ID")
+    )
+    if not agent_id:
+        log("error: could not resolve agent from history; pass --agent or set CODEER_AGENT_ID")
+        return 2
+
+    external_user_id = (
+        args.user
+        if args.user is not None
+        else (
+            history.get("external_user_id")
+            or history_meta.get("external_user_id")
+        )
+    )
+    workspace_id, _ = client.resolve_scope()
+    message_results = _send_messages(
+        client,
+        history_id=args.history_id,
+        agent_id=agent_id,
+        external_user_id=external_user_id,
+        messages=args.message,
+        timeout=args.timeout,
+    )
+    conversations = hist_mod.get_conversations(client, args.history_id)
+    out = {
+        "agent_id": agent_id,
+        "history_id": args.history_id,
+        "external_user_id": external_user_id,
+        "url": _history_url(client, workspace_id, args.history_id),
+        "messages": message_results,
+        "conversations": conversations,
+    }
+    write_json(args.out, strip_noisy_fields(out))
+    print_json({
+        "agent_id": agent_id,
+        "history_id": args.history_id,
+        "external_user_id": external_user_id,
         "url": out["url"],
         "message_count": len(message_results),
         "turn_count": len(conversations),

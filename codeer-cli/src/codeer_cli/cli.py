@@ -4,7 +4,7 @@
     codeer agent list|get|apply|diff|versions
     codeer kb list|files|upload|node-rename|node-delete|faq-list|faq-get|faq-create|faq-update|faq-delete
     codeer eval list|label-list|label-create|label-update|label-delete|case-update|case-delete|evaluators|evaluator-create|evaluator-update|run|export|reconcile|cases-apply|rubrics|rubrics-apply
-    codeer history list|get|conversations|negative-feedback
+    codeer history list|get|conversations|negative-feedback|create|send
 """
 
 from __future__ import annotations
