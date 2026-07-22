@@ -363,7 +363,7 @@ unpublished draft `AgentHistory` unless the server API gains support for that.
 | `--title` | string | first message prefix | Conversation title |
 | `--user` | string | — | `external_user_id` to associate with the history |
 | `--message` | string, repeatable | **required** | User turn to send, in order |
-| `--timeout` | float | `120` | Per-message response timeout in seconds |
+| `--timeout` | float | `240` | Per-message Chat V2 SSE read timeout in seconds |
 | `--out` | path | — | Write complete message and conversation details to a file |
 
 Example:
@@ -375,14 +375,16 @@ codeer history create \
     --user "eval-seed@example.com" \
     --message "First user turn" \
     --message "Follow-up user turn" \
-    --timeout 120
+    --timeout 240
 ```
 
-The output includes `history_id`, conversation IDs, and a history URL. Keep
-those IDs when turning a real conversation into follow-up eval cases later.
+The command uses Chat V2 with `stream: true`. The output includes `history_id`,
+conversation group/part IDs, and a history URL. Keep those IDs when turning a
+real conversation into follow-up eval cases later.
 
-If the request times out, read the history before retrying. The server may have
-persisted the turn after the CLI stopped waiting.
+Success requires `response.completed`. If the stream times out, reports
+`response.failed`, or disconnects before completion, read the history before
+retrying. The server may already have persisted the turn.
 
 ## `codeer history send` flags
 
@@ -397,17 +399,19 @@ continue with an older or unpublished `AgentHistory` version.
 | `--agent` | string | history metadata, then `CODEER_AGENT_ID` | Agent ID fallback/override |
 | `--user` | string | history metadata | `external_user_id` fallback/override |
 | `--message` | string, repeatable | **required** | User turn to append, in order |
-| `--timeout` | float | `120` | Per-message response timeout in seconds |
+| `--timeout` | float | `240` | Per-message Chat V2 SSE read timeout in seconds |
 | `--out` | path | — | Write complete message and conversation details to a file |
 
 ```bash
 codeer history send <history_id> \
     --message "Use the recommended options" \
-    --timeout 120
+    --timeout 240
 ```
 
-On a timeout, inspect `codeer history conversations <history_id>` before
-retrying. A timed-out write may already have created the turn.
+The command sends each turn with `stream: true` and requires
+`response.completed`. On a timeout, `response.failed`, or early disconnect,
+inspect `codeer history conversations <history_id>` before retrying. The write
+may already have created the turn.
 
 ---
 

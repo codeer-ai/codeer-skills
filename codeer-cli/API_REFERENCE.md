@@ -3,8 +3,9 @@
 > This file is the request-shape reference for maintaining `codeer-cli`.
 
 The 9 stages below mirror the user-docs lifecycle (`agent-creation` →
-`optimization-loop` → `publish`). Every path is under `/api/v1/`. All endpoints
-authenticate via `x-api-key` from `CODEER_API_KEY`.
+`optimization-loop` → `publish`). Agent, KB, eval, history, and model paths are
+under `/api/v1/`; Chat create/message/read paths use `/api/v2/chats`. All
+endpoints authenticate via `x-api-key` from `CODEER_API_KEY`.
 
 Envelope: successful responses look like
 `{"error_code": 0, "message": "", "pagination": null, "data": <payload>}`.
@@ -140,19 +141,21 @@ codeer kb files --kb-id <kb-id>
 codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --range 12:0-12:42 --dry-run
 ```
 
-## Stage 3 — Live Test on a specific version
+## Stage 3 — Live Test on a specific version (legacy V1 compatibility)
 
 | Method & path | Purpose |
 | --- | --- |
-| `POST /chats` | Create a new chat session bound to an agent |
-| `POST /chats/{chat_id}/messages` | Send a message; **SSE stream** of tool calls + reasoning + final text |
-| `GET /chats/{chat_id}/messages` | Read historical messages for a chat |
-| `POST /chats/{chat_id}/regenerate` | Re-run the last turn |
-| `POST /chats/{chat_id}/messages/{msg_id}/feedbacks` | Thumbs up/down on a reply |
+| `POST /api/v1/chats` | Create a legacy chat session bound to an agent |
+| `POST /api/v1/chats/{chat_id}/messages` | Send a version-pinned message through legacy SSE |
+| `GET /api/v1/chats/{chat_id}/messages` | Read legacy messages for a chat |
+| `POST /api/v1/chats/{chat_id}/regenerate` | Re-run the last turn |
+| `POST /api/v1/chats/{chat_id}/messages/{msg_id}/feedbacks` | Thumbs up/down on a reply |
 
-`POST /chats/.../messages` requires `agent_history_id` — this is the key hook
-for the apply → test → publish workflow. Pass the draft `AgentHistory.id` from
-`PUT /agents/{id}` to test an unpublished version.
+Legacy V1 `POST /chats/.../messages` accepts `agent_history_id` — this is the
+compatibility hook for the apply → test → publish workflow. Pass the draft
+`AgentHistory.id` from `PUT /agents/{id}` to test an unpublished version.
+The API-key external flow in Chat V2 accepts `agent_id` and runs its published
+version; it does not currently replace this draft-pinning path.
 
 ## Stage 4 — Version management
 
@@ -267,8 +270,9 @@ the public CLI.
 
 | Method & path | Purpose |
 | --- | --- |
-| `POST /chats` | Create a persisted history using an agent's current published version |
-| `POST /chats/{id}/messages` | Append a turn to an existing persisted history using the current published version |
+| `POST /api/v2/chats` | Create a persisted history using an agent's current published version |
+| `POST /api/v2/chats/{id}/messages` | Append a turn through structured SSE using the current published version |
+| `GET /api/v2/chats/{id}/messages` | Read persisted Chat V2 conversation parts |
 | `GET /histories?agent_id=X&feedback_filter=improve_feedback&external_user_id=…` | List conversations with filters |
 | `GET /histories/{id}` | Read one history's metadata |
 | `GET /histories/{id}/conversations` | Full conversation turns incl. tool calls |
@@ -276,9 +280,11 @@ the public CLI.
 | `POST /histories/{hid}/conversations/{cid}/score` | Numeric score |
 
 The CLI exposes the first two operations as `codeer history create` and
-`codeer history send`. Non-streaming message requests default to a 120-second
-per-message timeout. A timeout has an uncertain write outcome, so read the
-history before retrying to avoid duplicate turns.
+`codeer history send`. Messages explicitly set `stream: true`, consume Chat V2
+SSE, and require `response.completed` before reporting success. Their
+per-message SSE read timeout defaults to 240 seconds. A timeout,
+`response.failed`, or disconnect before completion has an uncertain write
+outcome, so read the history before retrying to avoid duplicate turns.
 
 `feedback_filter` accepts the `FeedbackFilterType` enum values:
 `no_feedback`, `with_feedback`, `helpful_feedback`, `improve_feedback`.
@@ -357,7 +363,7 @@ said (scope, factuality, tool-use rules).
 
 ### 4. Agent version pinning works everywhere — use it
 
-Both `POST /chats/{id}/messages` (`agent_history_id` required) and
+Legacy V1 `POST /chats/{id}/messages` (`agent_history_id` required) and
 `POST /eval/trigger` (`agent_history_id` optional, null = live state) accept
 the draft history id. The apply-→-test-→-publish loop:
 
@@ -463,9 +469,10 @@ pass. Workspace scope is inferred from the API-key virtual user profile.
 
 ### 11. Tool args + outputs are NOT persisted in history reads
 
-Conversations have only three roles (`OpenAIChatRole = system | user | assistant`)
-— there is no `tool` role row. When you read a history, here's what you can
-and can't recover from each assistant turn:
+Legacy V1 `History` conversation rows have only three roles
+(`OpenAIChatRole = system | user | assistant`) — there is no `tool` role row.
+When you read those rows through `/histories/{id}/conversations`, here's what
+you can and can't recover from each assistant turn:
 
 | Recoverable | Where |
 | --- | --- |
@@ -481,10 +488,12 @@ and can't recover from each assistant turn:
 | Tool **outputs** (raw JSON returned by the tool) | same — stored only as derived `primary_sources` for retrieval tools |
 | Reasoning steps mid-turn | `meta.reasoning_steps` is currently always `null` |
 
-If you need full tool I/O, capture it at execution time via the chat SSE
-stream (`POST /chats/{id}/messages`), not from history reads. For after-the-
-fact analysis, the persisted shape is sufficient to surface tool-selection
-patterns, token costs, and which sources the agent ended up citing.
+Chat V2 improves this contract: structured SSE emits tool calls and returns as
+`response.part.created` / `response.part.completed`, and
+`GET /api/v2/chats/{id}/messages` reads the persisted conversation parts.
+Capture the SSE artifact with `--out` when exact event order matters; use the
+V2 message read for persisted after-the-fact tool I/O. The legacy v1 history
+read remains useful for compact turn-level analysis.
 
 ### 10. A KB has exactly ONE level of folders — no nesting
 

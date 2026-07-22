@@ -22,7 +22,55 @@ class ClientTransportTests(unittest.TestCase):
             client.close()
 
         self.assertEqual(result, {"ok": True})
+        self.assertEqual(requests[0].url.path, "/api/v1/chats/1/messages")
         self.assertEqual(requests[0].extensions["timeout"]["read"], 120.0)
+
+    def test_request_can_target_v2_without_changing_v1_default(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json={"data": {"id": 1}, "error_code": 0})
+
+        client = self._client(handler)
+        try:
+            result = client.post("/chats", api_version="v2", json={"name": "Test"})
+        finally:
+            client.close()
+
+        self.assertEqual(result, {"id": 1})
+        self.assertEqual(requests[0].url.path, "/api/v2/chats")
+
+    def test_stream_can_target_v2_and_forward_read_timeout(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(
+                200,
+                text=(
+                    "event: response.completed\n"
+                    'data: {"type":"response.completed","response_id":"r1"}\n\n'
+                    "data: [DONE]\n\n"
+                ),
+            )
+
+        client = self._client(handler)
+        try:
+            events = list(client.stream_sse(
+                "POST",
+                "/chats/1/messages",
+                api_version="v2",
+                json={"message": "Hi", "stream": True},
+                timeout=240.0,
+            ))
+        finally:
+            client.close()
+
+        self.assertEqual(requests[0].url.path, "/api/v2/chats/1/messages")
+        self.assertEqual(requests[0].extensions["timeout"]["read"], 240.0)
+        self.assertEqual(events[0]["event"], "response.completed")
+        self.assertEqual(events[0]["data"]["response_id"], "r1")
 
     def test_timeout_becomes_transport_error_with_uncertain_write_outcome(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:

@@ -154,15 +154,17 @@ Use this pattern during agent lifecycle work:
 ```bash
 codeer agent list
 codeer history list --agent <agent-id> --limit 50
-codeer history create --agent <agent-id> --message "Review this plan" --timeout 120
-codeer history send <history-id> --message "Use the recommended options" --timeout 120
+codeer history create --agent <agent-id> --message "Review this plan" --timeout 240
+codeer history send <history-id> --message "Use the recommended options" --timeout 240
 codeer eval run --agent <agent-id> --cases <case-ids> --evaluator <evaluator-id> --out .codeer/eval_run.json
 ```
 
 `history create` and `history send` use the agent's current published version.
-Their per-message timeout defaults to 120 seconds. If a write request times
-out, inspect the history before retrying: the server may have completed the
-turn after the client stopped waiting.
+They use Chat V2 structured SSE with `stream: true`; their per-message read
+timeout defaults to 240 seconds. Success requires a `response.completed`
+event. If the stream times out, reports `response.failed`, or disconnects
+early, inspect the history before retrying: the server may already have
+persisted the turn.
 
 Eval case label commands always operate on the active API-key workspace. They
 do not accept a workspace override; switch CLI profiles to target another

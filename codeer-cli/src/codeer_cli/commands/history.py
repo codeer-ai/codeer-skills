@@ -76,8 +76,8 @@ def register(subparsers):
     p.add_argument("--user", default=None, help="external_user_id to associate with the history")
     p.add_argument("--message", action="append", required=True,
                    help="User message to send. Repeat for multi-turn histories.")
-    p.add_argument("--timeout", type=float, default=120.0,
-                   help="Per-message response timeout in seconds (default: 120).")
+    p.add_argument("--timeout", type=float, default=240.0,
+                   help="Per-message SSE read timeout in seconds (default: 240).")
     p.add_argument("--out", default=None,
                    help="Write complete create response/conversation artifact to this file; stdout stays compact.")
     p.set_defaults(func=run_create)
@@ -91,8 +91,8 @@ def register(subparsers):
                    help="external_user_id override (defaults to the history's user)")
     p.add_argument("--message", action="append", required=True,
                    help="User message to send. Repeat to append multiple turns.")
-    p.add_argument("--timeout", type=float, default=120.0,
-                   help="Per-message response timeout in seconds (default: 120).")
+    p.add_argument("--timeout", type=float, default=240.0,
+                   help="Per-message SSE read timeout in seconds (default: 240).")
     p.add_argument("--out", default=None,
                    help="Write complete send response/conversation artifact to this file; stdout stays compact.")
     p.set_defaults(func=run_send)
@@ -285,15 +285,19 @@ def _send_messages(
     for idx, message in enumerate(messages, 1):
         log(f"sending turn {idx}/{len(messages)}")
         try:
-            result = chats_mod.send_published_agent_message(
+            stream = chats_mod.send_published_agent_message(
                 client,
                 chat_id=history_id,
                 message=message,
                 agent_id=agent_id,
                 external_user_id=external_user_id,
-                stream=False,
+                stream=True,
                 timeout=timeout,
             )
+            if isinstance(stream, dict):
+                result = stream
+            else:
+                result = chats_mod.collect_stream(stream)
         except TransportError as exc:
             body = dict(exc.body) if isinstance(exc.body, dict) else {}
             body.update({"history_id": history_id, "turn": idx, "turn_count": len(messages)})
@@ -337,14 +341,19 @@ def run_create(args, client) -> int:
         timeout=args.timeout,
     )
 
-    conversations = hist_mod.get_conversations(client, history_id)
+    chat_messages = chats_mod.list_messages(
+        client,
+        history_id,
+        external_user_id=args.user,
+    )
+    conversation_parts = chat_messages.get("messages") or []
     out = {
         "agent_id": agent_id,
         "history_id": history_id,
         "external_user_id": args.user,
         "url": _history_url(client, workspace_id, history_id),
         "messages": message_results,
-        "conversations": conversations,
+        "conversation_parts": conversation_parts,
     }
     write_json(args.out, strip_noisy_fields(out))
     print_json({
@@ -353,7 +362,7 @@ def run_create(args, client) -> int:
         "external_user_id": args.user,
         "url": out["url"],
         "message_count": len(message_results),
-        "turn_count": len(conversations),
+        "part_count": len(conversation_parts),
         "wrote_full_detail": bool(args.out),
     })
     return 0
@@ -395,14 +404,19 @@ def run_send(args, client) -> int:
         messages=args.message,
         timeout=args.timeout,
     )
-    conversations = hist_mod.get_conversations(client, args.history_id)
+    chat_messages = chats_mod.list_messages(
+        client,
+        args.history_id,
+        external_user_id=external_user_id,
+    )
+    conversation_parts = chat_messages.get("messages") or []
     out = {
         "agent_id": agent_id,
         "history_id": args.history_id,
         "external_user_id": external_user_id,
         "url": _history_url(client, workspace_id, args.history_id),
         "messages": message_results,
-        "conversations": conversations,
+        "conversation_parts": conversation_parts,
     }
     write_json(args.out, strip_noisy_fields(out))
     print_json({
@@ -411,7 +425,7 @@ def run_send(args, client) -> int:
         "external_user_id": external_user_id,
         "url": out["url"],
         "message_count": len(message_results),
-        "turn_count": len(conversations),
+        "part_count": len(conversation_parts),
         "wrote_full_detail": bool(args.out),
     })
     return 0

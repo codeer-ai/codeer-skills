@@ -33,11 +33,13 @@ codeer history conversations <history_id>
 To continue an existing persisted history after the user approves the write:
 
 ```bash
-codeer history send <history_id> --message "Follow-up question" --timeout 120
+codeer history send <history_id> --message "Follow-up question" --timeout 240
 ```
 
-This uses the agent's current published version. If it times out, inspect the
-history before retrying because the turn may already have been persisted.
+This uses the agent's current published version through Chat V2 structured SSE
+with `stream: true`. It only reports success after `response.completed`. If it
+times out, returns `response.failed`, or disconnects early, inspect the history
+before retrying because the turn may already have been persisted.
 
 ---
 

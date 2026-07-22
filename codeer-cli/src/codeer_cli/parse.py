@@ -9,21 +9,20 @@ Parsers are deliberately tolerant: missing/extra fields don't raise, casing
 mismatches (``FILE`` vs ``file``) are normalized to lowercase. They are NOT a
 schema validator.
 
-KEY GAP, called out here so you don't waste time:
+LEGACY V1 HISTORY GAP, called out here so you don't waste time:
 
-  Tool **arguments** (e.g. the regex passed to ``list_kb_files`` or the query
-  passed to ``retrieve_context_objs``) and **outputs** are not persisted on the
-  Conversation row. They flow over the WebSocket during execution and are
-  dropped after the assistant turn is saved. What you CAN recover from a
-  history is:
+  Tool **arguments** and **outputs** are not available on the legacy
+  ``Conversation`` row returned by ``/histories/{id}/conversations``. What you
+  CAN recover from that legacy history shape is:
 
     - tool name + call id     (regex over ``content``: ``<tool id=...>name</tool>``)
     - per-call token usage    (``meta.token_usage.tool_calls[]``)
     - retrieved primary sources (``primary_sources[]`` — the end-to-end trace)
     - assistant's final text   (``content`` with tool markers stripped)
 
-  If you need the raw tool args, you must capture them at execution time via
-  the chat SSE stream, not from history reads.
+  Chat V2 structured SSE and ``GET /api/v2/chats/{id}/messages`` expose
+  persisted tool-call and tool-return parts. Use those surfaces when raw tool
+  I/O or exact event order matters.
 """
 
 from __future__ import annotations

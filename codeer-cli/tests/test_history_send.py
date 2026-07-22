@@ -24,9 +24,23 @@ class FakeClient:
         self.calls.append((path, kwargs))
         return {"ok": True}
 
+    def stream_sse(self, method: str, path: str, **kwargs):
+        self.calls.append((path, {"method": method, **kwargs}))
+        return iter([
+            {
+                "event": "response.completed",
+                "data": {
+                    "type": "response.completed",
+                    "response_id": "response-1",
+                    "conversation_group_id": "group-1",
+                },
+            },
+            {"event": "message", "data": "[DONE]"},
+        ])
+
 
 class HistorySendTests(unittest.TestCase):
-    def test_chat_send_forwards_response_timeout(self) -> None:
+    def test_chat_send_uses_v2_stream_and_forwards_timeout(self) -> None:
         client = FakeClient()
 
         chats_mod.send_published_agent_message(
@@ -38,6 +52,9 @@ class HistorySendTests(unittest.TestCase):
         )
 
         self.assertEqual(client.calls[0][0], "/chats/18649/messages")
+        self.assertEqual(client.calls[0][1]["method"], "POST")
+        self.assertEqual(client.calls[0][1]["api_version"], "v2")
+        self.assertEqual(client.calls[0][1]["json"]["stream"], True)
         self.assertEqual(client.calls[0][1]["timeout"], 120.0)
 
     def test_run_send_resolves_agent_and_appends_to_existing_history(self) -> None:
@@ -66,32 +83,55 @@ class HistorySendTests(unittest.TestCase):
                 },
             ),
             patch.object(
-                history_cmd.hist_mod,
-                "get_conversations",
-                return_value=[
-                    {"role": "user", "content": "Initial"},
-                    {"role": "assistant", "content": "Reply"},
-                    {"role": "user", "content": "Use the recommended options"},
-                    {"role": "assistant", "content": "Final"},
-                ],
-            ),
+                history_cmd.chats_mod,
+                "list_messages",
+                return_value={"chat_id": 18649, "messages": [
+                    {"part_kind": "user-prompt"},
+                    {"part_kind": "text"},
+                ]},
+            ) as list_messages,
             patch.object(
                 history_cmd.chats_mod,
                 "send_published_agent_message",
-                return_value={"conversation_id": 4},
+                return_value=iter([
+                    {
+                        "event": "response.part.delta",
+                        "data": {
+                            "type": "response.part.delta",
+                            "response_id": "response-1",
+                            "conversation_group_id": "group-1",
+                            "part_kind": "text",
+                            "delta": "Final",
+                        },
+                    },
+                    {
+                        "event": "response.completed",
+                        "data": {
+                            "type": "response.completed",
+                            "response_id": "response-1",
+                            "conversation_group_id": "group-1",
+                        },
+                    },
+                    {"event": "message", "data": "[DONE]"},
+                ]),
             ) as send,
             redirect_stdout(StringIO()),
         ):
             result = history_cmd.run_send(args, client)
 
         self.assertEqual(result, 0)
+        list_messages.assert_called_once_with(
+            client,
+            18649,
+            external_user_id="user-1",
+        )
         send.assert_called_once_with(
             client,
             chat_id=18649,
             message="Use the recommended options",
             agent_id="agent-1",
             external_user_id="user-1",
-            stream=False,
+            stream=True,
             timeout=120.0,
         )
 

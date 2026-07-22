@@ -12,11 +12,12 @@ from __future__ import annotations
 import json as json_lib
 import os
 from dataclasses import dataclass
-from typing import Any, Iterable, Iterator, Mapping, Optional
+from typing import Any, Iterable, Iterator, Literal, Mapping, Optional
 
 import httpx
 
 DEFAULT_CODEER_API_BASE = "https://api.codeer.ai"
+ApiVersion = Literal["v1", "v2"]
 
 
 class CodeerError(RuntimeError):
@@ -154,13 +155,14 @@ class CodeerClient:
         method: str,
         path: str,
         *,
+        api_version: ApiVersion = "v1",
         params: Optional[Mapping[str, Any]] = None,
         json: Any = None,
         files: Any = None,
         data: Any = None,
         timeout: Optional[float] = None,
     ) -> Any:
-        url = path if path.startswith("http") else f"/api/v1{path if path.startswith('/') else '/' + path}"
+        url = _api_url(path, api_version=api_version)
         request_kwargs: dict[str, Any] = {}
         if timeout is not None:
             request_kwargs["timeout"] = timeout
@@ -206,17 +208,28 @@ class CodeerClient:
         method: str,
         path: str,
         *,
+        api_version: ApiVersion = "v1",
         params: Optional[Mapping[str, Any]] = None,
         json: Any = None,
+        timeout: Optional[float] = None,
     ) -> Iterator[dict]:
         """Yield parsed SSE events from a streaming endpoint (e.g. POST /chats/{id}/messages).
 
         Each event is a dict like ``{"event": "message", "data": <parsed-json-or-str>}``.
         """
-        url = path if path.startswith("http") else f"/api/v1{path if path.startswith('/') else '/' + path}"
+        url = _api_url(path, api_version=api_version)
         method_upper = method.upper()
+        request_kwargs: dict[str, Any] = {}
+        if timeout is not None:
+            request_kwargs["timeout"] = timeout
         try:
-            with self._client.stream(method_upper, url, params=params, json=json) as r:
+            with self._client.stream(
+                method_upper,
+                url,
+                params=params,
+                json=json,
+                **request_kwargs,
+            ) as r:
                 if r.status_code >= 400:
                     body = r.read().decode("utf-8", "replace")
                     self._raise_for_error(r.status_code, body)
@@ -244,7 +257,7 @@ class CodeerClient:
                 method_upper,
                 path,
                 exc,
-                timeout_seconds=self.timeout,
+                timeout_seconds=timeout if timeout is not None else self.timeout,
             ) from exc
         except httpx.RequestError as exc:
             raise self._transport_error(method_upper, path, exc) from exc
@@ -312,6 +325,18 @@ def _maybe_json(raw: str) -> Any:
         return json_lib.loads(raw)
     except (ValueError, TypeError):
         return raw
+
+
+def _api_url(path: str, *, api_version: ApiVersion = "v1") -> str:
+    """Resolve a relative domain path without forcing every API onto one version."""
+    if path.startswith("http"):
+        return path
+    normalized = path if path.startswith("/") else f"/{path}"
+    if normalized.startswith("/api/"):
+        return normalized
+    if api_version not in ("v1", "v2"):
+        raise ValueError(f"Unsupported API version: {api_version}")
+    return f"/api/{api_version}{normalized}"
 
 
 def _workspace_names(profile: Mapping[str, Any]) -> dict[str, str]:
