@@ -49,6 +49,23 @@ like `knowledge_node_ids`, `domain`, `agent_id`, `http_request` config.
 
 Limits: 10 tools per agent, ≤5 `call_agent`, ≤1 `memory`.
 
+Agent create/update payloads may also include:
+
+```json
+{
+  "human_handoff": {
+    "enabled": true,
+    "idle_timeout_minutes": null,
+    "handoff_instructions": "Hand off when the user asks for a person."
+  }
+}
+```
+
+`idle_timeout_minutes` must be greater than zero when provided. The runtime
+only exposes the handoff tool to an external conversation with a non-empty
+`external_user_id`, or to an evaluation run. Internal editor Live Test does not
+activate human mode.
+
 ## Stage 2 — Knowledge bases
 
 Base path: `/organizations/{org_id}/workspaces/{ws_id}/knowledge_bases`
@@ -280,7 +297,7 @@ Non-destructive: older versions stay in `GET /agents/{id}/histories`.
 | --- | --- |
 | `GET /accounts/me` | Sanity-check session, read workspace_organization_map |
 | `GET /organizations` | List orgs visible to the user |
-| `GET /llm/models` | List available LLM model IDs to use as `llm_model` |
+| `GET /llm/models` | List available LLM model IDs to use as `llm_model` (`codeer model list`) |
 | `GET /retrieval/...` | Shared retrieval helpers (file upload for attachments, markdown conversion) |
 
 ---

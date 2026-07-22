@@ -18,7 +18,7 @@ production and can be overridden from process env. The CLI does not read
 workspace-local dotenv files or credential files.
 """
 
-from ._validate import ToolValidationError
+from ._validate import HumanHandoffValidationError, ToolValidationError
 from .client import AuthError, CodeerClient, CodeerError, TransportError
 from .parse import (
     AgentSummary,
@@ -44,6 +44,7 @@ from .parse import (
 
 __all__ = [
     "CodeerClient", "CodeerError", "TransportError", "AuthError", "ToolValidationError",
+    "HumanHandoffValidationError",
     # parsers
     "AgentSummary", "ConversationTurn", "EvalResultSummary", "HistorySummary",
     "KBNode", "ToolCall", "EvalToolCall",

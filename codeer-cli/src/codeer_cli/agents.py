@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any, List, Optional
 
-from ._validate import validate_unified_tools
+from ._validate import validate_human_handoff, validate_unified_tools
 from .client import CodeerClient
 
 
@@ -24,8 +24,10 @@ def create(
     suggested_questions: Optional[List[str]] = None,
     primary_object_ids: Optional[List[int]] = None,
     attachment_ids: Optional[List[str]] = None,
+    human_handoff: Optional[dict[str, Any]] = None,
 ) -> dict:
     validated_tools = validate_unified_tools(unified_tools)
+    validated_handoff = validate_human_handoff(human_handoff)
     body: dict[str, Any] = {
         "name": name,
         "system_prompt": system_prompt,
@@ -39,6 +41,8 @@ def create(
         body["description"] = description
     if llm_model is not None:
         body["llm_model"] = llm_model
+    if validated_handoff is not None:
+        body["human_handoff"] = validated_handoff
     return client.post("/external/agents", json=body)
 
 
@@ -56,9 +60,11 @@ def update(
     suggested_questions: Optional[List[str]] = None,
     primary_object_ids: Optional[List[int]] = None,
     attachment_ids: Optional[List[str]] = None,
+    human_handoff: Optional[dict[str, Any]] = None,
 ) -> dict:
     """PUT creates a new AgentHistory snapshot (draft)."""
     validated_tools = validate_unified_tools(unified_tools)
+    validated_handoff = validate_human_handoff(human_handoff)
     body: dict[str, Any] = {
         "name": name,
         "system_prompt": system_prompt,
@@ -73,6 +79,8 @@ def update(
         body["description"] = description
     if llm_model is not None:
         body["llm_model"] = llm_model
+    if validated_handoff is not None:
+        body["human_handoff"] = validated_handoff
     return client.patch(f"/external/agents/{agent_id}", json=body)
 
 

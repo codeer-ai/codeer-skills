@@ -17,7 +17,7 @@ an existing agent.
 
 ## Step 1 — Scope alignment
 
-**Do this before any KB or agent work.** Pin down five things with the user:
+**Do this before any KB or agent work.** Pin down six things with the user:
 
 1. **In-scope categories** — 3–6 concrete usage scenarios the agent must
    handle (e.g. "B2C consultation routing", "course recommendation",
@@ -30,6 +30,10 @@ an existing agent.
    not in the KB, never invent a course slug, etc.).
 5. **Tools used** — which tools the agent needs and why (knowledge base,
    web search, request form, call agent, memory, http request, etc.).
+6. **Human handoff** — whether the agent may transfer a conversation to a
+   person, what should trigger the transfer, and whether an idle timeout is
+   needed. Human handoff is separate from Call Agent, which delegates to
+   another AI agent.
 
 Keep the answers in conversation context — they feed directly into the
 system prompt (allowed outcomes + boundaries), KB content scope, and eval
@@ -93,7 +97,28 @@ Discuss with the user:
 - System prompt content (boundaries, behavior rules, response style)
 - Tool selection and configuration (especially `invocation_instruction` /
   "When to Use" for each tool — this controls when the agent invokes it)
-- LLM model choice
+- LLM model choice. Run `codeer model list --type text` and use an exact
+  `model_id` returned by the server; do not guess or reuse a stale model ID.
+- Human-handoff behavior, including explicit transfer conditions and an
+  optional positive `idle_timeout_minutes`.
+
+When handoff is enabled, include it in the agent payload:
+
+```json
+{
+  "llm_model": "<model_id from codeer model list --type text>",
+  "human_handoff": {
+    "enabled": true,
+    "idle_timeout_minutes": null,
+    "handoff_instructions": "Hand off when the user asks to speak to a person."
+  }
+}
+```
+
+Human handoff is available to evaluation runs and live published-agent
+conversations that have a non-empty `external_user_id`. Internal editor Live
+Test does not activate human mode, so do not treat a missing handoff tool there
+as a configuration failure.
 
 Then present the full payload diff before applying:
 

@@ -1,4 +1,4 @@
-"""Client-side validation for unified-tool payloads.
+"""Client-side validation for agent payloads.
 
 These checks exist because the backend's form-schema validator is lenient
 (``extra="allow"``) and silently accepts unknown ``type`` strings, which then
@@ -22,6 +22,47 @@ from .constants import (
 
 class ToolValidationError(ValueError):
     """Raised when a unified_tools payload is definitely wrong."""
+
+
+class HumanHandoffValidationError(ValueError):
+    """Raised when a human_handoff payload is definitely wrong."""
+
+
+def validate_human_handoff(config: Any) -> dict[str, Any] | None:
+    """Validate and normalize an optional human-handoff configuration."""
+    if config is None:
+        return None
+    if not isinstance(config, dict):
+        raise HumanHandoffValidationError("human_handoff must be an object.")
+
+    allowed_keys = {"enabled", "idle_timeout_minutes", "handoff_instructions"}
+    unknown_keys = sorted(set(config) - allowed_keys)
+    if unknown_keys:
+        raise HumanHandoffValidationError(
+            f"human_handoff contains unsupported field(s): {', '.join(unknown_keys)}."
+        )
+
+    enabled = config.get("enabled", False)
+    if not isinstance(enabled, bool):
+        raise HumanHandoffValidationError("human_handoff.enabled must be true or false.")
+
+    timeout = config.get("idle_timeout_minutes")
+    if timeout is not None and (type(timeout) is not int or timeout <= 0):
+        raise HumanHandoffValidationError(
+            "human_handoff.idle_timeout_minutes must be a positive integer or null."
+        )
+
+    instructions = config.get("handoff_instructions")
+    if instructions is not None and not isinstance(instructions, str):
+        raise HumanHandoffValidationError(
+            "human_handoff.handoff_instructions must be a string or null."
+        )
+
+    return {
+        "enabled": enabled,
+        "idle_timeout_minutes": timeout,
+        "handoff_instructions": instructions,
+    }
 
 
 def validate_unified_tools(tools: Iterable[dict[str, Any]] | None) -> list[dict[str, Any]]:

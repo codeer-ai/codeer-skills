@@ -99,6 +99,35 @@ Validate setup before API work:
 codeer check
 ```
 
+List the active cloud models without opening the Codeer web app:
+
+```bash
+codeer model list --type text
+```
+
+## Agent human handoff
+
+`codeer agent apply` accepts the same `human_handoff` object as the Agent API.
+The dry-run validates it and shows whether handoff is enabled before any server
+write:
+
+```json
+{
+  "name": "Support Agent",
+  "system_prompt": "Help the user safely.",
+  "human_handoff": {
+    "enabled": true,
+    "idle_timeout_minutes": null,
+    "handoff_instructions": "Hand off when the user asks for a person."
+  }
+}
+```
+
+`idle_timeout_minutes` must be a positive integer or `null`. Human handoff only
+becomes available in live published-agent conversations with a non-empty
+`external_user_id`; editor Live Test conversations are internal and cannot
+activate human mode.
+
 ## Upgrade and uninstall
 
 Upgrade the CLI:

@@ -2,6 +2,7 @@
 
     codeer check
     codeer agent list|get|apply|diff|versions
+    codeer model list
     codeer kb list|files|upload|node-rename|node-delete|faq-list|faq-get|faq-create|faq-update|faq-delete
     codeer eval list|label-list|label-create|label-update|label-delete|case-update|case-delete|evaluators|evaluator-create|evaluator-update|run|export|reconcile|cases-apply|rubrics|rubrics-apply
     codeer history list|get|conversations|negative-feedback|create|send
@@ -25,6 +26,7 @@ def main(argv: list[str] | None = None) -> int:
         epilog="""\
 Safe workflow for coding agents:
   codeer check --json
+  codeer model list --type text
   codeer agent list
   codeer agent get <agent-id> --full
   codeer kb list
@@ -54,6 +56,12 @@ Use --out <path> for large raw artifacts; stdout defaults to compact summaries.
     sub = parser.add_subparsers(dest="group")
 
     check.register(sub)
+
+    try:
+        from .commands import model as model_cmd
+        model_cmd.register(sub)
+    except ImportError:
+        pass
 
     # Phase 2-4: agent, kb, eval commands will register here
     try:

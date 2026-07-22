@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from .. import agents as agents_mod
+from .._validate import validate_human_handoff, validate_unified_tools
 from ..client import CodeerClient
 from ._util import log, print_json, strip_noisy_fields, truncate, write_json
 
@@ -102,6 +103,12 @@ def _tool_summary(tools: list[dict] | None) -> list[dict]:
 
 def _agent_summary(agent: dict, *, full: bool = False) -> dict:
     tools = agent.get("unified_tools") or agent.get("tools") or []
+    human_handoff = agent.get("human_handoff")
+    if not isinstance(human_handoff, dict):
+        meta = agent.get("meta")
+        human_handoff = meta.get("human_handoff") if isinstance(meta, dict) else {}
+    if not isinstance(human_handoff, dict):
+        human_handoff = {}
     row = {
         "id": agent.get("id"),
         "name": agent.get("name"),
@@ -118,6 +125,7 @@ def _agent_summary(agent: dict, *, full: bool = False) -> dict:
         "agent_type": agent.get("agent_type"),
         "updated_at": agent.get("updated_at"),
         "tool_count": len(tools),
+        "human_handoff_enabled": bool(human_handoff.get("enabled")),
         "system_prompt_chars": len(agent.get("system_prompt") or ""),
     }
     if full:
@@ -125,6 +133,7 @@ def _agent_summary(agent: dict, *, full: bool = False) -> dict:
         row["use_search"] = agent.get("use_search")
         row["suggested_questions"] = agent.get("suggested_questions") or []
         row["tools"] = _tool_summary(tools)
+        row["human_handoff"] = human_handoff
         row["system_prompt_preview"] = truncate(agent.get("system_prompt") or "", 1200)
     return row
 
@@ -153,6 +162,13 @@ def run_apply(args, client) -> int:
         log(f"error: payload missing required field(s): {', '.join(missing)}")
         return 2
 
+    try:
+        validated_tools = validate_unified_tools(body.get("unified_tools") or [])
+        validated_handoff = validate_human_handoff(body.get("human_handoff"))
+    except ValueError as exc:
+        log(f"error: invalid agent payload: {exc}")
+        return 2
+
     if args.dry_run:
         operation = "update" if args.agent_id else "create"
         result = {
@@ -162,9 +178,14 @@ def run_apply(args, client) -> int:
             "payload": str(Path(args.payload)),
             "name": body.get("name"),
             "system_prompt_chars": len(body.get("system_prompt") or ""),
-            "tool_count": len(body.get("unified_tools") or []),
+            "tool_count": len(validated_tools),
             "use_search": body.get("use_search", False),
             "llm_model": body.get("llm_model"),
+            "human_handoff": {
+                "enabled": bool((validated_handoff or {}).get("enabled")),
+                "idle_timeout_minutes": (validated_handoff or {}).get("idle_timeout_minutes"),
+                "instructions_chars": len((validated_handoff or {}).get("handoff_instructions") or ""),
+            },
             "version_note": args.note if args.agent_id else None,
             "would_write_server_state": True,
             "next_step": "Review this summary, then rerun without --dry-run after approval.",
@@ -178,7 +199,7 @@ def run_apply(args, client) -> int:
             client, args.agent_id,
             name=body["name"],
             system_prompt=body["system_prompt"],
-            unified_tools=body.get("unified_tools") or [],
+            unified_tools=validated_tools,
             use_search=body.get("use_search", False),
             version_note=args.note,
             description=body.get("description"),
@@ -186,6 +207,7 @@ def run_apply(args, client) -> int:
             suggested_questions=body.get("suggested_questions") or [],
             primary_object_ids=body.get("primary_object_ids") or [],
             attachment_ids=body.get("attachment_ids") or [],
+            human_handoff=validated_handoff,
         )
         agent_id = args.agent_id
         log(f"PUT /agents/{agent_id} ok")
@@ -197,13 +219,14 @@ def run_apply(args, client) -> int:
             workspace_id=body["workspace_id"],
             name=body["name"],
             system_prompt=body["system_prompt"],
-            unified_tools=body.get("unified_tools") or [],
+            unified_tools=validated_tools,
             use_search=body.get("use_search", False),
             description=body.get("description"),
             llm_model=body.get("llm_model"),
             suggested_questions=body.get("suggested_questions") or [],
             primary_object_ids=body.get("primary_object_ids") or [],
             attachment_ids=body.get("attachment_ids") or [],
+            human_handoff=validated_handoff,
         )
         agent_id = agent["id"]
         log(f"POST /agents ok, id={agent_id}")

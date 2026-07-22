@@ -93,6 +93,7 @@ completes, record the summary in `progress.json` and move to the next batch.
 | Command | Purpose |
 | --- | --- |
 | `codeer check` | Validate auth, workspace, and agent config |
+| `codeer model list` | List active cloud LLM models; use `--type text` for agent models |
 | `codeer agent list` | List agents in workspace |
 | `codeer agent get` | Get agent details |
 | `codeer agent apply` | Create or update agent (always creates a new DRAFT version) |
@@ -146,6 +147,7 @@ interface contract:
 
 ```bash
 codeer check --json
+codeer model list --type text
 codeer agent list
 codeer agent get <agent-id> --full
 codeer kb list
@@ -169,6 +171,36 @@ codeer agent publish --agent <agent-id> --version <n> --dry-run
 ```
 
 Apply only after the user approves the dry-run summary.
+
+## `codeer model list` and agent model selection
+
+List the active text models before creating or updating an agent:
+
+```bash
+codeer model list --type text
+codeer model list --type text --full
+codeer model list --type text --out .codeer/current/models.json
+```
+
+Use the returned `model_id` verbatim as the agent payload's `llm_model`.
+`--full` adds modalities, pricing, and creation metadata to stdout; `--out`
+writes the complete server response while keeping stdout compact.
+
+`codeer agent apply` also accepts a versioned agent-level handoff config:
+
+```json
+{
+  "human_handoff": {
+    "enabled": true,
+    "idle_timeout_minutes": null,
+    "handoff_instructions": "Hand off when the user asks to speak to a person."
+  }
+}
+```
+
+`idle_timeout_minutes` must be a positive integer or `null`. Human handoff is
+available in evaluation runs and live published-agent conversations with a
+non-empty `external_user_id`; internal editor Live Test does not activate it.
 
 ## KB node rename/delete
 

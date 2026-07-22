@@ -161,7 +161,7 @@ An agent maintains a version history via **AgentHistory** records.
 - `codeer agent apply` always creates a new DRAFT (auto-forks from current state)
 - Publishing promotes a DRAFT to PUBLISHED; the previous published version becomes ARCHIVED
 - Rollback re-publishes an ARCHIVED version (non-destructive; nothing is deleted)
-- Each version stores: system prompt, tools config, KB attachments, LLM model settings, version note
+- Each version stores: system prompt, tools config, KB attachments, LLM model settings, human-handoff config, version note
 
 ### Eval and versions
 
@@ -187,6 +187,21 @@ Each agent can have up to 10 tool instances (max 5 Call Agent, max 1 Memory).
 | **HTTP Request** | Send/fetch data from external APIs |
 | **Payment** | Request approved payments before proceeding |
 | **Memory** | Remember stable user preferences across conversations |
+
+## Human handoff versus Call Agent
+
+Human handoff transfers an eligible external conversation to a person. It is
+configured through the versioned agent-level `human_handoff` object rather
+than `unified_tools`, and its instructions should state concrete transfer
+conditions. An optional `idle_timeout_minutes` must be a positive integer.
+
+Call Agent stays inside the AI workflow and delegates a task to another Codeer
+agent. Do not use Call Agent as a substitute when the intended outcome is a
+human taking over the conversation.
+
+The human-handoff tool is exposed to evaluation runs and to live
+published-agent conversations with a non-empty `external_user_id`. Internal
+editor Live Test does not activate human mode.
 
 ### Tool configuration
 
