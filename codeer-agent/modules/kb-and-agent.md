@@ -2,6 +2,11 @@
 
 From scope alignment through KB upload and agent creation.
 
+Before designing or changing the agent payload, read
+[agent-settings.md](agent-settings.md). Design the target state before the
+textual diff; do not treat the system prompt as the default home for every
+requirement.
+
 ---
 
 ## Diff rule
@@ -35,10 +40,12 @@ an existing agent.
    needed. Human handoff is separate from Call Agent, which delegates to
    another AI agent.
 
-Keep the answers in conversation context — they feed directly into the
-system prompt (allowed outcomes + boundaries), KB content scope, and eval
-case design. Do not persist scope as a file; once the agent is on the
-server, scope is captured in eval case coverage.
+Keep the answers in conversation context. Assign each requirement to the
+component that should own it: stable behavior and boundaries in the system
+prompt, source-of-truth facts in the KB, operational triggers in tool or
+handoff settings, and observable requirements in eval coverage. Do not persist
+scope as a file; once the agent is on the server, scope is captured in the
+agent settings and eval case coverage.
 
 ---
 
@@ -90,11 +97,13 @@ PROCESSING state are not yet available for retrieval.
 
 Write `.codeer/current/local_draft_agent.json`. Pull allowed outcomes and
 boundaries from the scope alignment discussion; attach KB node IDs from
-`codeer kb list` output.
+`codeer kb list` output. Apply the target-state gate in
+[agent-settings.md](agent-settings.md) before presenting the payload diff.
 
 Discuss with the user:
 
-- System prompt content (boundaries, behavior rules, response style)
+- System prompt content (stable objectives, priorities, boundaries, and
+  behavioral invariants)
 - Tool selection and configuration (especially `invocation_instruction` /
   "When to Use" for each tool — this controls when the agent invokes it)
 - LLM model choice. Run `codeer model list --type text` and use an exact

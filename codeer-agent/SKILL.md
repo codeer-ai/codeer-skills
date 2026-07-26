@@ -1,6 +1,6 @@
 ---
 name: codeer-agent
-description: Build, evaluate, publish, and analyze Codeer agents over the Codeer API. Use for Codeer agent design, knowledge base uploads, eval cases and rubrics, draft live tests, publishing, production history analysis, and feedback review.
+description: Design, build, evaluate, publish, and analyze Codeer agents over the Codeer API. Use for agent settings and system-prompt design, root-cause improvement, knowledge base uploads, eval cases and rubrics, draft live tests, publishing, production history analysis, and feedback review.
 ---
 
 # Codeer Agent Lifecycle — skill
@@ -8,6 +8,12 @@ description: Build, evaluate, publish, and analyze Codeer agents over the Codeer
 Everything you need to build, evaluate, and improve a Codeer agent against
 whatever files the user has in their current directory. Authenticates through
 the installed `codeer` CLI, usually via a named CLI profile.
+
+Optimize the resulting agent configuration, not an isolated failing case or
+the size of the local diff. Prefer minimum-sufficient settings with simple
+instructions, clear component ownership, and low total semantic complexity.
+Read [modules/agent-settings.md](modules/agent-settings.md) before creating or
+changing agent settings.
 
 ## Guardrails
 
@@ -53,16 +59,16 @@ to validate auth, workspace, and agent config.
 | --- | --- | --- |
 | 1–3 | **kb-and-agent** | Scope alignment → KB prep & upload → Agent creation |
 | 4 | **eval-cases** | MECE categories → generate cases per category → apply |
-| 5 | **eval-debug** | Run eval → diagnose failures → fix → re-run → repeat |
+| 5 | **eval-debug** | Run eval → diagnose mechanisms → improve settings → verify |
 | 6 | **kb-and-agent** | Publish (after user go-ahead) |
 
 ### Phase 2: Improve (agent has production traffic)
 
 | Step | Module | What happens |
 | --- | --- | --- |
-| 1–3 | **history** | Pull production data → analyze → present findings |
-| 4 | **eval-cases** | Add new cases from findings (before any fix) |
-| 5 | **eval-debug** | Baseline → fix → re-run ALL → review |
+| 1–3 | **history** | Pull production data → separate evidence from diagnosis |
+| 4 | **eval-cases** | Add reproduction and validation probes before settings changes |
+| 5 | **eval-debug** | Baseline → diagnose mechanism → improve target state → verify |
 | 6 | **kb-and-agent** | Publish or roll back |
 
 Then loop back to Phase 2 Step 1 with new production data.
@@ -73,6 +79,7 @@ Then loop back to Phase 2 Step 1 with new production data.
 
 | You want to... | Read |
 | --- | --- |
+| Design or change any agent settings | [modules/agent-settings.md](modules/agent-settings.md) |
 | Set up KB, create or update an agent | [modules/kb-and-agent.md](modules/kb-and-agent.md) |
 | Design eval cases and rubrics | [modules/eval-cases.md](modules/eval-cases.md) |
 | Diagnose eval failures and apply fixes | [modules/eval-debug.md](modules/eval-debug.md) |
@@ -90,9 +97,10 @@ codeer-agent/
 ├── SKILL.md              ← you are here — setup, guardrails, phase composition
 ├── onboarding.md         ← user setup for API-key auth
 ├── modules/
+│   ├── agent-settings.md  ← target-state design and component ownership
 │   ├── kb-and-agent.md   ← scope, KB design/upload, agent create/publish
 │   ├── eval-cases.md     ← MECE categories, case design, rubric authoring
-│   ├── eval-debug.md     ← unified triage ladder, prompt discipline, fix loop
+│   ├── eval-debug.md     ← evidence triage, causal diagnosis, improvement loop
 │   └── history.md        ← production analysis, feedback, coverage gaps
 └── reference/
     ├── concepts.md       ← how Codeer server works (KB tools, evaluators, versions)

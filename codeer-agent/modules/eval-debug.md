@@ -1,7 +1,11 @@
 # Eval Debugging
 
-Diagnose eval results and apply the smallest correct fix. This module
-covers both scores < 1.0 and spot-checking scores = 1.0.
+Use eval results to diagnose behavior and leave the whole agent configuration
+in a better state. Passing the affected case is necessary but not sufficient.
+This module covers both scores < 1.0 and spot-checking scores = 1.0.
+
+Before proposing any agent-settings change, read
+[agent-settings.md](agent-settings.md) and apply its target-state gate.
 
 ---
 
@@ -15,23 +19,25 @@ checking what you think it's checking.
 
 ---
 
-## Triage ladder
+## Evidence triage
 
-Diagnose in this order. Do not skip ahead.
+Inspect evidence in this order. These observations narrow the mechanism and
+component owner; they do not prescribe a fix by themselves.
 
 ### 1. Is the agent's response actually good?
 
 Read the response yourself before looking at tool calls or KB content.
 
-- **Response is good, score is low** → the rubric is too strict. Fix the
-  rubric, not the agent.
+- **Response is good, score is low** → investigate the rubric, case, or
+  evaluator before changing the agent.
 - **Response is wrong** → continue to step 2.
 
 ### 2. Rubric / source-of-truth check
 
 Compare the rubric against KB facts before inspecting the agent's behavior.
 
-- If the rubric contradicts the KB → fix the rubric.
+- If the rubric contradicts the KB → resolve the source-of-truth conflict
+  before changing the agent.
 - If the rubric assumes hidden context (KB content, retrieved chunks, tool
   config, diagnosis notes) → make it self-sufficient.
 - For broad user questions, do not require unnecessary details the user
@@ -41,12 +47,12 @@ Compare the rubric against KB facts before inspecting the agent's behavior.
 
 Did the agent call the right tool at all?
 
-- **Agent skipped KB lookup** (answered from training data) →
-  fix system prompt (make tool-use rule clearer) or KB
-  `invocation_instruction` / "When to Use" (make trigger more specific).
-- **Agent made excessive tool calls** (e.g. 13 calls for a simple
-  question) → improve system prompt: tighten query strategy, add soft
-  limits on retrieval rounds, or improve "When to Use" specificity.
+- **Agent skipped KB lookup** (answered from training data) → inspect the
+  complete decision policy, tool availability, and KB `invocation_instruction`
+  / "When to Use" before deciding which component owns the defect.
+- **Agent made excessive tool calls** (e.g. 13 calls for a simple question) →
+  inspect whether the cause is query strategy, weak stop conditions, unclear
+  tool boundaries, or inadequate retrieval results.
 
 ### 4. Retrieval check
 
@@ -63,8 +69,9 @@ can retrieve what doesn't exist.
 **4b. Canonical file exists but retrieval never reached it.**
 The retrieved sources don't include the authoritative file.
 
-- If the agent's query is clearly wrong/too narrow/too general →
-  fix system prompt or `invocation_instruction`.
+- If the agent's query is clearly wrong/too narrow/too general → identify
+  whether the general decision policy or the tool-specific invocation/query
+  contract owns the behavior.
 - If the query is reasonable but semantic search misses the file →
   **add Context Object FAQ**: pair representative question variants with
   the canonical file. The FAQ embedding reserves the linked file during
@@ -78,14 +85,16 @@ The right file was found but the wrong chunk was returned.
 
 - If the file's internal structure is weak (bad headings, unclear
   boundaries) → improve file structure / headings / chunk boundaries.
-- If structure is clear but the agent asked for the wrong part →
-  improve prompt / `invocation_instruction` / query hints.
+- If structure is clear but the agent asked for the wrong part → inspect the
+  owning decision policy, invocation instruction, and query hints.
 
 **4d. Information missing AND agent hallucinated.**
 The agent fabricated an answer instead of admitting the gap.
 
-→ Fix: strengthen system prompt to refuse or admit lack of information.
-This applies even when a KB fix (4a/4b) is also needed.
+This may indicate a missing or unclear evidence boundary in the agent's stable
+behavioral policy, even when a KB fix (4a/4b) is also needed. Read the complete
+settings before deciding whether to remove, consolidate, replace, or add an
+instruction.
 
 ### 5. Content check (retrieval was correct)
 
@@ -101,8 +110,9 @@ of truth?" This requires human judgment.
 The agent had the right data but added unsupported claims or its own
 interpretation.
 
-→ Fix: tighten system prompt — be more explicit about sticking to KB
-content and not embellishing.
+Inspect the complete source-use policy for conflicts, missing priorities, or
+unnecessary complexity. Do not automatically append a scenario-specific
+instruction.
 
 ### 6. Evaluator-side issues
 
@@ -126,24 +136,6 @@ The evaluator interprets the rubric inconsistently due to ambiguous wording.
 Not every non-perfect score needs another fix. If the answer is acceptable
 and the remaining loss is evaluator strictness, mark it as accepted rather
 than overfitting toward 1.0.
-
----
-
-## Diagnosis summary
-
-| Symptom | Likely cause | Fix |
-| --- | --- | --- |
-| Good response, low score | Rubric too strict | Fix rubric |
-| Agent didn't use tool | Weak tool trigger | Fix prompt or invocation_instruction |
-| Excessive tool calls | Inefficient query strategy | Fix prompt (query hints, soft limits) |
-| Canonical file not in KB | KB gap | Add file, attach node IDs, wait for indexing |
-| File in KB but never reached | Semantic search miss | Add Context Object FAQ |
-| Adjacent chunk only | Wrong chunk in right file | Improve file structure or query hints |
-| Missing info + hallucination | No refusal guardrail | Fix prompt to refuse |
-| KB contradicts rubric | Source-of-truth conflict | Human decision needed |
-| KB correct, response wrong | Agent embellishing | Fix prompt |
-| Score 1.0, answer wrong | Rubric coverage gap | Tighten rubric |
-| Inconsistent scores | Ambiguous rubric | Add pass/fail examples |
 
 ---
 
@@ -188,49 +180,40 @@ CLI workflow:
 
 ---
 
-## Prompt change discipline
+## Causal diagnosis and target-state design
 
-Do not optimize the agent prompt to make one eval case pass. Eval cases
-are coverage probes, not training examples. A prompt change is acceptable
-only when it fixes a general behavior that should hold across the agent's
-real operating scope.
+After evidence triage, use [agent-settings.md](agent-settings.md) to diagnose
+the strongest supported mechanism and design the resulting configuration.
 
-### Before proposing a prompt change, compare these options
+Do not equate the closest visible symptom with its cause. Read the complete
+relevant system prompt and component settings; check for conflicting rules,
+duplicated ownership, missing priorities, and information stored at the wrong
+layer. One failing case can justify a structural correction. When its cause is
+ambiguous, run only the probes needed to distinguish the alternatives.
 
-1. No change — the failure is acceptable or evaluator noise
-2. Rubric edit — the judge is asking for the wrong thing
-3. Eval case edit — the case is underspecified or not representative
-4. KB update — the source material is missing or stale
-5. KB `invocation_instruction` update — retrieval trigger/querying is the issue
-6. Context Object FAQ — reasonable query, semantic search misses the file
-7. Minimal prompt edit — the agent needs a broader behavioral rule
-
-### For any prompt edit, state
-
-- The exact behavioral defect being fixed
-- Why this is not case-specific overfitting
-- The smallest prompt diff that could fix it
-- Which existing categories might regress
-- Which full-batch eval run will verify the change
-
-### Avoid
-
-- Adding phrases copied from a failing eval case
-- Adding answer templates for one scenario
-- Adding long new policy sections for narrow failures
-- Changing unrelated style, tone, or workflow rules
-- Treating eval cases as the full product requirement
+For a system-prompt change, prefer removing, merging, moving, reordering, or
+replacing instructions. Add a new general invariant only when necessary; add a
+narrow condition or answer template only as a last resort. Judge the proposal
+by the simplicity and coherence of the whole resulting agent, not by prompt
+word count or diff size alone.
 
 ---
 
-## Fix loop
+## Improvement loop
 
-1. Diagnose using the triage ladder above.
-2. Apply the smallest agreed fix.
-3. Re-run impacted cases first (`--latest` for newest draft).
-4. Run the full suite when the change has cross-category regression risk.
-5. Review — targeted cases improved without regressing others.
-6. Repeat until satisfied.
+1. Collect evidence using the triage above.
+2. Diagnose the mechanism and pass the target-state gate in
+   [agent-settings.md](agent-settings.md).
+3. Present the settings diff and its ownership/information changes; wait for
+   user approval before applying it.
+4. Re-run the reproduction case and relevant generalization, boundary, or
+   contrast probes first (`--latest` for the newest draft).
+5. Run the full suite when the change can affect other categories.
+6. Review both outcomes: behavior improved without regressions, and the whole
+   configuration is simpler or more coherent. A passing case alone is not
+   completion.
+7. Repeat until the evidence supports the target state or stop when further
+   changes would overfit or add unjustified complexity.
 
 For rubric edits, always show before/after text and explain which KB fact
 or eval-design issue motivated the change.

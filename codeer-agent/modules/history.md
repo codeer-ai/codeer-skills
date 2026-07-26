@@ -60,6 +60,19 @@ Map each finding to an existing category from the eval suite (established
 during initial eval case design). If a finding doesn't fit any existing
 category, propose a new one — this is a coverage gap.
 
+### Separate evidence from diagnosis
+
+Do not translate a finding directly into a prompt rule or other fix. Record:
+
+- the observed behavior and its user or business consequence;
+- where the behavior diverged from the intended outcome;
+- related successes or failures that support or challenge the same mechanism;
+- the strongest current mechanism hypothesis and meaningful uncertainty.
+
+Group findings by shared behavioral mechanism when evidence supports it, not
+only by surface topic. A single finding may still expose a structural defect;
+multiple examples are useful evidence, not a prerequisite for diagnosis.
+
 ### Tool usage analysis
 
 Look for patterns in tool behavior:
@@ -68,18 +81,22 @@ Look for patterns in tool behavior:
 - Is a tool being skipped when it should be used?
 - Are tool queries effective or are they missing relevant content?
 
-### Identify unserved scenarios
+### Identify unserved scenarios and useful probes
 
 Find specific user query patterns that the current eval suite doesn't cover.
-These become candidates for new eval cases.
+These become candidates for new eval cases. When a mechanism remains
+uncertain, identify paraphrases, nearby boundaries, or successful contrasts
+that could distinguish the plausible causes.
 
 ---
 
 ## Step 3 — Present and prioritize
 
-Present the categorized findings to the user with a recommendation of
-which categories need new or updated cases. Let the user pick which
-categories to work on and in what order.
+Present observations separately from inferences. Include evidence, consequence,
+mechanism hypothesis, uncertainty, and successful patterns to protect. Recommend
+which categories need investigation or new cases without prescribing a settings
+patch from the surface symptom. Let the user pick which categories to work on
+and in what order.
 
 ---
 
@@ -87,12 +104,15 @@ categories to work on and in what order.
 
 After the user chooses priorities, transition to **eval-cases** module:
 
-- Each failure → a case where the current agent should fail
+- Each distinct failure behavior → a representative reproduction case where
+  the current agent should fail
 - Each successful pattern → a case that must keep passing
 - Each unserved scenario → a new case for coverage
+- Each uncertain mechanism → only the generalization, boundary, or contrast
+  probes needed to distinguish the plausible causes
 
 Then run baseline eval on the current published version (`--history` flag)
-before making any fix:
+before changing any settings:
 
 ```bash
 codeer eval run \
@@ -100,14 +120,15 @@ codeer eval run \
     --evaluator <evaluator_id>
 ```
 
-Export the baseline results and pin them so they survive the fix cycle:
+Export the baseline results and pin them so they survive the improvement cycle:
 
 ```bash
 codeer eval export --agent <agent_id> --out .codeer/current/eval_table/
 ```
 
-Ask the user: "Pin these baseline results before we start fixing?" If
+Ask the user: "Pin these baseline results before we change the agent?" If
 yes, copy `current/eval_table/` to `pinned/<date>-baseline/`.
 
-New failure cases should fail; protection cases should pass. Then hand off
-to **eval-debug** for the fix cycle.
+New reproduction cases should fail; protection cases should pass. These results
+are evidence, not the scope or wording of the eventual change. Then hand off to
+**eval-debug** for causal diagnosis and target-state design.

@@ -112,8 +112,8 @@ Then output the eval-cases server link so the user can verify.
 
 ### 2e. Optionally test this batch
 
-Run eval on just the new cases, diagnose and fix issues before moving to
-the next category. This catches problems early.
+Run eval on just the new cases, diagnose mechanisms, and improve the relevant
+settings before moving to the next category. This catches problems early.
 
 ### 2f. Next category
 
@@ -155,13 +155,18 @@ Then hand off to **eval-debug** for any non-perfect scores.
 
 When building cases from production conversations (Phase 2):
 
-- Each failure becomes a case where the current agent should fail (and
-  the fixed agent should pass).
+- Create a reproduction case for each distinct failure behavior. Deduplicate
+  histories that show the same mechanism while retaining materially different
+  boundaries or contexts.
 - Each successful pattern becomes a case where the current agent should
   pass (and must keep passing after changes).
+- Add only the paraphrase, generalization, boundary, or successful-contrast
+  probes needed to test a causal hypothesis or the scope of a proposed change.
 - Rewrite findings into the smallest input that makes the behavior
   objectively judgeable. Don't copy production messages verbatim — isolate
   the specific behavior being tested.
+- Treat these cases as evidence and validation probes. Never copy their wording,
+  entities, or answer shapes into agent settings.
 - Use `meta.previous_conversations` in `codeer eval cases-apply` when the
   failure requires multi-turn context.
 
@@ -234,7 +239,7 @@ supported by the CLI.
 When the eval suite has many cases (50+), split them into batches and
 work through one batch at a time. This keeps each review cycle
 manageable and avoids running expensive full-suite evals repeatedly
-during the debug loop.
+during the improvement loop.
 
 ### Splitting into batches
 
@@ -253,13 +258,13 @@ codeer eval run \
     --evaluator <evaluator_id>
 ```
 
-Diagnose and fix within the batch before moving on (hand off to
-**eval-debug** as usual).
+Diagnose and improve the target state within the batch before moving on (hand
+off to **eval-debug** as usual).
 
 ### Tracking progress
 
 Record batch status in `.codeer/current/progress.json`. Update this file
-when a batch completes — record the final score and a short fix summary.
+when a batch completes — record the final score and a short change summary.
 
 When starting a new session, read `progress.json` to understand which
 batches are done and which remain. All debug-loop artifacts (rubrics,
