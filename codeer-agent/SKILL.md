@@ -12,8 +12,10 @@ the installed `codeer` CLI, usually via a named CLI profile.
 Optimize the resulting agent configuration, not an isolated failing case or
 the size of the local diff. Prefer minimum-sufficient settings with simple
 instructions, clear component ownership, and low total semantic complexity.
-Read [modules/agent-settings.md](modules/agent-settings.md) before creating or
-changing agent settings.
+Minimum-sufficient does not mean the shortest system prompt: keep the
+operational hot path and invariants resident, and use the KB for authoritative
+details and evidence. Read [modules/agent-settings.md](modules/agent-settings.md)
+before creating or changing agent settings.
 
 ## Guardrails
 
