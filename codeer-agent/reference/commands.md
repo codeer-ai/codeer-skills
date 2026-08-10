@@ -351,6 +351,26 @@ update, supplied ranges replace the FAQ's existing ranges.
 
 ---
 
+## `codeer history list` flags
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--agent` | string | — | Filter by agent ID. |
+| `--user` | string | — | Filter by external user ID. |
+| `--feedback` | string | — | Filter by feedback state (`positive`, `negative`, or `any`). |
+| `--exclude-users` | string | — | Comma-separated external user IDs to exclude. |
+| `--version` | integer | — | Filter by agent version. |
+| `--limit` | integer | `50` | Maximum histories returned in this page. |
+| `--offset` | integer | `0` | Histories to skip before returning this page. |
+| `--full` | flag | false | Print the full response instead of the compact view. |
+| `--out` | path | — | Write JSON to a file. |
+
+Pagination is caller-controlled. Start with `--limit 50 --offset 0`; if the
+page contains 50 histories and the task needs broader coverage, continue with
+`--offset 50`, then `100`, and so on. Stop on a page shorter than `limit` or
+when the evidence scope is sufficient. Do not fetch all pages by default, and
+do not interpret a first-page miss as proof that no matching history exists.
+
 ## `codeer history conversations` flags
 
 Reads persisted content from `GET /api/v2/chats/{id}/messages` and follows all
