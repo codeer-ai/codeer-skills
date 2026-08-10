@@ -27,6 +27,9 @@ need a default agent.
 - `/histories` uses **`limit` + `offset`** (NOT `page` / `page_size`).
   Default in `histories.list()` is `limit=500`. Backend hard-cap may be
   lower — check the response length.
+- `/api/v2/chats/{id}/messages` also uses `limit` + `offset`.
+  `chats.list_messages()` follows pages until exhaustion; its `limit` argument
+  is a page size, not a total-result cap.
 - `/agents/{id}/histories`, `/eval/agents/{id}/cases`, `/eval/evaluators` all
   return everything in one shot today (no pagination).
 - `order_by` defaults to `"desc"` (most recent first) on endpoints that
@@ -275,7 +278,7 @@ the public CLI.
 | `GET /api/v2/chats/{id}/messages` | Read persisted Chat V2 conversation parts |
 | `GET /histories?agent_id=X&feedback_filter=improve_feedback&external_user_id=…` | List conversations with filters |
 | `GET /histories/{id}` | Read one history's metadata |
-| `GET /histories/{id}/conversations` | Full conversation turns incl. tool calls |
+| `GET /histories/{id}/conversations` | Legacy compact conversation rows; not complete tool I/O |
 | `POST /histories/{hid}/conversations/{cid}/feedbacks` | Leave freeform improvement feedback |
 | `POST /histories/{hid}/conversations/{cid}/score` | Numeric score |
 
@@ -467,7 +470,7 @@ For bulk creation, `codeer eval cases-apply --attachments-dir <dir>` reads
 each case's `attachment_files: ["x.jpg"]` array, uploads, and attaches in one
 pass. Workspace scope is inferred from the API-key virtual user profile.
 
-### 11. Tool args + outputs are NOT persisted in history reads
+### 11. Tool args + outputs are not available in legacy V1 history reads
 
 Legacy V1 `History` conversation rows have only three roles
 (`OpenAIChatRole = system | user | assistant`) — there is no `tool` role row.
@@ -492,8 +495,8 @@ Chat V2 improves this contract: structured SSE emits tool calls and returns as
 `response.part.created` / `response.part.completed`, and
 `GET /api/v2/chats/{id}/messages` reads the persisted conversation parts.
 Capture the SSE artifact with `--out` when exact event order matters; use the
-V2 message read for persisted after-the-fact tool I/O. The legacy v1 history
-read remains useful for compact turn-level analysis.
+paginated V2 message read for persisted after-the-fact tool I/O. The legacy V1
+history read remains useful for compact turn-level compatibility only.
 
 ### 10. A KB has exactly ONE level of folders — no nesting
 

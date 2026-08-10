@@ -154,6 +154,7 @@ Use this pattern during agent lifecycle work:
 ```bash
 codeer agent list
 codeer history list --agent <agent-id> --limit 50
+codeer history conversations <history-id> --out .codeer/current/history-<history-id>.json
 codeer history create --agent <agent-id> --message "Review this plan" --timeout 240
 codeer history send <history-id> --message "Use the recommended options" --timeout 240
 codeer eval run --agent <agent-id> --cases <case-ids> --evaluator <evaluator-id> --out .codeer/eval_run.json
@@ -177,6 +178,11 @@ Flags:
 - `--out <path>` writes complete diagnostic artifacts to a local file. Use it
   for raw eval results, full conversation turns, full rubric matrices, and
   other data that can grow with cases, versions, or turns.
+
+`history conversations` reads Chat V2 parts and follows all pages
+automatically. Its stdout is still a bounded summary; the `--out` artifact is
+the complete client-visible history, including tool calls/results,
+attachments, interactions, feedback, and passthrough metadata.
 
 Avoid piping large raw JSON directly into agent chat. Prefer `--out`, then ask
 the coding agent to inspect targeted summaries, IDs, failing cases, or selected

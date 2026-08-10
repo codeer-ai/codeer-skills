@@ -24,11 +24,19 @@ codeer history negative-feedback --agent <agent_id>
 
 ### Then browse conversations
 
-For channels without feedback signals, read conversations directly:
+For channels without feedback signals, export the complete Chat V2 parts before
+analyzing them. Standard output is deliberately a bounded preview and must not
+be treated as the complete history:
 
 ```bash
-codeer history conversations <history_id>
+codeer history conversations <history_id> \
+    --out .codeer/current/history-<history_id>.json
 ```
+
+Read the saved JSON selectively. It contains every client-visible part across
+all API pages, including tool calls/results, attachments, interactions,
+feedback, and passthrough metadata. Preserve the raw artifact when extracting
+eval cases; summaries are navigation aids, not evidence of absence.
 
 To continue an existing persisted history after the user approves the write:
 
@@ -38,8 +46,8 @@ codeer history send <history_id> --message "Follow-up question" --timeout 240
 
 This uses the agent's current published version through Chat V2 structured SSE
 with `stream: true`. It only reports success after `response.completed`. If it
-times out, returns `response.failed`, or disconnects early, inspect the history
-before retrying because the turn may already have been persisted.
+times out, returns `response.failed`, or disconnects early, export and inspect
+the history before retrying because the turn may already have been persisted.
 
 ---
 

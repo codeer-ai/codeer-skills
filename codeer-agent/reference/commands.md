@@ -351,6 +351,29 @@ update, supplied ranges replace the FAQ's existing ranges.
 
 ---
 
+## `codeer history conversations` flags
+
+Reads persisted content from `GET /api/v2/chats/{id}/messages` and follows all
+pages automatically. Standard output is a bounded part summary for coding-agent
+context safety; use `--out` whenever completeness matters.
+
+| Flag | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `history_id` | integer | **required** | Persisted history ID |
+| `--out` | path | — | Write every unmodified client-visible Chat V2 part |
+| `--full` | boolean | false | Require `--out` and include longer stdout previews |
+
+```bash
+codeer history conversations <history_id> \
+    --out .codeer/current/history-<history_id>.json
+```
+
+The artifact includes tool-call/tool-return payloads, metadata, attachments,
+interactions, and feedback. It intentionally does not include server-side
+`system-prompt` or `console_only` parts hidden from workspace API keys.
+
+---
+
 ## `codeer history create` flags
 
 Creates a real persisted chat history by calling the API-key external chat
