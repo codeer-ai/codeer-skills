@@ -186,14 +186,50 @@ def list_messages(
     external_user_id: Optional[str] = None,
     limit: int = 500,
 ) -> dict:
-    params: dict[str, Any] = {"limit": limit, "offset": 0}
-    if external_user_id is not None:
-        params["external_user_id"] = external_user_id
-    return client.get(
-        f"/chats/{chat_id}/messages",
-        api_version="v2",
-        params=params,
-    )
+    """Return every client-visible Chat V2 part for a persisted chat.
+
+    ``limit`` is the per-request page size, not a cap on the returned history.
+    The HTTP client unwraps Codeer's response envelope (and therefore its
+    pagination object), so exhaustion is detected from the number of messages
+    returned by each page. A final empty request is possible when the total is
+    an exact multiple of ``limit``.
+    """
+    if limit <= 0:
+        raise ValueError("limit must be greater than zero")
+
+    offset = 0
+    result: dict[str, Any] | None = None
+    messages: list[dict] = []
+    while True:
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if external_user_id is not None:
+            params["external_user_id"] = external_user_id
+        page = client.get(
+            f"/chats/{chat_id}/messages",
+            api_version="v2",
+            params=params,
+        )
+        if not isinstance(page, dict):
+            raise ValueError("Chat V2 messages response must be an object")
+
+        page_messages = page.get("messages") or []
+        if not isinstance(page_messages, list):
+            raise ValueError("Chat V2 messages response must contain a messages list")
+        if result is None:
+            result = dict(page)
+        else:
+            for key, value in page.items():
+                if key != "messages" and value is not None:
+                    result[key] = value
+        messages.extend(page_messages)
+
+        if len(page_messages) < limit:
+            break
+        offset += len(page_messages)
+
+    assert result is not None
+    result["messages"] = messages
+    return result
 
 
 def list_chats(client: CodeerClient) -> list[dict]:

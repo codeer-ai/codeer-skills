@@ -94,11 +94,10 @@ def list_negative_feedback_turns(
     the source channel — usually "system"). Pass the desired sentiment(s)
     in ``feedback_types``.
 
-    Cost: O(N histories) network calls — one ``/histories/{id}/conversations``
-    per history. Filter aggressively via ``exclude_users`` and ``limit``
-    before invoking on a busy agent.
+    Cost: O(N histories) paginated Chat V2 reads. Filter aggressively via
+    ``exclude_users`` and ``limit`` before invoking on a busy agent.
     """
-    from .parse import strip_tool_markers  # local import to avoid cycle
+    from . import chats
 
     type_set = {t.lower() for t in feedback_types}
     histories = list(
@@ -115,33 +114,42 @@ def list_negative_feedback_turns(
         if hid is None:
             continue
         try:
-            convs = get_conversations(client, hid)
+            parts = (chats.list_messages(client, hid).get("messages") or [])
         except Exception:
             continue
-        for i, c in enumerate(convs):
-            if (c.get("role") or "") != "assistant":
+
+        turn_indexes: dict[str, int] = {}
+        user_messages: dict[str, str] = {}
+        next_turn_idx = 0
+        for part_idx, part in enumerate(parts):
+            group_id = str(part.get("conversation_group_id") or "")
+            part_kind = part.get("part_kind") or ""
+            if group_id and group_id not in turn_indexes:
+                turn_indexes[group_id] = next_turn_idx
+                next_turn_idx += 1
+            if part_kind == "user-prompt":
+                user_messages[group_id] = _part_text(part)
                 continue
-            fbs = c.get("feedbacks") or []
+            if part_kind != "text":
+                continue
+            fbs = part.get("feedbacks") or []
             for fb in fbs:
                 ftype = (fb.get("type") or "").lower()
                 if ftype not in type_set:
                     continue
-                # Find the most recent user turn before this assistant turn.
-                prior_user = ""
-                for j in range(i - 1, -1, -1):
-                    if (convs[j].get("role") or "") == "user":
-                        prior_user = (convs[j].get("content") or "")[:user_excerpt_chars]
-                        break
                 out.append({
                     "history_id": hid,
                     "history_title": h.get("name") or h.get("title") or "",
                     "external_user_id": h.get("external_user_id") or "",
                     "created_at": h.get("created_at"),
-                    "turn_idx": i,
+                    "turn_idx": turn_indexes.get(group_id),
+                    "part_idx": part_idx,
+                    "conversation_group_id": group_id or None,
+                    "conversation_part_id": part.get("id"),
                     "feedback_type": ftype,
                     "feedback_text": fb.get("content") or "",
-                    "user_message": prior_user,
-                    "assistant_excerpt": strip_tool_markers(c.get("content") or "")[:assistant_excerpt_chars],
+                    "user_message": user_messages.get(group_id, "")[:user_excerpt_chars],
+                    "assistant_excerpt": _part_text(part)[:assistant_excerpt_chars],
                 })
     return out
 
@@ -151,6 +159,20 @@ def get(client: CodeerClient, history_id: int) -> dict:
 
 
 def get_conversations(client: CodeerClient, history_id: int) -> list[dict]:
-    """Return all conversation turns for a history — includes tool calls and reasoning."""
+    """Return legacy V1 conversation rows.
+
+    Prefer ``codeer_cli.chats.list_messages`` whenever exact Chat V2 parts,
+    tool inputs/results, or event order matter.
+    """
     return client.get(f"/external/histories/{history_id}/conversations")
 
+
+def _part_text(part: dict) -> str:
+    content = part.get("content")
+    if isinstance(content, dict):
+        value = content.get("content")
+    else:
+        value = content
+    if value is None:
+        return ""
+    return value if isinstance(value, str) else str(value)

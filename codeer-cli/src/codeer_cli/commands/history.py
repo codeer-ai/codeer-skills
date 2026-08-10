@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import os
 
@@ -47,13 +48,13 @@ def register(subparsers):
     # codeer history conversations <id>
     p = sub.add_parser(
         "conversations",
-        help="Summarize all turns in a history. Complete turns/tool payloads require --out.",
+        help="Summarize all Chat V2 parts in a history. Complete parts/tool payloads require --out.",
     )
     p.add_argument("history_id", type=int)
     p.add_argument("--full", action="store_true",
-                   help="Require --out and write complete stripped turns there; stdout remains a summary.")
+                   help="Require --out and include longer stdout previews; the artifact is always complete.")
     p.add_argument("--out", default=None,
-                   help="Write complete stripped turns to this file. Use for debugging or eval-case extraction.")
+                   help="Write every unmodified client-visible Chat V2 part to this file.")
     p.set_defaults(func=run_conversations)
 
     # codeer history negative-feedback
@@ -155,18 +156,33 @@ def _history_summary(row: dict, *, full: bool = False) -> dict:
     return out
 
 
-def _turn_summary(turn: dict, idx: int, *, full: bool = False) -> dict:
-    content = turn.get("content") or turn.get("message") or ""
-    tool_calls = turn.get("tool_calls") or turn.get("tools") or []
+def _part_summary(part: dict, idx: int, *, full: bool = False) -> dict:
+    raw_content = part.get("content")
+    if isinstance(raw_content, dict):
+        content_value = raw_content.get("content")
+        if content_value is None and part.get("part_kind") == "tool-call":
+            content_value = raw_content.get("args")
+    else:
+        content_value = raw_content
+    if isinstance(content_value, str):
+        content = content_value
+    elif content_value is None:
+        content = ""
+    else:
+        content = json.dumps(content_value, ensure_ascii=False, default=str)
     row = {
-        "turn_idx": idx,
-        "id": turn.get("id"),
-        "role": turn.get("role"),
-        "created_at": turn.get("created_at"),
+        "part_idx": idx,
+        "id": part.get("id"),
+        "conversation_id": part.get("conversation_id"),
+        "conversation_group_id": part.get("conversation_group_id"),
+        "sequence": part.get("sequence"),
+        "part_kind": part.get("part_kind"),
+        "source": part.get("source"),
+        "created_at": part.get("created_at"),
         "content_preview": truncate(content, 600 if full else 240),
         "content_chars": len(content),
-        "tool_call_count": len(tool_calls) if isinstance(tool_calls, list) else None,
-        "feedback_count": len(turn.get("feedbacks") or []),
+        "attachment_count": len(part.get("attached_files") or []),
+        "feedback_count": len(part.get("feedbacks") or []),
     }
     if full:
         row["feedbacks"] = [
@@ -175,7 +191,7 @@ def _turn_summary(turn: dict, idx: int, *, full: bool = False) -> dict:
                 "tag": fb.get("tag"),
                 "content_preview": truncate(fb.get("content") or "", 240),
             }
-            for fb in (turn.get("feedbacks") or [])
+            for fb in (part.get("feedbacks") or [])
         ]
     return row
 
@@ -231,16 +247,24 @@ def run_get(args, client) -> int:
 
 
 def run_conversations(args, client) -> int:
-    result = hist_mod.get_conversations(client, args.history_id)
+    result = chats_mod.list_messages(client, args.history_id)
+    parts = result.get("messages") or []
     if args.full and not args.out:
         log("error: full conversation payloads are unbounded; pass --out <path>")
         return 2
-    write_json(args.out, strip_noisy_fields(result))
+    write_json(args.out, result)
+    group_ids = {
+        p.get("conversation_group_id")
+        for p in parts
+        if p.get("conversation_group_id")
+    }
     print_json({
         "history_id": args.history_id,
-        "turn_count": len(result),
+        "turn_count": len(group_ids),
+        "part_count": len(parts),
         "wrote_full_detail": bool(args.out),
-        "turns": [_turn_summary(t, i, full=args.full) for i, t in enumerate(result)],
+        "stdout_is_summary": True,
+        "parts": [_part_summary(p, i, full=args.full) for i, p in enumerate(parts)],
     })
     return 0
 
@@ -355,7 +379,7 @@ def run_create(args, client) -> int:
         "messages": message_results,
         "conversation_parts": conversation_parts,
     }
-    write_json(args.out, strip_noisy_fields(out))
+    write_json(args.out, out)
     print_json({
         "agent_id": agent_id,
         "history_id": history_id,
@@ -418,7 +442,7 @@ def run_send(args, client) -> int:
         "messages": message_results,
         "conversation_parts": conversation_parts,
     }
-    write_json(args.out, strip_noisy_fields(out))
+    write_json(args.out, out)
     print_json({
         "agent_id": agent_id,
         "history_id": args.history_id,
