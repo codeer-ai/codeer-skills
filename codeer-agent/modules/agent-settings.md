@@ -35,9 +35,9 @@ wording directly into a special-case instruction.
 
 | Component | Owns | Should not become |
 | --- | --- | --- |
-| System prompt | Stable objectives, behavioral invariants, priorities, boundaries, cross-component decisions | Volatile facts, copied eval wording, duplicated tool documentation, a list of narrow exceptions |
+| System prompt | Operational skeleton and invariants: stable objectives, mode and process selection, core flow map, necessary canonical schemas or mappings, priorities, boundaries, and cross-component decisions | Authoritative long-form domain content, volatile facts, full scripts, repeated rules, copied eval wording, large example sets, or narrow exceptions |
 | Tool configuration and invocation instructions | What the tool does, when to call it, inputs, limits, and tool-specific query strategy | General response policy or domain content |
-| Knowledge base | Maintainable domain facts and source-of-truth content | Agent orchestration or hidden evaluator criteria |
+| Knowledge base | Authoritative details and evidence: maintainable domain facts, complete definitions and methods, cases, exceptions, and source-of-truth content | The per-turn operational skeleton, required routing or mode decisions, or invariants whose absence causes directional failure |
 | File structure, retrieval routes, and Context Object FAQs | Reliable routing to existing canonical content | A substitute for missing content or a tool the agent never calls |
 | Model selection | Capability, latency, and cost tradeoffs | A way to conceal contradictory or overloaded settings |
 | Human handoff settings | Transfer availability and operational triggers | Duplicated conversation policy spread across components |
@@ -46,6 +46,58 @@ wording directly into a special-case instruction.
 
 When a behavior spans components, keep the governing principle in one place
 and put only component-specific execution details elsewhere.
+
+---
+
+## Keep the hot path resident
+
+Treat prompt residency versus retrieval as a reliability and performance
+decision, not a prompt-length cleanup rule. Keep a compressed representation
+in the system prompt when the agent needs it frequently or before it can decide
+what to retrieve, and a retrieval miss would cause the wrong mode, workflow,
+schema, boundary, or next step. Put the authoritative expansion in the KB when
+the content is detailed, topic-specific, evidentiary, or likely to change.
+
+Use these criteria together:
+
+| Criterion | Favors system-prompt residency | Favors on-demand KB retrieval |
+| --- | --- | --- |
+| Frequency | Needed in most conversations or turns | Needed only for a specific topic or later branch |
+| Decision timing | Required to select a mode, workflow, tool, schema, or retrieval route | Needed after the route and task are already known |
+| Miss impact | A miss causes a directional, boundary, or structural error | A miss creates a scoped factual gap the agent can retry, disclose, or escalate |
+| Shape and stability | Stable, compact invariant, flow map, schema, or required mapping | Full definition, exact method, evidence, examples, exceptions, or volatile facts |
+| Cost | Avoided retrieval latency and miss risk justify recurring context tokens | Recurring context cost exceeds the expected latency and miss risk |
+| Maintenance | A compressed control rule can remain canonical without copying its expansion | One authoritative source avoids duplicated content and staleness |
+
+Compare the whole-system tradeoff explicitly. Prompt residency removes a
+retrieval round and its latency and miss risk, but spends context on every turn
+and can create duplication or stale copies. KB retrieval centralizes detailed
+content and reduces recurring context cost, but adds routing dependency,
+latency, and retrieval-miss risk. Do not move a required operational dependency
+out of the prompt merely because retrieval works on the observed eval case.
+
+Compress rather than copy. Keep the core flow skeleton, mode-selection rules,
+canonical output schema, necessary question-to-step mappings, and behavioral
+boundaries in the prompt when they meet the criteria above. Store full
+step-by-step wording, repeated rules, detailed methods, large example sets,
+domain facts, and exceptions in the KB. The prompt may identify when and where
+to retrieve the authoritative detail without duplicating it.
+
+Examples:
+
+- **Good split:** A multi-mode advisory agent keeps mode selection, the core
+  stage map, its canonical schema, required question-to-step mapping, and
+  escalation boundaries in the prompt. The KB owns complete stage definitions,
+  exact language, worked examples, edge cases, and supporting evidence.
+- **Good split:** A support agent keeps the invariant that unsupported claims
+  must not be invented and the decision boundary for KB lookup in the prompt.
+  The KB owns product facts, policy text, procedures, and documented exceptions.
+- **Bad move:** Put a required schema or mode-selection map only in the KB and
+  say to retrieve it when needed. The agent needs that content to recognize the
+  need and a miss changes the direction of the response.
+- **Bad duplication:** Copy a complete SOP, repeated rules, and many examples
+  into the prompt while retaining the same authoritative KB content. This pays
+  recurring context cost and creates competing, stale owners.
 
 ---
 
@@ -81,7 +133,9 @@ Choose the earliest adequate intervention:
    evaluator/case defect.
 2. Remove a contradiction, obsolete instruction, or unnecessary constraint.
 3. Consolidate, clarify, or reorder existing instructions and priorities.
-4. Move information or behavior to the component that should own it.
+4. Move information or behavior to the component that should own it after
+   applying the hot-path residency criteria; prompt length alone is not a
+   reason to move an operational dependency into retrieval.
 5. Replace a narrow rule with one stable invariant at the broadest justified
    scope; do not overgeneralize across genuinely different requirements.
 6. Add a new general instruction only when the requirement is genuinely absent.
@@ -101,6 +155,10 @@ Before showing a settings diff, present:
 - the current configuration defect and relevant evidence;
 - the proposed target state and why responsibility belongs in each component;
 - what information will be removed, merged, moved, replaced, or added;
+- for every prompt/KB placement decision, why the content must stay resident
+  instead of being retrieved on demand, or vice versa, using frequency,
+  decision timing, miss impact, latency, recurring context cost, and
+  duplication or staleness risk;
 - why the whole configuration becomes simpler or more coherent;
 - the simplest plausible configuration considered and why any remaining
   complexity is necessary;
