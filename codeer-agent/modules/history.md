@@ -11,8 +11,26 @@ Not all channels provide explicit feedback (thumbs up/down). Conversation
 history is the primary source of truth.
 
 ```bash
-codeer history list --agent <agent_id>
+codeer history list --agent <agent_id> --limit 50 --offset 0
 ```
+
+Treat this as the first page, not automatically as the complete result set. Do
+not fetch every page by default. Continue only when the task needs broader
+coverage—for example, a complete audit, a frequency/distribution estimate, a
+specified time window, or enough examples to support a conclusion.
+
+If the page contains exactly `limit` histories and broader coverage is still
+needed, request the next page by increasing `offset` by `limit`:
+
+```bash
+codeer history list --agent <agent_id> --limit 50 --offset 50
+```
+
+Repeat as needed. Stop when a page contains fewer than `limit` histories or
+when the evidence scope is sufficient for the task. Never treat absence from
+the first page as absence from all history. When reporting findings, state how
+many histories and pages were inspected and, when relevant, the covered date
+range.
 
 ### Negative feedback first
 
