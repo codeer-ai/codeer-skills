@@ -105,6 +105,34 @@ List the active cloud models without opening the Codeer web app:
 codeer model list --type text
 ```
 
+## Custom evaluator judge models
+
+Custom evaluator create/update commands can select a judge LLM model by ID:
+
+```bash
+codeer eval evaluator-create \
+  --name "Correctness" \
+  --system-prompt-template-file evaluator-prompt.txt \
+  --judge-model <model-id> \
+  --dry-run
+
+codeer eval evaluator-update \
+  --evaluator <evaluator-id> \
+  --judge-model <model-id> \
+  --dry-run
+```
+
+Omit the judge-model flags on update to leave the current setting unchanged.
+Use `--clear-judge-model` to explicitly clear the override and return to the
+system default:
+
+```bash
+codeer eval evaluator-update \
+  --evaluator <evaluator-id> \
+  --clear-judge-model \
+  --dry-run
+```
+
 ## Agent human handoff
 
 `codeer agent apply` accepts the same `human_handoff` object as the Agent API.

@@ -12,6 +12,13 @@ from typing import Any, List, Optional
 from .client import CodeerClient
 
 
+class _UnsetType:
+    pass
+
+
+_UNSET = _UnsetType()
+
+
 # --- cases ----------------------------------------------------------------
 
 def create_case(
@@ -186,6 +193,7 @@ def create_evaluator(
     name: str,
     system_prompt_template: str,
     description: Optional[str] = None,
+    judge_llm_model_id: Optional[str] = None,
 ) -> dict:
     body: dict[str, Any] = {
         "name": name,
@@ -193,6 +201,8 @@ def create_evaluator(
     }
     if description is not None:
         body["description"] = description
+    if judge_llm_model_id is not None:
+        body["judge_llm_model_id"] = judge_llm_model_id
     return client.post("/external/eval/evaluators", json=body)
 
 
@@ -211,6 +221,7 @@ def update_evaluator(
     name: Optional[str] = None,
     system_prompt_template: Optional[str] = None,
     description: Optional[str] = None,
+    judge_llm_model_id: str | None | _UnsetType = _UNSET,
 ) -> dict:
     body: dict[str, Any] = {}
     if name is not None:
@@ -219,6 +230,8 @@ def update_evaluator(
         body["system_prompt_template"] = system_prompt_template
     if description is not None:
         body["description"] = description
+    if judge_llm_model_id is not _UNSET:
+        body["judge_llm_model_id"] = judge_llm_model_id
     return client.put(f"/external/eval/evaluators/{evaluator_id}", json=body)
 
 
