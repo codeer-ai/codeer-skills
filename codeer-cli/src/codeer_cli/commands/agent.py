@@ -89,7 +89,9 @@ def register(subparsers):
 def _tool_summary(tools: list[dict] | None) -> list[dict]:
     out = []
     for t in tools or []:
-        form = t.get("custom_form_schema") if isinstance(t.get("custom_form_schema"), dict) else {}
+        form = t.get("custom_form_schema")
+        if not isinstance(form, dict):
+            form = {}
         out.append({
             "id": t.get("id"),
             "type": t.get("type"),
@@ -169,6 +171,8 @@ def run_apply(args, client) -> int:
         log(f"error: invalid agent payload: {exc}")
         return 2
 
+    llm_model_settings_provided = "llm_model_settings" in body
+
     if args.dry_run:
         operation = "update" if args.agent_id else "create"
         result = {
@@ -181,6 +185,8 @@ def run_apply(args, client) -> int:
             "tool_count": len(validated_tools),
             "use_search": body.get("use_search", False),
             "llm_model": body.get("llm_model"),
+            "llm_model_settings_provided": llm_model_settings_provided,
+            "llm_model_settings": body.get("llm_model_settings"),
             "human_handoff": {
                 "enabled": bool((validated_handoff or {}).get("enabled")),
                 "idle_timeout_minutes": (validated_handoff or {}).get("idle_timeout_minutes"),
@@ -192,6 +198,12 @@ def run_apply(args, client) -> int:
         }
         print_json(result)
         return 0
+
+    model_settings_kwargs = (
+        {"llm_model_settings": body["llm_model_settings"]}
+        if llm_model_settings_provided
+        else {}
+    )
 
     if args.agent_id:
         body.pop("workspace_id", None)
@@ -208,6 +220,7 @@ def run_apply(args, client) -> int:
             primary_object_ids=body.get("primary_object_ids") or [],
             attachment_ids=body.get("attachment_ids") or [],
             human_handoff=validated_handoff,
+            **model_settings_kwargs,
         )
         agent_id = args.agent_id
         log(f"PUT /agents/{agent_id} ok")
@@ -227,6 +240,7 @@ def run_apply(args, client) -> int:
             primary_object_ids=body.get("primary_object_ids") or [],
             attachment_ids=body.get("attachment_ids") or [],
             human_handoff=validated_handoff,
+            **model_settings_kwargs,
         )
         agent_id = agent["id"]
         log(f"POST /agents ok, id={agent_id}")

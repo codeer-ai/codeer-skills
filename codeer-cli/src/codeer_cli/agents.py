@@ -20,6 +20,7 @@ def create(
     unified_tools: Optional[List[dict]] = None,
     use_search: bool = False,
     llm_model: Optional[str] = None,
+    llm_model_settings: Optional[dict[str, dict[str, Any]]] = None,
     description: Optional[str] = None,
     suggested_questions: Optional[List[str]] = None,
     primary_object_ids: Optional[List[int]] = None,
@@ -41,6 +42,8 @@ def create(
         body["description"] = description
     if llm_model is not None:
         body["llm_model"] = llm_model
+    if llm_model_settings is not None:
+        body["llm_model_settings"] = llm_model_settings
     if validated_handoff is not None:
         body["human_handoff"] = validated_handoff
     return client.post("/external/agents", json=body)
@@ -57,6 +60,7 @@ def update(
     version_note: str = "",
     description: Optional[str] = None,
     llm_model: Optional[str] = None,
+    llm_model_settings: Optional[dict[str, dict[str, Any]]] = None,
     suggested_questions: Optional[List[str]] = None,
     primary_object_ids: Optional[List[int]] = None,
     attachment_ids: Optional[List[str]] = None,
@@ -79,6 +83,8 @@ def update(
         body["description"] = description
     if llm_model is not None:
         body["llm_model"] = llm_model
+    if llm_model_settings is not None:
+        body["llm_model_settings"] = llm_model_settings
     if validated_handoff is not None:
         body["human_handoff"] = validated_handoff
     return client.patch(f"/external/agents/{agent_id}", json=body)
