@@ -169,7 +169,7 @@ separate those changes or explicitly declare a new baseline.
 
 ---
 
-## Step 6 — Verdict and output contract
+## Step 6 — Verdict and report
 
 Use exactly one verdict:
 
@@ -180,17 +180,9 @@ Use exactly one verdict:
   or unjudgeable truth, omit required assigned pairs, or otherwise produce
   results that cannot support the intended decision.
 
-Return these top-level fields:
-
-```yaml
-verdict: PASS | PASS_WITH_WARNINGS | BLOCKED
-blockers: []
-warnings: []
-observations: []
-evidence: []
-unresolved_questions: []
-recommended_owners: []
-```
+Report the verdict first, followed by blockers, warnings, observations,
+evidence, unresolved questions, and recommended owners. State when a category
+has no findings.
 
 Each finding should state the affected object, observed mismatch, decisive
 evidence, consequence, and recommended owner. Keep direct evidence separate
