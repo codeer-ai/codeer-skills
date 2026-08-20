@@ -1,219 +1,234 @@
 # Eval Debugging
 
-Use eval results to diagnose behavior and leave the whole agent configuration
-in a better state. Passing the affected case is necessary but not sufficient.
-This module covers both scores < 1.0 and spot-checking scores = 1.0.
+Use this module after an eval or live test has produced dynamic evidence: a
+response, tool trace, retrieval trace, evaluator result, or platform error. It
+diagnoses the strongest supported causal mechanism and defines the smallest
+coherent correction and regression set.
 
-Before proposing any agent-settings change, read
+If no dynamic evidence exists yet, use [static-audit.md](static-audit.md)
+instead. Do not mix a whole-system preflight into the diagnosis of one run.
+Before proposing an agent-settings change, read
 [agent-settings.md](agent-settings.md) and apply its target-state gate.
 
 ---
 
-## Entry point
+## Entry point and evidence packet
 
-For every non-perfect score, surface: case label, evaluator, score, and
-the evaluator's `reason` text. Then **stop and wait for user direction**.
+For each result under review, capture:
 
-Also review score = 1.0 cases when asked — the evaluator might not be
-checking what you think it's checking.
+- case ID/label, input, expected output, evaluator ID, rubric, score, and
+  evaluator reason;
+- exact agent ID and AgentHistory/version, status, `response_mode`, and model;
+- generated response and completion/error state;
+- tool calls, arguments, results, and ordering;
+- retrieval queries, files/chunks/routes returned, and KB snapshot IDs;
+- evaluator template and judge-model fingerprint; and
+- planned assigned-pair count versus completed result count for the run.
+
+Surface non-perfect results to the user before changing anything. Also inspect
+selected perfect scores when needed: a false pass can reveal a coverage gap.
+Missing evidence lowers confidence; it does not license a guessed diagnosis.
 
 ---
 
-## Evidence triage
+## Dynamic causal chain
 
-Inspect evidence in this order. These observations narrow the mechanism and
-component owner; they do not prescribe a fix by themselves.
+Inspect evidence in this order and stop at the earliest component that fully
+explains the observation:
 
-### 1. Is the agent's response actually good?
-
-Read the response yourself before looking at tool calls or KB content.
-
-- **Response is good, score is low** → investigate the rubric, case, or
-  evaluator before changing the agent.
-- **Response is wrong** → continue to step 2.
-
-### 2. Rubric / source-of-truth check
-
-Compare the rubric against KB facts before inspecting the agent's behavior.
-
-- If the rubric contradicts the KB → resolve the source-of-truth conflict
-  before changing the agent.
-- If the rubric assumes hidden context (KB content, retrieved chunks, tool
-  config, diagnosis notes) → make it self-sufficient.
-- For broad user questions, do not require unnecessary details the user
-  did not ask for.
-
-### 3. Tool-use check
-
-Did the agent call the right tool at all?
-
-- **Agent skipped KB lookup** (answered from training data) → inspect the
-  complete decision policy, tool availability, and KB `invocation_instruction`
-  / "When to Use" before deciding which component owns the defect.
-- **Agent made excessive tool calls** (e.g. 13 calls for a simple question) →
-  inspect whether the cause is query strategy, weak stop conditions, unclear
-  tool boundaries, or inadequate retrieval results.
-
-### 4. Retrieval check
-
-The agent called KB but the key information is missing from results.
-Walk through these sub-cases in order:
-
-**4a. Canonical file not in the uploaded KB.**
-The authoritative file is not part of the KB files attached to the agent,
-or is not indexed (status != READY). No prompt edit or Context Object FAQ
-can retrieve what doesn't exist.
-
-→ Fix: add the file to KB, attach correct node IDs, wait for indexing.
-
-**4b. Canonical file exists but retrieval never reached it.**
-The retrieved sources don't include the authoritative file.
-
-- If the agent's query is clearly wrong/too narrow/too general → identify
-  whether the general decision policy or the tool-specific invocation/query
-  contract owns the behavior.
-- If the query is reasonable but semantic search misses the file →
-  **add Context Object FAQ**: pair representative question variants with
-  the canonical file. The FAQ embedding reserves the linked file during
-  `retrieve_context_objs`.
-
-→ Fix: usually Context Object FAQ; prompt/`invocation_instruction` only
-when the query itself is wrong.
-
-**4c. Retrieval reached an adjacent chunk within the correct file.**
-The right file was found but the wrong chunk was returned.
-
-- If the file's internal structure is weak (bad headings, unclear
-  boundaries) → improve file structure / headings / chunk boundaries.
-- If structure is clear but the agent asked for the wrong part → inspect the
-  owning decision policy, invocation instruction, and query hints.
-
-**4d. Information missing AND agent hallucinated.**
-The agent fabricated an answer instead of admitting the gap.
-
-This may indicate a missing or unclear evidence boundary in the agent's stable
-behavioral policy, even when a KB fix (4a/4b) is also needed. Read the complete
-settings before deciding whether to remove, consolidate, replace, or add an
-instruction.
-
-### 5. Content check (retrieval was correct)
-
-The agent got the right KB content but the response is still wrong.
-
-**5a. KB contradicts the rubric.**
-The KB says one thing, the rubric expects another.
-
-→ Flag to user: "The KB and rubric disagree on X — which is the source
-of truth?" This requires human judgment.
-
-**5b. Agent embellished or distorted KB content.**
-The agent had the right data but added unsupported claims or its own
-interpretation.
-
-Inspect the complete source-use policy for conflicts, missing priorities, or
-unnecessary complexity. Do not automatically append a scenario-specific
-instruction.
-
-### 6. Evaluator-side issues
-
-**6a. Score = 1.0 but the answer is actually wrong.**
-The rubric has a coverage gap — it doesn't test the broken dimension.
-
-→ Fix: tighten the rubric to cover the missed failure mode.
-
-**6b. Judge noise — same case scores differently on re-run.**
-The evaluator interprets the rubric inconsistently due to ambiguous wording.
-
-→ Fix: make the rubric more deterministic. Add concrete pass/fail examples:
-
-```
-- PASS example: "目前沒有看到您附上的檔案，請您再上傳一次"
-- FAIL example: "我已收到您的報告，正在為您辨識"
+```text
+response quality -> rubric/source truth -> tool use -> retrieval
+                 -> KB content -> evaluator/judge noise -> platform defect
 ```
 
-### 7. Stop / accept decision
+The nearest visible symptom is not necessarily the owner. Do not paste failure
+wording into settings; identify the owning component first.
 
-Not every non-perfect score needs another fix. If the answer is acceptable
-and the remaining loss is evaluator strictness, mark it as accepted rather
-than overfitting toward 1.0.
+### 1. Response quality
+
+Read the response against the user's question before trusting the score.
+
+- Good response, low score: investigate rubric, source truth, or evaluator.
+- Bad response: state what is wrong and continue down the chain.
+- Good response, perfect score: no fix unless other evidence exposes a gap.
+
+### 2. Rubric and source truth
+
+For the specific pair, determine whether the rubric is correct, observable, and
+proportionate to the question.
+
+- If KB, expected output, and rubric disagree, surface the exact conflict for
+  human resolution before changing the agent.
+- If the evaluator lacks required KB or tool evidence, the pair is unjudgeable
+  as written.
+- If a correct concise answer failed because the rubric demands details whose
+  omission would not cause a wrong answer, wrong next step, or material risk,
+  classify evaluator strictness rather than agent failure.
+
+If the evidence suggests suite-wide drift, route that broader check to
+[static-audit.md](static-audit.md); keep this diagnosis tied to the observed
+pair.
+
+### 3. Tool use
+
+Compare actual tool actions with the tool contract, not with prose claims in
+the final answer.
+
+- skipped required tool;
+- called the wrong tool;
+- passed invalid, invented, or improperly derived arguments;
+- repeated calls because stop conditions or tool boundaries were unclear; or
+- behaved correctly and should proceed to retrieval/content analysis.
+
+Read the complete system and tool settings before assigning ownership. A tool
+contract, handoff setting, or platform behavior may own the defect instead of
+the system prompt.
+
+### 4. Retrieval
+
+When a KB tool ran, distinguish these cases:
+
+1. **Required source unavailable** — canonical content was not attached or
+   `READY`; runtime retrieval cannot reach it.
+2. **Canonical file not reached** — source exists, but the query or route did
+   not select it.
+3. **Correct file, wrong passage** — file was selected, but chunking, range, or
+   query specificity missed the relevant content.
+4. **Correct evidence retrieved** — move to KB content or response-use policy.
+
+A missing retrieval hit is not proof that the fact does not exist anywhere in
+the KB. Verify the source inventory before making that claim.
+
+### 5. KB content and response use
+
+Determine whether the retrieved source is missing, ambiguous, duplicated,
+stale, or internally contradictory. If the source is sound but the response
+embellished or distorted it, inspect source-use priorities and evidence
+boundaries in the complete settings.
+
+Do not add an FAQ to compensate for missing content, and do not add a prompt
+rule when the source itself owns the error.
+
+### 6. Evaluator and judge
+
+Classify false fail, false pass, ambiguous rubric, evaluator visibility gap,
+and stochastic judge noise separately.
+
+- A false pass is a coverage defect, not proof of agent quality.
+- Inconsistent repeat scores may justify clearer criteria or calibrated
+  pass/fail examples.
+- A judge model or template change creates a new baseline; do not compare its
+  scores directly with the prior baseline.
+
+Accept an imperfect score when the response is correct and further changes
+would only overfit evaluator preference.
+
+### 7. Platform defect
+
+Use this classification only when evidence shows a contract-level failure
+outside the configured agent, such as a valid FAQ/filter target being ignored,
+the wrong snapshot being queried, or required trace data not reaching an
+evaluator despite the documented template contract.
+
+Record reproduction evidence, expected versus actual platform behavior, and
+affected scope. Do not encode a platform bug as a prompt workaround unless the
+user explicitly approves a labeled temporary containment.
 
 ---
 
 ## Context Object FAQ as a retrieval fix
 
-Context Object FAQ is a fix applied during eval debugging when semantic
-search reliably misses the target file despite reasonable agent queries.
+Use a Context Object FAQ only when:
 
-### When to apply
+- the canonical file is uploaded, attached, and `READY`;
+- the agent issued a reasonable query;
+- semantic retrieval missed or under-ranked that source; and
+- the platform's FAQ/filter contract is working for the relevant snapshot.
 
-- The canonical file is already uploaded, attached, and indexed (READY)
-- The agent's query is reasonable, but `retrieve_context_objs` misses or
-  ranks the intended file too low
-- A high-value question must reliably land on one source of truth
+Do not use it when content is missing, the agent never queried, the target is a
+stale or cross-version snapshot, file structure is the real defect, source
+truth is unresolved, or platform filtering blocks the route.
 
-### When NOT to apply
+When justified:
 
-- Missing KB content (FAQ can't route to what doesn't exist)
-- Bad file structure or naming (fix content first)
-- Agent isn't querying at all (fix tool-use instructions)
-- Rubric/source-of-truth conflict (human decision needed first)
+1. Read the current canonical file and `snapshot_object_id`.
+2. Preview the representative question and target with
+   `codeer kb faq-create ... --dry-run` or `faq-update ... --dry-run`.
+3. Show the diff and wait for explicit user approval.
+4. Apply, then read the FAQ back and confirm its target/range.
+5. Re-run the reproduction and the impact-based regression set below.
 
-### How it works
-
-Add representative question variants and link them to the canonical
-context object/file. The FAQ question embedding reserves the linked file
-during `retrieve_context_objs`, giving retrieval a direct question-to-source
-routing signal. Add line ranges only when the source passage is stable and the
-question should land on a specific part of the file.
-
-CLI workflow:
-
-1. Find the canonical file's `snapshot_object_id`:
-   `codeer kb files --kb-id <kb-id>`
-2. Preview the FAQ route:
-   `codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." --dry-run`
-   Add `--range START_LINE:START_COLUMN-END_LINE:END_COLUMN` when the route
-   should reserve a specific passage and be visible in the UI overlay.
-3. Show the dry-run output and wait for user approval.
-4. Apply by rerunning without `--dry-run`.
-5. Re-run the affected eval case first, then the broader batch if it passes.
+Use line ranges only when the passage is stable and the intended question
+should land on that specific section.
 
 ---
 
-## Causal diagnosis and target-state design
+## Target-state design
 
-After evidence triage, use [agent-settings.md](agent-settings.md) to diagnose
-the strongest supported mechanism and design the resulting configuration.
+State the strongest supported mechanism, alternatives considered, uncertainty,
+and component owner before drafting a change. Prefer, in order:
 
-Do not equate the closest visible symptom with its cause. Read the complete
-relevant system prompt and component settings; check for conflicting rules,
-duplicated ownership, missing priorities, and information stored at the wrong
-layer. One failing case can justify a structural correction. When its cause is
-ambiguous, run only the probes needed to distinguish the alternatives.
+1. no change when the response is acceptable or the defect is elsewhere;
+2. remove a contradiction or obsolete constraint;
+3. consolidate, clarify, reorder, or move existing information;
+4. replace a narrow rule with a stable invariant; and
+5. add a new rule only when the requirement is genuinely absent.
 
-For a system-prompt change, prefer removing, merging, moving, reordering, or
-replacing instructions. Add a new general invariant only when necessary; add a
-narrow condition or answer template only as a last resort. Judge the proposal
-by the simplicity and coherence of the whole resulting agent, not by prompt
-word count or diff size alone.
+For any agent-settings diff, use the full gate in
+[agent-settings.md](agent-settings.md). For rubric edits, show before/after
+text, source truth, evaluator visibility, and why the criterion is necessary.
+Changing the evaluator establishes a new baseline.
+
+---
+
+## Impact-based regression strategy
+
+Fast iteration must test more than the failing case. Every proposed correction
+needs, where applicable:
+
+- the exact reproduction;
+- a paraphrase or generalization;
+- a nearby boundary;
+- a negative control; and
+- impacted cases that previously passed.
+
+Choose the additional impact set from the changed owner:
+
+| Changed owner | Minimum impact set |
+| --- | --- |
+| One case rubric | The pair plus calibration examples and adjacent cases using the same criterion |
+| FAQ/routing target | Reproduction, same-source variants, similar routes, boundary, negative control |
+| One KB policy/file | Dependent Content/Source pairs and routes to that source |
+| Handoff policy/settings | Should-transfer, should-not-transfer, boundary, and affected Content pairs |
+| Global KB/tool configuration | All KB/tool-backed cases; full regression is usually required |
+| System prompt or model | Full assigned-pair regression |
+| Evaluator template or judge model | All pairs assigned to it and a new baseline |
+| Retrieval/platform contract | All cases using the affected KB, FAQ, filter, source, or evaluator trace; then full regression before release |
+
+Use dependency labels when they reliably identify a local impact set. Missing or
+untrusted dependency metadata expands the set; it does not justify testing less.
+
+For stochastic P0/P1 behavior, run multiple trials and report the distribution.
+One passing trial is not completion. After a root-cause batch completes and
+before publish, run all assigned case/evaluator pairs. A Content-only sweep is
+not a full regression when other assignments exist.
 
 ---
 
 ## Improvement loop
 
-1. Collect evidence using the triage above.
-2. Diagnose the mechanism and pass the target-state gate in
-   [agent-settings.md](agent-settings.md).
-3. Present the settings diff and its ownership/information changes; wait for
-   user approval before applying it.
-4. Re-run the reproduction case and relevant generalization, boundary, or
-   contrast probes first (`--latest` for the newest draft).
-5. Run the full suite when the change can affect other categories.
-6. Review both outcomes: behavior improved without regressions, and the whole
-   configuration is simpler or more coherent. A passing case alone is not
-   completion.
-7. Repeat until the evidence supports the target state or stop when further
-   changes would overfit or add unjustified complexity.
+1. Assemble the evidence packet and classify the earliest supported cause.
+2. Define the target state, owner, regression risk, and impact set.
+3. Present every proposed server-state diff and wait for user approval.
+4. Apply the approved change, then read back the effective state.
+5. Re-run reproduction, generalization, boundary, negative control, and
+   previously-passing impacted cases.
+6. After any KB/settings/case/rubric/evaluator state change, run
+   [static-audit.md](static-audit.md) before the next full regression.
+7. Run the required full assigned-pair regression and compare only compatible
+   baselines.
+8. Stop when evidence supports the target state, or accept/flag the remaining
+   issue when another change would overfit or add unjustified complexity.
 
-For rubric edits, always show before/after text and explain which KB fact
-or eval-design issue motivated the change.
+Publish remains a separate action requiring explicit user confirmation. A
+passing reproduction or completed batch does not authorize publish.
