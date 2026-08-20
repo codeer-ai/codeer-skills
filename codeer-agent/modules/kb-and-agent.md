@@ -149,7 +149,17 @@ codeer agent get <agent_id> --full --out .codeer/current/agent.json
 
 ## Step 4 — Publish
 
-Only after eval debugging is complete and the user gives explicit go-ahead.
+Only after all of the following are true:
+
+- [static-audit.md](static-audit.md) has no blockers against the exact version
+  to publish;
+- the final regression ran all assigned case/evaluator pairs and planned versus
+  completed counts reconcile;
+- any evaluator-template or judge-model change has been treated as a new
+  baseline;
+- the evaluated AgentHistory/version, `response_mode`, KB attachments, and
+  publish target are the same effective configuration; and
+- eval debugging is complete and the user gives explicit go-ahead.
 
 Check downstream impact before publishing changes that may affect other
 agents:

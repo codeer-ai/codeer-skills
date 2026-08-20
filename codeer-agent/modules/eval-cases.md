@@ -60,6 +60,11 @@ naturally asks for. Do not require prices, exhaustive lists, logistics
 details, or stock confirmation unless the user asked for that dimension or
 the product requirement depends on it.
 
+For every mandatory criterion, ask: if this detail were omitted, would the
+answer become wrong, produce a wrong next step, or hide a material risk? If
+not, make it optional or remove it. Correct, relevant, concise answers should
+not fail for omitting merely helpful detail.
+
 **Rubric quality standard**: Good rubrics should be easy to maintain:
 
 - Use short bullet points instead of dense prose.
@@ -121,10 +126,15 @@ Repeat from 2a for the next category.
 
 ---
 
-## Step 3 — Full sweep
+## Step 3 — Static preflight and full sweep
+
+Before the first baseline and after any case, rubric, evaluator, KB, FAQ, or
+agent-settings change, run [static-audit.md](static-audit.md). Do not start the
+full sweep while its verdict is `BLOCKED`.
 
 After all categories are covered, run eval across ALL cases as a regression
-check. The most common run is many cases against one assigned evaluator:
+check. The default full-suite run uses every case/evaluator pair already
+assigned on the server:
 
 For a full-suite run with many cases, use `--out` to avoid flooding the
 context window:
@@ -132,13 +142,13 @@ context window:
 ```bash
 codeer eval run \
     --agent <agent_id> \
-    --evaluator <evaluator_id> \
     --out .codeer/current/eval_results.json
 ```
 
-If you omit `--evaluator`/`--evaluators`, the CLI runs the case/evaluator
-pairs already assigned to each case. If you specify an evaluator, the CLI runs
-only cases assigned to that evaluator and reports any unassigned pairs.
+Supplying `--evaluator`/`--evaluators` intentionally narrows the run. Use that
+for a focused impact set, not for a completion claim. Reconcile the planned
+assigned-pair count with completed results; a Content-only run is not full
+coverage when other evaluator assignments exist.
 
 For a full export (user review, spreadsheet analysis), run:
 
@@ -274,7 +284,8 @@ state.
 
 ### Full regression check
 
-After all batches are done, run a full-suite eval as a regression check
-before publishing. If the user wants to preserve the batch-level
-progress, pin `current/progress.json` before the full-suite run
+After all batches are done, re-run [static-audit.md](static-audit.md), then run
+all assigned case/evaluator pairs as a regression check before publishing.
+Reconcile planned and completed pair counts. If the user wants to preserve the
+batch-level progress, pin `current/progress.json` before the full-suite run
 overwrites it.

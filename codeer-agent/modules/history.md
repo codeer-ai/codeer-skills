@@ -137,6 +137,8 @@ codeer eval export --agent <agent_id> --out .codeer/current/eval_table/
 Ask the user: "Pin these baseline results before we change the agent?" If
 yes, copy `current/eval_table/` to `pinned/<date>-baseline/`.
 
-New reproduction cases should fail; protection cases should pass. These results
-are evidence, not the scope or wording of the eventual change. Then hand off to
-**eval-debug** for causal diagnosis and target-state design.
+Before running the baseline, use **static-audit** to verify the exact version,
+sources, settings, cases, rubrics, evaluators, and assignments. New reproduction
+cases should fail; protection cases should pass. These results are evidence,
+not the scope or wording of the eventual change. Then hand off to **eval-debug**
+for causal diagnosis and target-state design.
