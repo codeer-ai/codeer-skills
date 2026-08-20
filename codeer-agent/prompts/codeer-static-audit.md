@@ -12,6 +12,6 @@ Audit target/context: $ARGUMENTS
 
 Perform the deterministic pre-eval audit only. Do not run an eval and do not
 modify the agent, KB, FAQ routes, cases, rubrics, evaluators, repository, or
-published state. Return the module's complete output contract. If the exact
+published state. Return the module's complete audit report. If the exact
 agent/version cannot be identified safely, record or ask the minimum unresolved
 question instead of guessing.
