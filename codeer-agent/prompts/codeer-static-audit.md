@@ -3,8 +3,10 @@ description: Run a read-only Codeer pre-eval static audit
 argument-hint: '[AGENT=<id-or-name>] [SCOPE="<optional focus>"]'
 ---
 
-Use $$codeer-agent. Within that skill, read and follow
-`modules/static-audit.md` for this task.
+Use $$codeer-agent. Read and follow `modules/static-audit.md` from that skill.
+When invoked inside a `codeer-skills` development checkout, prefer the
+checkout's `codeer-agent/modules/static-audit.md` so an unmerged branch can be
+tested.
 
 Audit target/context: $ARGUMENTS
 

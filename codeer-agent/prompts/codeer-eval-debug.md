@@ -3,8 +3,10 @@ description: Diagnose existing Codeer eval evidence and plan regression
 argument-hint: '[AGENT=<id-or-name>] [CASE=<id-or-label>] [RESULT=<path-or-id>]'
 ---
 
-Use $$codeer-agent. Within that skill, read and follow
-`modules/eval-debug.md` for this task.
+Use $$codeer-agent. Read and follow `modules/eval-debug.md` from that skill.
+When invoked inside a `codeer-skills` development checkout, prefer the
+checkout's `codeer-agent/modules/eval-debug.md` so an unmerged branch can be
+tested.
 
 Evidence target/context: $ARGUMENTS
 
