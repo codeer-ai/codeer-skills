@@ -124,8 +124,8 @@ completes, record the summary in `progress.json` and move to the next batch.
 | `codeer eval case-update` | Update one eval case by UUID, including `input` |
 | `codeer eval case-delete` | Delete one eval case by UUID |
 | `codeer eval evaluators` | List evaluators in workspace |
-| `codeer eval evaluator-create` | Create an evaluator in the workspace |
-| `codeer eval evaluator-update` | Update a workspace-scoped evaluator |
+| `codeer eval evaluator-create` | Create an evaluator, optionally with a judge model override |
+| `codeer eval evaluator-update` | Update an evaluator or reset its judge model to the system default |
 | `codeer eval run` | Trigger assigned case/evaluator pairs, poll, print non-perfect analysis |
 | `codeer eval export` | Full eval table export (CSV + JSON + summary MD) |
 | `codeer eval cases-apply` | Bulk-create/update eval cases with per-evaluator rubrics |
@@ -216,6 +216,40 @@ codeer kb node-delete --node-id <node-id> --dry-run
 `node-delete` deletes the target node and all descendants. Always show the
 dry-run output to the user and wait for approval before rerunning without
 `--dry-run`.
+
+## Custom evaluator judge models
+
+Use a model ID from `codeer model list --type text` to override the system
+default judge model for a custom evaluator. Preview each mutation first:
+
+```bash
+codeer eval evaluator-create \
+    --name "Correctness" \
+    --system-prompt-template-file evaluator-prompt.txt \
+    --judge-model <model-id> \
+    --dry-run
+
+codeer eval evaluator-update \
+    --evaluator <evaluator-id> \
+    --judge-model <model-id> \
+    --dry-run
+```
+
+On update, omitting both judge-model flags leaves the current override
+unchanged. To clear the override and return to the system default, explicitly
+use:
+
+```bash
+codeer eval evaluator-update \
+    --evaluator <evaluator-id> \
+    --clear-judge-model \
+    --dry-run
+```
+
+Dry-run output reports `judge_model.action` as `set`, `unchanged`,
+`use_system_default` (create without an override), or
+`clear_to_system_default`. `--judge-model` and `--clear-judge-model` are
+mutually exclusive on update.
 
 ## Eval case labels
 

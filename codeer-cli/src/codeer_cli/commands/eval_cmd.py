@@ -128,6 +128,12 @@ def register(subparsers):
     g.add_argument("--system-prompt-template", help="Evaluator system prompt template text")
     g.add_argument("--system-prompt-template-file", help="Path to evaluator system prompt template")
     p.add_argument("--description", default=None)
+    p.add_argument(
+        "--judge-model",
+        default=None,
+        metavar="MODEL_ID",
+        help="Judge LLM model ID (default: system default)",
+    )
     p.add_argument("--dry-run", action="store_true",
                    help="Validate inputs and print intended mutation without writing server state.")
     p.set_defaults(func=run_evaluator_create)
@@ -140,6 +146,18 @@ def register(subparsers):
     g.add_argument("--system-prompt-template", help="Evaluator system prompt template text")
     g.add_argument("--system-prompt-template-file", help="Path to evaluator system prompt template")
     p.add_argument("--description", default=None)
+    g = p.add_mutually_exclusive_group()
+    g.add_argument(
+        "--judge-model",
+        default=None,
+        metavar="MODEL_ID",
+        help="Set the judge LLM model ID",
+    )
+    g.add_argument(
+        "--clear-judge-model",
+        action="store_true",
+        help="Clear the evaluator override and use the system default judge model",
+    )
     p.add_argument("--dry-run", action="store_true",
                    help="Validate inputs and print intended mutation without writing server state.")
     p.set_defaults(func=run_evaluator_update)
@@ -249,6 +267,7 @@ def _evaluator_summary(evaluator: dict, *, full: bool = False) -> dict:
         "id": evaluator.get("id"),
         "name": evaluator.get("name"),
         "description": evaluator.get("description"),
+        "judge_llm_model_id": evaluator.get("judge_llm_model_id"),
         "system_prompt_template_chars": len(template),
         "has_tool_steps_placeholder": "{tool_steps}" in template,
         "has_output_placeholder": "{output}" in template,
@@ -534,6 +553,10 @@ def run_evaluator_create(args, client) -> int:
             "workspace_id": workspace_id,
             "name": args.name,
             "description": args.description,
+            "judge_model": {
+                "action": "set" if args.judge_model is not None else "use_system_default",
+                "model_id": args.judge_model,
+            },
             "system_prompt_template_chars": len(system_prompt_template or ""),
             "would_write_server_state": True,
             "next_step": "Review this summary, then rerun without --dry-run after approval.",
@@ -545,6 +568,7 @@ def run_evaluator_create(args, client) -> int:
         name=args.name,
         system_prompt_template=system_prompt_template,
         description=args.description,
+        judge_llm_model_id=args.judge_model,
     )
     print_json(_evaluator_summary(evaluator, full=True))
     return 0
@@ -560,12 +584,26 @@ def run_evaluator_update(args, client) -> int:
     else:
         system_prompt_template = args.system_prompt_template
 
-    if args.name is None and args.description is None and system_prompt_template is None:
+    if (
+        args.name is None
+        and args.description is None
+        and system_prompt_template is None
+        and args.judge_model is None
+        and not args.clear_judge_model
+    ):
         log(
             "error: provide at least one of --name, --description, "
-            "--system-prompt-template, --system-prompt-template-file"
+            "--system-prompt-template, --system-prompt-template-file, "
+            "--judge-model, --clear-judge-model"
         )
         return 2
+
+    if args.clear_judge_model:
+        judge_model = {"action": "clear_to_system_default", "model_id": None}
+    elif args.judge_model is not None:
+        judge_model = {"action": "set", "model_id": args.judge_model}
+    else:
+        judge_model = {"action": "unchanged"}
 
     if args.dry_run:
         print_json({
@@ -574,6 +612,7 @@ def run_evaluator_update(args, client) -> int:
             "evaluator_id": args.evaluator,
             "name": args.name,
             "description": args.description,
+            "judge_model": judge_model,
             "system_prompt_template_chars": (
                 len(system_prompt_template) if system_prompt_template is not None else None
             ),
@@ -582,12 +621,20 @@ def run_evaluator_update(args, client) -> int:
         })
         return 0
 
+    evaluator_kwargs: dict[str, Any] = {
+        "name": args.name,
+        "system_prompt_template": system_prompt_template,
+        "description": args.description,
+    }
+    if args.clear_judge_model:
+        evaluator_kwargs["judge_llm_model_id"] = None
+    elif args.judge_model is not None:
+        evaluator_kwargs["judge_llm_model_id"] = args.judge_model
+
     evaluator = eval_mod.update_evaluator(
         client,
         evaluator_id=args.evaluator,
-        name=args.name,
-        system_prompt_template=system_prompt_template,
-        description=args.description,
+        **evaluator_kwargs,
     )
     print_json(_evaluator_summary(evaluator, full=True))
     return 0
