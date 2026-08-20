@@ -7,6 +7,8 @@ Codex/Claude skills for building, evaluating, and managing [Codeer](https://code
 | Skill | Description |
 | --- | --- |
 | [codeer-agent](codeer-agent/) | Full agent lifecycle — author, knowledge base, eval, publish, post-release analysis — driven over the Codeer API from any directory. Also advises on agent design (tool selection, system prompts, composition patterns). |
+| [codeer-audience-value-narrative](codeer-audience-value-narrative/) | Shape audience-first Codeer narratives across decks, demos, landing pages, and substantive proposals. |
+| [codeer-presentations](codeer-presentations/) | Build and review prospect-facing Codeer sales and investor decks using the approved narrative and visual system. |
 
 ## Installation
 
@@ -47,6 +49,14 @@ $skill-installer install https://github.com/codeer-ai/codeer-skills/tree/main/co
 ```
 
 Restart Codex if the skill does not appear after installation.
+
+Install the audience-value narrative and presentation skills from their folder
+URLs when working on prospect-facing decks or demos:
+
+```text
+$skill-installer install https://github.com/codeer-ai/codeer-skills/tree/main/codeer-audience-value-narrative
+$skill-installer install https://github.com/codeer-ai/codeer-skills/tree/main/codeer-presentations
+```
 
 ### CLI development
 
@@ -89,6 +99,12 @@ Make sure:
 ```
 codeer-skills/
 ├── codeer-cli/               ← standalone CLI package
+├── codeer-audience-value-narrative/
+│   ├── SKILL.md              ← cross-format audience-value contract and checks
+│   └── references/           ← examples and regression fixtures
+├── codeer-presentations/
+│   ├── SKILL.md              ← Codeer deck workflow and narrative adapter
+│   └── references/           ← visual, layout, copy, and QA contracts
 ├── codeer-agent/
 │   ├── SKILL.md              ← orientation, setup, lifecycle walkthrough
 │   ├── onboarding.md         ← auth and environment setup

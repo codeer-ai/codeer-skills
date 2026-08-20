@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codeer Audience-Value Narrative"
+  short_description: "Shape audience-first Codeer product narratives"
+  default_prompt: "Use $codeer-audience-value-narrative to turn this Codeer product material into an audience-first, evidence-bounded narrative."

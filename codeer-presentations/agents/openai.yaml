@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codeer Presentations"
+  short_description: "Build consistent Codeer sales and investor decks"
+  default_prompt: "Use $codeer-presentations to adapt the approved audience-value contract into a story spine and slide map, then build or refine a Codeer sales or investor presentation with natural Codeer voice, the approved visual system, and rendered QA."
