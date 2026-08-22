@@ -159,7 +159,8 @@ Only after all of the following are true:
   baseline;
 - the evaluated AgentHistory/version, `response_mode`, KB attachments, and
   publish target are the same effective configuration; and
-- eval debugging is complete and the user gives explicit go-ahead.
+- eval debugging is complete, accepted findings have a completed repair or a
+  documented no-change decision, and the user gives explicit go-ahead.
 
 Check downstream impact before publishing changes that may affect other
 agents:

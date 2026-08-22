@@ -159,4 +159,5 @@ Before running the baseline, use **static-audit** to verify the exact version,
 sources, settings, cases, rubrics, evaluators, and assignments. New reproduction
 cases should fail; protection cases should pass. These results are evidence,
 not the scope or wording of the eventual change. Then hand off to **eval-debug**
-for causal diagnosis and target-state design.
+for causal findings. When those findings warrant a change, hand them to
+**repair-planner** for target-state, diff, and verification planning.
