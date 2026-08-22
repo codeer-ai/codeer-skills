@@ -67,10 +67,11 @@ symptom. Use the ownership model in [agent-settings.md](agent-settings.md):
 - evaluator and rubric for observable pass/fail criteria; and
 - eval cases for reproduction, boundary, and regression probes.
 
-When an agent-settings change is in scope, read and apply the full target-state
-gate in [agent-settings.md](agent-settings.md) before presenting a diff. Do not
-copy failure wording into the system prompt or use one component to conceal a
-contract defect owned by another.
+When an agent-settings change is in scope, read
+[agent-settings.md](agent-settings.md) in full and apply every section relevant
+to the affected settings, including its full target-state gate, before
+presenting a diff. Do not copy failure wording into the system prompt or use one
+component to conceal a contract defect owned by another.
 
 ---
 
