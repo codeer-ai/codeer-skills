@@ -120,8 +120,11 @@ quality.
 
 ## Step 4 — Audit agent settings
 
-Read the complete relevant settings and use the ownership model in
-[agent-settings.md](agent-settings.md). Check for:
+Read the complete relevant settings and read [agent-settings.md](agent-settings.md)
+in full so the audit uses its current design principles, ownership model, and
+prompt-residency criteria. Apply only the sections that define the expected
+configuration; do not perform the repair-planning work owned by Repair Planner.
+Check for:
 
 - contradictory priorities, boundaries, or tool instructions;
 - a tool rule that forbids deriving an input while its parameter or HTTP body
