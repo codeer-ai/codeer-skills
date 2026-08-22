@@ -1,9 +1,15 @@
 # Static Audit
 
-Run this read-only preflight before spending model calls on an eval. It checks
-whether the KB, agent settings, eval cases, rubrics, evaluators, and version
-target form one coherent test system. It reports defects and owners; it does
-not diagnose an observed model failure or authorize any change.
+Use this module to inspect static configuration evidence before spending model
+calls on an eval. A review may be narrow (for example, one rubric and its
+evaluator) or a full pre-eval gate across the KB, agent settings, cases,
+rubrics, evaluators, assignments, and version target. State the audited scope
+so a narrow review is never mistaken for whole-system clearance.
+
+The audit produces evidence-backed findings and likely owners. It does not
+diagnose an observed runtime failure, design the resulting repair, or authorize
+any change. Send findings that need a change to
+[repair-planner.md](repair-planner.md).
 
 Use [eval-debug.md](eval-debug.md) only after response, tool, retrieval, or judge
 evidence exists for a specific run.
@@ -12,7 +18,7 @@ evidence exists for a specific run.
 
 ## When to run
 
-Run the audit:
+Run a full audit:
 
 - before the first baseline eval;
 - after KB, FAQ/routing, agent settings, cases, rubrics, evaluator templates,
@@ -20,9 +26,34 @@ Run the audit:
 - before a full assigned-pair regression or publish decision; and
 - whenever local manifests and server state may have drifted.
 
+Run a scoped audit when the user asks about one rubric, evaluator, case,
+assignment, source relationship, or other bounded static concern. Read the
+smallest evidence set that can support the requested conclusion, but expand the
+scope when the local object cannot be interpreted without its evaluator,
+source truth, assignment, or version context.
+
 Do not run an eval or mutate server state as part of this module. Use registered
 `codeer` read commands only. If required state cannot be read, record the gap in
 `unresolved_questions`; do not guess.
+
+---
+
+## Finding method
+
+Use the same evidence discipline for both scoped and full audits. A useful
+finding communicates, in whatever prose, bullets, table, or other format best
+fits the task:
+
+- what was observed and which object is affected;
+- the decisive static evidence;
+- why the mismatch matters and what consequence it can cause;
+- the component or person most likely to own the decision; and
+- material uncertainty or missing context.
+
+Do not require issue codes, a fixed taxonomy, confidence percentages, JSON, or
+another rigid input/output schema. Add labels, severity, or structure only when
+they help the current review. Keep direct evidence distinct from inference,
+and do not turn a repair idea into evidence that the finding is true.
 
 ---
 
@@ -134,9 +165,10 @@ judged from the variables actually supplied, such as `{input}`, `{output}`,
 assumed to see the agent prompt, KB, retrieved chunks, tool configuration, or
 diagnosis notes.
 
-If a criterion depends on hidden evidence, either make the criterion
-self-sufficient, use an evaluator that receives the evidence, or mark the
-criterion unjudgeable. Do not let the judge infer invisible source truth.
+If a criterion depends on hidden evidence, identify whether the static defect
+is an evaluator-visibility gap, a non-self-sufficient rubric, or an
+unjudgeable requirement. Do not choose or draft the repair here, and do not let
+the judge infer invisible source truth.
 
 ### Rubric fit and strictness
 
@@ -146,10 +178,11 @@ actual product risk. Ask:
 > If this detail is omitted, would the answer become wrong, produce a wrong
 > next step, or hide a material risk?
 
-If not, make the detail optional or remove it. A correct, relevant, concise
-answer should pass unless completeness itself is required by the question or
-product contract. Flag rubrics that demand exhaustive lists, prices,
-logistics, citations, handoff, or tool use without such a requirement.
+If not, flag it as an unnecessary mandatory criterion. A correct, relevant,
+concise answer should pass unless completeness itself is required by the
+question or product contract. Flag rubrics that demand exhaustive lists,
+prices, logistics, citations, handoff, or tool use without such a requirement.
+Leave the exact rewrite or evaluator reassignment to the Repair Planner.
 
 Also check:
 
@@ -169,9 +202,9 @@ separate those changes or explicitly declare a new baseline.
 
 ---
 
-## Step 6 — Verdict and report
+## Step 6 — Report the findings
 
-Use exactly one verdict:
+For a full pre-eval gate, use one verdict:
 
 - `PASS` — no blockers or warnings;
 - `PASS_WITH_WARNINGS` — the run remains interpretable, but documented risks
@@ -180,15 +213,19 @@ Use exactly one verdict:
   or unjudgeable truth, omit required assigned pairs, or otherwise produce
   results that cannot support the intended decision.
 
-Report the verdict first, followed by blockers, warnings, observations,
-evidence, unresolved questions, and recommended owners. State when a category
-has no findings.
+Report the verdict first, followed by the evidence-backed findings, unresolved
+questions, and likely owners. State when a material category has no findings.
 
-Each finding should state the affected object, observed mismatch, decisive
-evidence, consequence, and recommended owner. Keep direct evidence separate
-from inference. `recommended_owners` names who or which component should decide
-or repair the issue; it does **not** authorize an edit, server mutation, eval
-run, or publish action.
+For a scoped audit, state the scope and report the findings without implying
+that the rest of the test system passed. A scoped verdict is optional; use it
+only when it makes the bounded decision clearer.
+
+No report format is mandatory. The content must remain reviewable and preserve
+the finding method above. A likely owner identifies who or which component
+should decide the issue; it does **not** authorize an edit, server mutation,
+eval run, or publish action. When a change is warranted, hand the findings to
+[repair-planner.md](repair-planner.md) rather than drafting local patches in
+the audit.
 
 ---
 

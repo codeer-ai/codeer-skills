@@ -117,8 +117,10 @@ Then output the eval-cases server link so the user can verify.
 
 ### 2e. Optionally test this batch
 
-Run eval on just the new cases, diagnose mechanisms, and improve the relevant
-settings before moving to the next category. This catches problems early.
+Run eval on just the new cases and use **eval-debug** to diagnose any dynamic
+findings. When a finding warrants a change, use **repair-planner** to design and
+review the target state before the owning module applies it. This catches
+problems early.
 
 ### 2f. Next category
 
@@ -157,7 +159,8 @@ codeer eval export \
     --agent <agent_id> --out .codeer/current/eval_table/
 ```
 
-Then hand off to **eval-debug** for any non-perfect scores.
+Then hand off to **eval-debug** for any non-perfect scores. Findings that
+warrant a change go to **repair-planner** before any diff is drafted or applied.
 
 ---
 
@@ -268,8 +271,8 @@ codeer eval run \
     --evaluator <evaluator_id>
 ```
 
-Diagnose and improve the target state within the batch before moving on (hand
-off to **eval-debug** as usual).
+Diagnose findings within the batch before moving on (hand off to
+**eval-debug**, then to **repair-planner** when a change is warranted).
 
 ### Tracking progress
 

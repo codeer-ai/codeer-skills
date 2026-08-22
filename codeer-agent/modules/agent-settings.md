@@ -3,6 +3,11 @@
 Use this module whenever creating or changing an agent's system prompt, tools,
 KB configuration, retrieval routes, model, or handoff settings.
 
+When a change starts from Static Audit or Eval Debug findings, use
+[repair-planner.md](repair-planner.md) to establish the cross-component target
+state, alternatives, and verification scope. This module supplies the detailed
+ownership and settings-design gate for the resulting agent diff.
+
 ---
 
 ## Optimize the resulting system

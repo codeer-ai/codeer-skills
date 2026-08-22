@@ -2,13 +2,12 @@
 
 Use this module after an eval or live test has produced dynamic evidence: a
 response, tool trace, retrieval trace, evaluator result, or platform error. It
-diagnoses the strongest supported causal mechanism and defines the smallest
-coherent correction and regression set.
+diagnoses the strongest supported causal mechanism and produces evidence-backed
+findings. It does not design or apply the correction. Send findings that need a
+change to [repair-planner.md](repair-planner.md).
 
 If no dynamic evidence exists yet, use [static-audit.md](static-audit.md)
 instead. Do not mix a whole-system preflight into the diagnosis of one run.
-Before proposing an agent-settings change, read
-[agent-settings.md](agent-settings.md) and apply its target-state gate.
 
 ---
 
@@ -31,6 +30,29 @@ Missing evidence lowers confidence; it does not license a guessed diagnosis.
 
 ---
 
+## Finding method
+
+Dynamic evidence must remain anchored to the static configuration that produced
+it. A score or tool trace without the corresponding case, rubric, evaluator,
+agent version, and relevant source context is not enough to assign a cause.
+
+A useful finding communicates, in whatever prose, bullets, table, or other
+format best fits the task:
+
+- the observed runtime behavior and affected object;
+- the decisive dynamic evidence and necessary static anchors;
+- the earliest mechanism that explains the observation;
+- the user, product, or evaluation consequence;
+- the component or person most likely to own the cause; and
+- plausible alternatives, uncertainty, or missing evidence.
+
+Do not require issue codes, a fixed taxonomy, confidence percentages, JSON, or
+another rigid input/output schema. Add labels or structure only when they help
+the current diagnosis. Keep observations, inference, and unresolved hypotheses
+distinct. A proposed repair is not evidence that the diagnosis is correct.
+
+---
+
 ## Dynamic causal chain
 
 Inspect evidence in this order and stop at the earliest component that fully
@@ -50,7 +72,8 @@ Read the response against the user's question before trusting the score.
 
 - Good response, low score: investigate rubric, source truth, or evaluator.
 - Bad response: state what is wrong and continue down the chain.
-- Good response, perfect score: no fix unless other evidence exposes a gap.
+- Good response, perfect score: no defect finding unless other evidence exposes
+  a gap.
 
 ### 2. Rubric and source truth
 
@@ -120,8 +143,9 @@ and stochastic judge noise separately.
 - A judge model or template change creates a new baseline; do not compare its
   scores directly with the prior baseline.
 
-Accept an imperfect score when the response is correct and further changes
-would only overfit evaluator preference.
+Classify an imperfect score as evaluator strictness when the response is
+correct and the available evidence does not support an agent defect. Whether to
+accept or change it is a Repair Planner decision.
 
 ### 7. Platform defect
 
@@ -136,99 +160,16 @@ user explicitly approves a labeled temporary containment.
 
 ---
 
-## Context Object FAQ as a retrieval fix
+## Stop and hand off
 
-Use a Context Object FAQ only when:
+Stop when the strongest supported mechanism, evidence, consequence, likely
+owner, alternatives, and uncertainty are clear enough for the requested
+decision. If the evidence cannot distinguish plausible mechanisms, name the
+smallest additional trace, probe, or comparison needed; do not plan speculative
+repairs.
 
-- the canonical file is uploaded, attached, and `READY`;
-- the agent issued a reasonable query;
-- semantic retrieval missed or under-ranked that source; and
-- the platform's FAQ/filter contract is working for the relevant snapshot.
-
-Do not use it when content is missing, the agent never queried, the target is a
-stale or cross-version snapshot, file structure is the real defect, source
-truth is unresolved, or platform filtering blocks the route.
-
-When justified:
-
-1. Read the current canonical file and `snapshot_object_id`.
-2. Preview the representative question and target with
-   `codeer kb faq-create ... --dry-run` or `faq-update ... --dry-run`.
-3. Show the diff and wait for explicit user approval.
-4. Apply, then read the FAQ back and confirm its target/range.
-5. Re-run the reproduction and the impact-based regression set below.
-
-Use line ranges only when the passage is stable and the intended question
-should land on that specific section.
-
----
-
-## Target-state design
-
-State the strongest supported mechanism, alternatives considered, uncertainty,
-and component owner before drafting a change. Prefer, in order:
-
-1. no change when the response is acceptable or the defect is elsewhere;
-2. remove a contradiction or obsolete constraint;
-3. consolidate, clarify, reorder, or move existing information;
-4. replace a narrow rule with a stable invariant; and
-5. add a new rule only when the requirement is genuinely absent.
-
-For any agent-settings diff, use the full gate in
-[agent-settings.md](agent-settings.md). For rubric edits, show before/after
-text, source truth, evaluator visibility, and why the criterion is necessary.
-Changing the evaluator establishes a new baseline.
-
----
-
-## Impact-based regression strategy
-
-Fast iteration must test more than the failing case. Every proposed correction
-needs, where applicable:
-
-- the exact reproduction;
-- a paraphrase or generalization;
-- a nearby boundary;
-- a negative control; and
-- impacted cases that previously passed.
-
-Choose the additional impact set from the changed owner:
-
-| Changed owner | Minimum impact set |
-| --- | --- |
-| One case rubric | The pair plus calibration examples and adjacent cases using the same criterion |
-| FAQ/routing target | Reproduction, same-source variants, similar routes, boundary, negative control |
-| One KB policy/file | Dependent Content/Source pairs and routes to that source |
-| Handoff policy/settings | Should-transfer, should-not-transfer, boundary, and affected Content pairs |
-| Global KB/tool configuration | All KB/tool-backed cases; full regression is usually required |
-| System prompt or model | Full assigned-pair regression |
-| Evaluator template or judge model | All pairs assigned to it and a new baseline |
-| Retrieval/platform contract | All cases using the affected KB, FAQ, filter, source, or evaluator trace; then full regression before release |
-
-Use dependency labels when they reliably identify a local impact set. Missing or
-untrusted dependency metadata expands the set; it does not justify testing less.
-
-For stochastic P0/P1 behavior, run multiple trials and report the distribution.
-One passing trial is not completion. After a root-cause batch completes and
-before publish, run all assigned case/evaluator pairs. A Content-only sweep is
-not a full regression when other assignments exist.
-
----
-
-## Improvement loop
-
-1. Assemble the evidence packet and classify the earliest supported cause.
-2. Define the target state, owner, regression risk, and impact set.
-3. Present every proposed server-state diff and wait for user approval.
-4. Apply the approved change, then read back the effective state.
-5. Re-run reproduction, generalization, boundary, negative control, and
-   previously-passing impacted cases.
-6. After any KB/settings/case/rubric/evaluator state change, run
-   [static-audit.md](static-audit.md) before the next full regression.
-7. Run the required full assigned-pair regression and compare only compatible
-   baselines.
-8. Stop when evidence supports the target state, or accept/flag the remaining
-   issue when another change would overfit or add unjustified complexity.
-
-Publish remains a separate action requiring explicit user confirmation. A
-passing reproduction or completed batch does not authorize publish.
+If a finding appears suite-wide, route the broader static consistency question
+to [static-audit.md](static-audit.md). When the user wants to change the system,
+hand the accepted findings to [repair-planner.md](repair-planner.md). Eval Debug
+does not choose the target state, draft the diff, define the impact regression,
+or apply server changes.
