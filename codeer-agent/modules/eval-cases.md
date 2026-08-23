@@ -55,6 +55,24 @@ output, or diagnosis notes unless that information is explicitly included by
 the evaluator template. After accounting for the evaluator's actual inputs,
 make the rubric as self-sufficient as practical.
 
+**Pair admission gate**: Before assigning an evaluator, be able to state all
+of the following for that case/evaluator pair:
+
+- the one material behavior or failure the pair is meant to detect;
+- the exact evaluator input that carries the evidence, such as `{output}` or
+  `{tool_steps}`;
+- the runtime component that produces that evidence and its actual shape; and
+- why an existing pair does not already cover the same decision consequence.
+
+Inspect documented tool/runtime behavior or available capability metadata when
+a tool can end generation, request interaction, replace the model response, or
+validate arguments after the model call. A template containing `{output}` is
+not sufficient when runtime replaces that output with a fixed or empty value.
+Likewise, do not require an argument that the live schema or validator cannot
+accept. Reject a pair when no plausible compliant live trace can satisfy its
+rubric, when the evaluator cannot observe the required evidence, or when the
+pair has no distinct material failure to catch.
+
 **Scope matching**: For broad user questions, require only what the question
 naturally asks for. Do not require prices, exhaustive lists, logistics
 details, or stock confirmation unless the user asked for that dimension or

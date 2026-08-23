@@ -173,6 +173,30 @@ is an evaluator-visibility gap, a non-self-sufficient rubric, or an
 unjudgeable requirement. Do not choose or draft the repair here, and do not let
 the judge infer invisible source truth.
 
+### Runtime observability and satisfiability
+
+Evaluator placeholders describe what the judge receives, not whether runtime
+can produce meaningful evidence in those fields. For criteria involving tools
+that end generation, request interaction, replace the model response, or
+validate arguments after the model call, inspect documented runtime behavior,
+tool capability metadata, or another read-only source of the execution
+contract.
+
+Confirm that a plausible compliant live trace can both satisfy the rubric and
+reach the evaluator in the expected evidence shape. In particular, flag:
+
+- content criteria whose `{output}` is fixed, suppressed, or replaced by the
+  runtime path being tested;
+- tool-argument criteria that the live schema or validator cannot accept;
+- source-truth criteria assigned to an evaluator that cannot see the relevant
+  retrieval evidence; and
+- multiple pairs that catch no distinct material failure beyond an existing
+  assignment.
+
+Treat an impossible or runtime-unobservable requirement as a blocker for that
+pair. Missing runtime metadata is unresolved evidence, not permission to assume
+that the evaluator can observe the behavior.
+
 ### Rubric fit and strictness
 
 Review every mandatory criterion relative to the user's question and the
