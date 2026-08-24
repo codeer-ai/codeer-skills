@@ -3,6 +3,14 @@
 Analyze production conversations to drive continuous improvement. This module
 is the entry point for Phase 2 (Improve).
 
+Before analyzing behavior or demand, read the accepted
+`.codeer/design/query_distribution.csv` and
+`.codeer/design/behavior_contract.md`. They answer different questions: what
+customer work was expected, and how the Agent was intended to handle it. For a
+legacy Agent without these artifacts, surface the missing design evidence and
+reconstruct it with user acceptance before making strong claims about contract
+divergence or distribution drift.
+
 ---
 
 ## Step 1 — Pull production data
@@ -99,6 +107,42 @@ Group findings by shared behavioral mechanism when evidence supports it, not
 only by surface topic. A single finding may still expose a structural defect;
 multiple examples are useful evidence, not a prerequisite for diagnosis.
 
+When an accepted Behavior Contract is available, distinguish two decisions:
+
+- **Implementation divergence** — the desired behavior is already clear, but
+  the current settings, KB, Tools, handoff, retrieval, or platform behavior did
+  not implement it.
+- **Contract improvement** — the current implementation may match the accepted
+  contract, but the evidence suggests a different customer-guidance behavior
+  would create a materially better experience, or the contract is too
+  ambiguous to decide.
+
+Do not infer the contract from current settings or eval rubrics when the
+accepted design context is unavailable. Surface the gap for user confirmation.
+
+### Query-distribution analysis
+
+Use [query-distribution.md](query-distribution.md) when the selected history
+scope is broad enough to inform demand. Treat the conversation or customer task
+as the unit rather than counting messages. Record channels, date range,
+population, selection criteria, exclusions, repeated contacts, seasonality,
+campaign effects, and other sampling limits.
+
+Compare observed task families, lifecycle states, channels, segments, and
+risks with the accepted distribution. Distinguish:
+
+- **distribution drift** — meaningful new evidence changes a cell,
+  representativeness band, supported share, channel or segment scope, risk
+  understanding, or eval allocation;
+- **eval-portfolio gap** — the accepted distribution already contains the cell,
+  but reviewed cases do not cover it adequately; and
+- **individual behavior evidence** — a conversation exposes a failure or
+  success without supporting a frequency conclusion.
+
+One failure, negative conversation, or first-page sample normally creates an
+eval probe, not a distribution revision. Never copy raw conversations into the
+canonical distribution.
+
 ### Tool usage analysis
 
 Look for patterns in tool behavior:
@@ -121,14 +165,36 @@ that could distinguish the plausible causes.
 Present observations separately from inferences. Include evidence, consequence,
 mechanism hypothesis, uncertainty, and successful patterns to protect. Recommend
 which categories need investigation or new cases without prescribing a settings
-patch from the surface symptom. Let the user pick which categories to work on
-and in what order.
+patch from the surface symptom. When distribution drift is proposed, show the
+sample scope, evidence limits, and before/after distribution separately from
+behavioral findings. Let the user pick which categories to work on and in what
+order.
 
 ---
 
-## Step 4 — Hand off to eval cases
+## Step 4 — Choose the follow-on path
 
-After the user chooses priorities, transition to **eval-cases** module:
+After the user chooses priorities, keep distribution, contract, and
+implementation decisions distinct.
+
+### Meaningful Query Distribution update
+
+Use [query-distribution.md](query-distribution.md) to present the complete
+revision and obtain user acceptance before replacing
+`.codeer/design/query_distribution.csv`. Then:
+
+1. update eval allocation and candidate coverage when warranted;
+2. revise `.codeer/design/behavior_contract.md` only when the new demand model
+   changes the appropriate customer experience or a stable risk policy; and
+3. change Agent Settings, KB, or Tools only after any contract revision is
+   accepted and expressed in eval cases.
+
+A distribution-only update may end with eval-portfolio maintenance and no
+runtime Agent change.
+
+### Implementation divergence against an unchanged contract
+
+Transition to **eval-cases**:
 
 - Each distinct failure behavior → a representative reproduction case where
   the current agent should fail
@@ -137,8 +203,8 @@ After the user chooses priorities, transition to **eval-cases** module:
 - Each uncertain mechanism → only the generalization, boundary, or contrast
   probes needed to distinguish the plausible causes
 
-Then run baseline eval on the current published version (`--history` flag)
-before changing any settings:
+Run Static Audit, then run a focused pre-change eval on the current published
+version (`--history` flag) before changing any settings:
 
 ```bash
 codeer eval run \
@@ -146,18 +212,41 @@ codeer eval run \
     --evaluator <evaluator_id>
 ```
 
-Export the baseline results and pin them so they survive the improvement cycle:
+Export the pre-change results and pin them so they survive the improvement
+cycle:
 
 ```bash
 codeer eval export --agent <agent_id> --out .codeer/current/eval_table/
 ```
 
-Ask the user: "Pin these baseline results before we change the agent?" If
-yes, copy `current/eval_table/` to `pinned/<date>-baseline/`.
+Automatically copy `.codeer/current/eval_table/` plus the exact Agent/version,
+evaluator-template, and judge-model context to
+`.codeer/pinned/<date>-pre-change/` before changing the Agent. This is a required
+comparison point, not an optional pin prompt. Ask about pinning only for other
+temporary debug or batch evidence.
 
-Before running the baseline, use **static-audit** to verify the exact version,
-sources, settings, cases, rubrics, evaluators, and assignments. New reproduction
-cases should fail; protection cases should pass. These results are evidence,
-not the scope or wording of the eventual change. Then hand off to **eval-debug**
-for causal findings. When those findings warrant a change, hand them to
-**repair-planner** for target-state, diff, and verification planning.
+The audit must verify the exact version, sources, settings, cases, rubrics,
+evaluators, and assignments. New reproduction cases should fail; protection
+cases should pass. These results are evidence, not the scope or wording of the
+eventual change. Then hand off to **eval-debug** for causal findings and to
+**repair-planner** when accepted findings warrant an implementation or eval
+change.
+
+### Intentional Behavior Contract improvement
+
+Before drafting a runtime repair:
+
+1. Use [consultative-guidance.md](consultative-guidance.md) to compare the
+   accepted and proposed customer behavior, recommend the suitable dialogue or
+   discovery strategy, and obtain user acceptance.
+2. Persist the accepted `.codeer/design/behavior_contract.md`, then update or
+   add acceptance cases and rubrics. They should express the revised behavior
+   and protect still-valid successful patterns.
+3. Run Static Audit, then run the focused cases against the current published
+   Agent. Expected failures make the intended behavioral delta visible; they
+   are not proof that the current Agent was defective under the old contract.
+4. Hand the accepted contract and pre-change evidence to **repair-planner**,
+   then use the owning modules for Agent Settings, KB, Tools, handoff, or other
+   approved changes.
+5. Re-run Static Audit, the focused impact set, and the required full
+   assigned-pair regression before any publish decision.

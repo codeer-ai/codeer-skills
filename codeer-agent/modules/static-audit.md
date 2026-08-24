@@ -2,9 +2,10 @@
 
 Use this module to inspect static configuration evidence before spending model
 calls on an eval. A review may be narrow (for example, one rubric and its
-evaluator) or a full pre-eval gate across the KB, agent settings, cases,
-rubrics, evaluators, assignments, and version target. State the audited scope
-so a narrow review is never mistaken for whole-system clearance.
+evaluator) or a full pre-eval gate across persistent design artifacts, the KB,
+agent settings, cases, rubrics, evaluators, assignments, and version target.
+State the audited scope so a narrow review is never mistaken for whole-system
+clearance.
 
 The audit produces evidence-backed findings and likely owners. It does not
 diagnose an observed runtime failure, design the resulting repair, or authorize
@@ -21,16 +22,30 @@ evidence exists for a specific run.
 Run a full audit:
 
 - before the first baseline eval;
-- after KB, FAQ/routing, agent settings, cases, rubrics, evaluator templates,
-  judge models, or assignments change, and before the next eval;
+- after Query Distribution, Behavior Contract, KB, FAQ/routing, agent settings,
+  cases, rubrics, evaluator templates, judge models, or assignments change, and
+  before the next eval;
 - before a full assigned-pair regression or publish decision; and
 - whenever local manifests and server state may have drifted.
+
+Before implementation, this module may also perform a local-only scoped review
+of Query Distribution against the draft case portfolio and Behavior Contract
+against the draft cases. Server target pinning and runtime checks are not
+applicable to that limited review. State the limited scope explicitly; it is
+not a full Static Audit clearance.
 
 Run a scoped audit when the user asks about one rubric, evaluator, case,
 assignment, source relationship, or other bounded static concern. Read the
 smallest evidence set that can support the requested conclusion, but expand the
 scope when the local object cannot be interpreted without its evaluator,
 source truth, assignment, or version context.
+
+For a maintained query-led customer guidance Agent, read the persistent
+`.codeer/design/query_distribution.csv` and
+`.codeer/design/behavior_contract.md`. Include distribution-to-eval-portfolio
+and contract-to-acceptance-eval alignment in a full audit. For a legacy Agent,
+do not fabricate either artifact; record missing design evidence and limit the
+conclusion accordingly.
 
 Do not run an eval or mutate server state as part of this module. Use registered
 `codeer` read commands only. If required state cannot be read, record the gap in
@@ -69,7 +84,15 @@ Record the exact target before comparing content:
 - published version, when different from the audited version;
 - KB file/node/snapshot IDs and readiness state;
 - evaluator IDs, templates, judge models, and intended case/evaluator
-  assignments.
+  assignments;
+- Query Distribution revision, evidence window, sampling scope, confidence,
+  open gaps, and intended eval allocation, when applicable; and
+- Behavior Contract revision and applicable Agent/version, and whether the
+  cases are intended to express that contract.
+
+For a local-only pre-implementation review, record the accepted design files
+and reviewed draft-case revision; mark server version, runtime, Tool, and
+assignment evidence as not applicable rather than inventing it.
 
 Never use *draft*, *latest*, *published*, and *response mode* as if they name the
 same thing. A version mismatch is a blocker when it makes the planned eval test
@@ -79,13 +102,18 @@ a different configuration from the one under review.
 
 ## Step 2 — Inventory the effective system
 
-Read the agent, KB, FAQ routes, eval cases, rubrics, and evaluators from the
-server. When a local canonical manifest exists, compare it with server state
-using `codeer eval reconcile` and direct reads as needed.
+Read the persistent design artifacts locally and the agent, KB, FAQ routes,
+eval cases, rubrics, and evaluators from the server. When a local canonical
+manifest exists, compare it with server state using `codeer eval reconcile` and
+direct reads as needed.
 
 Build a compact dependency map:
 
 ```text
+accepted Query Distribution -> eval portfolio allocation -> acceptance cases
+  (when applicable)            -> assigned evaluator -> observable evidence
+accepted Behavior Contract -> acceptance case -> assigned evaluator -> rubric
+  (when applicable)          -> observable evidence
 case -> assigned evaluator -> rubric -> required source/tool behavior
      -> agent version -> settings/tools -> KB attachment -> FAQ target
 ```
@@ -131,8 +159,12 @@ Check for:
   contract requires the model to derive that input;
 - duplicated facts or policies across the system prompt, tool configuration,
   KB, and handoff settings;
-- handoff availability and triggers that disagree with eval expectations; and
-- failure-specific or platform-bug workarounds encoded as general prompt rules.
+- handoff availability and triggers that disagree with eval expectations;
+- failure-specific or platform-bug workarounds encoded as general prompt rules;
+  and
+- any setting, KB content, or Tool instruction directing the Agent to assert
+  scarcity, urgency, authority, social proof, price, eligibility, or a Tool
+  outcome that the available source or actual Tool response cannot substantiate.
 
 Static contradictions are blockers when no response can reliably satisfy both
 sides. Assign the finding to the component that owns the contract rather than
@@ -141,6 +173,61 @@ copying the symptom into the system prompt.
 ---
 
 ## Step 5 — Audit cases, rubrics, and evaluators
+
+### Query Distribution and eval-portfolio alignment
+
+When the accepted distribution is available, compare it with the designed case
+portfolio and intended run. Confirm that:
+
+- each material core/common cell and intentionally reserved high-consequence
+  cell has meaningful coverage within the available review budget;
+- case allocation is directionally consistent with `eval_target_share`, with
+  rounding, minimum-cell coverage, and deliberate departures explained;
+- risk overweighting is explicit and does not masquerade as an estimated
+  production frequency;
+- candidate count, synthetic variants, public evidence, and challenge count are
+  not used as unsupported prevalence evidence;
+- channel, locale, segment, evidence-window, and sampling limitations remain
+  visible; and
+- open or low-confidence cells are reported rather than silently treated as
+  complete coverage.
+
+Treat omission of a material high-consequence cell required for the intended
+decision as a blocker. Treat ordinary allocation drift, provisional demand
+estimates, or incomplete but interpretable evidence as a warning or open gap.
+Static Audit assesses the accepted model and portfolio; it does not estimate a
+new distribution or choose the repair.
+
+### Behavior Contract and acceptance-eval alignment
+
+When the accepted contract is available, first check the contract itself
+against the canonical Evidence and autonomy boundaries in
+[consultative-guidance.md](consultative-guidance.md). Verified scarcity,
+urgency, authority, social proof, prices, eligibility, and Tool outcomes are
+allowed; a contract requiring fabrication, exaggeration, or unsupported claims
+is a blocker even when the cases, rubrics, settings, KB, and Tools all agree
+with it.
+
+Then compare the contract semantically with the cases, expected outputs, and
+rubrics. Use a simple judgment review. Confirm that:
+
+- no case or mandatory criterion demands behavior absent from or contradictory
+  to the contract;
+- answer-versus-question initiative, consent before consequential actions,
+  truthfulness and uncertainty, recommendation boundaries, and handoff
+  expectations agree with the contract;
+- an optional discovery strategy has not become a mandatory script or fixed
+  wording requirement;
+- material high-consequence behaviors and nearby boundaries have some
+  observable coverage; and
+- expected outputs and rubrics test decisions and outcomes without
+  over-specifying phrasing.
+
+Treat an explicit contradiction or violation of a hard contract boundary as a
+blocker. Treat a material but still interpretable coverage omission as a gap or
+warning unless the intended decision requires that behavior to be tested in
+the current run. Leave the exact case, rubric, contract, or implementation
+change to the appropriate follow-on module.
 
 ### Coverage and assignment integrity
 
@@ -172,6 +259,30 @@ If a criterion depends on hidden evidence, identify whether the static defect
 is an evaluator-visibility gap, a non-self-sufficient rubric, or an
 unjudgeable requirement. Do not choose or draft the repair here, and do not let
 the judge infer invisible source truth.
+
+### Runtime observability and satisfiability
+
+Evaluator placeholders describe what the judge receives, not whether runtime
+can produce meaningful evidence in those fields. For criteria involving tools
+that end generation, request interaction, replace the model response, or
+validate arguments after the model call, inspect documented runtime behavior,
+tool capability metadata, or another read-only source of the execution
+contract.
+
+Confirm that a plausible compliant live trace can both satisfy the rubric and
+reach the evaluator in the expected evidence shape. In particular, flag:
+
+- content criteria whose `{output}` is fixed, suppressed, or replaced by the
+  runtime path being tested;
+- tool-argument criteria that the live schema or validator cannot accept;
+- source-truth criteria assigned to an evaluator that cannot see the relevant
+  retrieval evidence; and
+- multiple pairs that catch no distinct material failure beyond an existing
+  assignment.
+
+Treat an impossible or runtime-unobservable requirement as a blocker for that
+pair. Missing runtime metadata is unresolved evidence, not permission to assume
+that the evaluator can observe the behavior.
 
 ### Rubric fit and strictness
 

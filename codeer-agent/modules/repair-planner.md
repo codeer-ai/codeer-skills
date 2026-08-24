@@ -25,6 +25,12 @@ The planner still needs enough meaning to recover:
 - the likely owner and material uncertainty; and
 - the current objects that would be affected by a change.
 
+For a query-led customer guidance Agent, also read the accepted
+`.codeer/design/query_distribution.csv` and
+`.codeer/design/behavior_contract.md` when they are relevant to the finding.
+They are design anchors, not runtime components or instructions to copy into
+the system prompt.
+
 Read current affected state before drafting a diff. A finding is evidence about
 the system, not a command to preserve its wording or proposed remedy. If the
 finding and current state disagree, surface the mismatch and return it to
@@ -49,6 +55,19 @@ Distinguish:
 Do not plan an exact repair when source truth is unresolved or the available
 evidence cannot distinguish plausible owners. In those cases, recommend the
 smallest decision, read, trace, or probe needed to unblock planning.
+
+If the accepted finding is that the Behavior Contract itself is ambiguous or
+should change, stop runtime repair planning. Use
+[consultative-guidance.md](consultative-guidance.md) to obtain user acceptance
+of the revised behavior, then update acceptance eval cases first. Re-enter the
+planner with the accepted contract and pre-change eval evidence. Do not hide an
+unapproved contract change inside Agent Settings, KB, Tools, or a rubric.
+
+If the accepted finding is distribution drift or an eval-portfolio allocation
+gap, route it to [query-distribution.md](query-distribution.md) and
+[eval-cases.md](eval-cases.md). Do not plan a runtime repair unless the accepted
+distribution change also changes the Behavior Contract, an operational
+dependency, capacity, tool path, or another runtime owner.
 
 ---
 
@@ -189,6 +208,7 @@ Choose the additional impact set from the changed owner:
 
 | Changed owner | Minimum impact set |
 | --- | --- |
+| Query Distribution or eval-portfolio allocation | Changed cells, neighboring allocation boundaries, risk reserves, and distribution-to-portfolio audit; runtime regression only when the Agent also changes |
 | One case rubric | The pair plus calibration examples and adjacent cases using the same criterion |
 | FAQ/routing target | Reproduction, same-source variants, similar routes, boundary, negative control |
 | One KB policy/file | Dependent Content/Source pairs and routes to that source |

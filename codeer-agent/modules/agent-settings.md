@@ -3,6 +3,30 @@
 Use this module whenever creating or changing an agent's system prompt, tools,
 KB configuration, retrieval routes, model, or handoff settings.
 
+For a query-led customer guidance Agent, first read the accepted
+`.codeer/design/query_distribution.csv` from
+[query-distribution.md](query-distribution.md), the accepted
+`.codeer/design/behavior_contract.md` from
+[consultative-guidance.md](consultative-guidance.md), and the reviewed
+acceptance cases from [eval-cases.md](eval-cases.md). The distribution describes
+expected demand and eval allocation; the contract defines the intended customer
+experience; the cases test it. None should be copied verbatim into the system
+prompt. Translate them into the simplest coherent ownership split across Agent
+Settings, KB, Tools, and handoff.
+
+When improving an existing Agent, do not use a settings repair to make an
+unapproved change to the Behavior Contract. If evidence indicates that the
+intended experience itself should change, return to Consultative Customer
+Guidance, obtain user acceptance, and update eval cases before designing the
+runtime diff.
+
+Use supported distribution evidence when evaluating frequency and hot-path
+residency, but keep its limits visible. Do not put traffic shares, sampling
+claims, speculative frequency estimates, or the distribution artifact itself
+into the runtime prompt. A distribution change alone warrants settings work
+only when it changes the appropriate operational dependency, capacity, tool
+path, or accepted Behavior Contract.
+
 When a change starts from Static Audit or Eval Debug findings, use
 [repair-planner.md](repair-planner.md) to establish the cross-component target
 state, alternatives, and verification scope. This module supplies the detailed
@@ -156,6 +180,10 @@ move, reorder, or replace before adding instructions.
 
 Before showing a settings diff, present:
 
+- the accepted Query Distribution evidence used for frequency or hot-path
+  decisions, including material confidence limits and open gaps;
+- the accepted Behavior Contract and reviewed acceptance behavior this target
+  state is meant to implement, including any material ambiguity still open;
 - the observed failure and strongest supported mechanism;
 - the current configuration defect and relevant evidence;
 - the proposed target state and why responsibility belongs in each component;

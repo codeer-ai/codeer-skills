@@ -47,6 +47,24 @@ handoff settings, and observable requirements in eval coverage. Do not persist
 scope as a file; once the agent is on the server, scope is captured in the
 agent settings and eval case coverage.
 
+### Route through distribution, contract, and eval design before building
+
+For a query-led customer guidance agent, stop after Scope Alignment and use
+[query-distribution.md](query-distribution.md) to create the accepted
+`.codeer/design/query_distribution.csv` from first-party evidence when
+available or an evidence-labeled estimate otherwise. Then use
+[consultative-guidance.md](consultative-guidance.md) to create the accepted
+`.codeer/design/behavior_contract.md`. After both artifacts are accepted, use
+[eval-cases.md](eval-cases.md) to design the portfolio, acceptance cases, and
+rubrics locally. These steps happen before KB upload, Agent Settings design, or
+Agent creation so expected demand and intended customer behavior—not the first
+prompt draft—define what the first Agent must satisfy.
+
+The cases cannot be applied to the server until the Agent exists. Keep the
+reviewed local manifest ready, continue with the KB and Agent steps below, and
+return to Eval Case Design after creation to apply the cases using the new
+`agent_id`.
+
 ---
 
 ## Step 2 — Prepare and upload KB
@@ -96,9 +114,11 @@ PROCESSING state are not yet available for retrieval.
 ## Step 3 — Create agent
 
 Write `.codeer/current/local_draft_agent.json`. Pull allowed outcomes and
-boundaries from the scope alignment discussion; attach KB node IDs from
-`codeer kb list` output. Apply the target-state gate in
-[agent-settings.md](agent-settings.md) before presenting the payload diff.
+boundaries from the Scope Alignment and accepted Behavior Contract; use
+supported Query Distribution evidence for hot-path and capacity decisions; use
+the reviewed acceptance cases as verification input rather than prompt text;
+and attach KB node IDs from `codeer kb list` output. Apply the target-state gate
+in [agent-settings.md](agent-settings.md) before presenting the payload diff.
 
 Discuss with the user:
 
