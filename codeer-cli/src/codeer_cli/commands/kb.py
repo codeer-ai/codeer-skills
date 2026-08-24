@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 
 from .. import kb as kb_mod
+from ..client import AuthError, CodeerError
 from ._util import log, print_json, strip_noisy_fields, truncate, write_json
 
 POLL_INTERVAL = 3
@@ -75,6 +76,28 @@ def register(subparsers):
     p.add_argument("--out", default=None,
                    help="Write stripped full file metadata to this file; stdout stays compact unless --full.")
     p.set_defaults(func=run_files)
+
+    # codeer kb export
+    p = sub.add_parser(
+        "export",
+        help="Export available KB file snapshot contents as local UTF-8 Markdown files.",
+    )
+    p.add_argument("--node-id", required=True, help="File, folder, or KB root node UUID to export")
+    target = p.add_mutually_exclusive_group(required=True)
+    target.add_argument("--file", help="Local output path for single-file export")
+    target.add_argument("--dir", help="Local output directory for recursive folder export")
+    p.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Overwrite existing export file(s). Without this flag, the export is blocked before writing.",
+    )
+    p.add_argument("--full", action="store_true", help="Print the full per-file export manifest.")
+    p.add_argument(
+        "--out",
+        default=None,
+        help="Write the full export manifest JSON to this file; stdout stays compact unless --full.",
+    )
+    p.set_defaults(func=run_export)
 
     p = sub.add_parser("upload", help="Create/reuse KB and upload files from a directory; run --dry-run first")
     p.add_argument("--dir", required=True, help="Directory containing files to upload")
@@ -332,6 +355,383 @@ def run_files(args, client) -> int:
     write_json(args.out, full_nodes)
     print_json(full_nodes if args.full else [_node_summary(n) for n in nodes])
     return 0
+
+
+_WINDOWS_RESERVED_NAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+}
+
+
+def _safe_export_component(value: str | None, *, fallback: str) -> str:
+    """Return one portable path component without allowing path traversal."""
+    raw = (value or "").strip()
+    cleaned = "".join(
+        "_" if ord(char) < 32 or char in '<>:"/\\|?*' else char
+        for char in raw
+    ).rstrip(" .")
+    if not cleaned or cleaned in {".", ".."}:
+        cleaned = fallback
+    if cleaned.split(".", 1)[0].upper() in _WINDOWS_RESERVED_NAMES:
+        cleaned = f"_{cleaned}"
+    return cleaned
+
+
+def _snapshot_filename(name: str | None, *, node_id: str) -> str:
+    safe_name = _safe_export_component(name, fallback=f"file-{node_id[:8]}")
+    if Path(safe_name).suffix.lower() not in {".md", ".markdown"}:
+        safe_name = f"{safe_name}.md"
+    return safe_name
+
+
+def _unique_export_component(component: str, *, node_id: str, used: set[str]) -> str:
+    candidate = component
+    index = 1
+    while candidate.casefold() in used:
+        suffix = f"__{node_id[:8]}" if index == 1 else f"__{node_id[:8]}-{index}"
+        path = Path(component)
+        candidate = f"{path.stem}{suffix}{path.suffix}" if path.suffix else f"{component}{suffix}"
+        index += 1
+    used.add(candidate.casefold())
+    return candidate
+
+
+def _collect_export_files(
+    client,
+    *,
+    organization_id: str,
+    workspace_id: str,
+    root_node_id: str,
+) -> tuple[list[dict], list[dict]]:
+    """Walk the KB tree and assign deterministic, collision-safe local paths."""
+    pending: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = [(root_node_id, (), ())]
+    seen: set[str] = set()
+    files: list[dict] = []
+    issues: list[dict] = []
+
+    while pending:
+        parent_id, output_parts, source_parts = pending.pop()
+        if parent_id in seen:
+            issues.append({"node_id": parent_id, "reason": "cycle_or_duplicate_folder"})
+            continue
+        seen.add(parent_id)
+
+        nodes = kb_mod.list_nodes(
+            client,
+            organization_id=organization_id,
+            workspace_id=workspace_id,
+            parent_id=parent_id,
+        )
+        nodes = sorted(
+            nodes,
+            key=lambda node: (
+                str(node.get("node_type") or node.get("type") or "").upper() != "FOLDER",
+                str(node.get("name") or node.get("original_name") or "").casefold(),
+                str(node.get("id") or node.get("node_id") or ""),
+            ),
+        )
+        used_components: set[str] = set()
+        child_folders: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = []
+
+        for node in nodes:
+            node_id = str(node.get("id") or node.get("node_id") or "")
+            node_type = str(node.get("node_type") or node.get("type") or "").upper()
+            node_name = str(node.get("name") or node.get("original_name") or "")
+            if not node_id:
+                issues.append({"name": node_name, "reason": "missing_node_id"})
+                continue
+
+            if node_type == "FOLDER":
+                component = _safe_export_component(node_name, fallback=f"folder-{node_id[:8]}")
+                component = _unique_export_component(component, node_id=node_id, used=used_components)
+                child_folders.append(
+                    (
+                        node_id,
+                        (*output_parts, component),
+                        (*source_parts, node_name or node_id),
+                    )
+                )
+                continue
+
+            if node_type != "FILE":
+                issues.append({"node_id": node_id, "name": node_name, "reason": f"unknown_node_type:{node_type}"})
+                continue
+
+            filename = _snapshot_filename(node_name, node_id=node_id)
+            filename = _unique_export_component(filename, node_id=node_id, used=used_components)
+            files.append(
+                {
+                    "node_id": node_id,
+                    "name": node_name,
+                    "source_path": "/".join((*source_parts, node_name or node_id)),
+                    "server_status": str(node.get("status") or "").upper() or None,
+                    "relative_output_path": str(Path(*output_parts, filename)),
+                }
+            )
+
+        pending.extend(reversed(child_folders))
+
+    files.sort(key=lambda item: item["relative_output_path"].casefold())
+    return files, issues
+
+
+def _compact_export_result(result: dict) -> dict:
+    problems = [
+        {
+            "node_id": item.get("node_id"),
+            "source_path": item.get("source_path"),
+            "result": item.get("result"),
+            "reason": item.get("reason"),
+        }
+        for item in result.get("files", [])
+        if item.get("result") != "exported"
+    ]
+    return {
+        key: result.get(key)
+        for key in (
+            "operation",
+            "mode",
+            "node_id",
+            "directory",
+            "output_file",
+            "server_status",
+            "exported_while_not_ready",
+            "complete",
+            "file_count",
+            "exported_count",
+            "non_ready_exported_count",
+            "skipped_count",
+            "failed_count",
+            "issue_count",
+            "reason",
+        )
+    } | {
+        "problems": problems[:20],
+        "additional_problem_count": max(0, len(problems) - 20),
+        "blocked_paths": result.get("blocked_paths", [])[:20],
+        "additional_blocked_path_count": max(0, len(result.get("blocked_paths", [])) - 20),
+    }
+
+
+def _print_export_result(args, result: dict) -> None:
+    write_json(args.out, result)
+    print_json(result if args.full else _compact_export_result(result))
+
+
+def _read_export_content(
+    client,
+    *,
+    organization_id: str,
+    workspace_id: str,
+    item: dict,
+) -> str | None:
+    try:
+        response = kb_mod.read_file_content(
+            client,
+            organization_id=organization_id,
+            workspace_id=workspace_id,
+            node_id=item["node_id"],
+        )
+    except AuthError:
+        raise
+    except CodeerError as exc:
+        if exc.status not in {400, 404}:
+            raise
+        item.update(result="failed", reason=f"api_error:{exc.status}:{exc.message}")
+        return None
+
+    response_status = str(response.get("status") or "").upper()
+    response_name = str(response.get("name") or "")
+    content = response.get("content")
+    item["server_status"] = response_status or item.get("server_status")
+    if response_name:
+        item["name"] = response_name
+    item.setdefault("source_path", response_name or item["node_id"])
+    if content is None:
+        item.update(
+            result="skipped",
+            reason=f"content_unavailable:{response_status or 'UNKNOWN'}",
+        )
+        return None
+    if not isinstance(content, str):
+        item.update(result="failed", reason="content_is_not_text")
+        return None
+    return content
+
+
+def _write_export_content(target: Path, content: str, item: dict) -> None:
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    except OSError as exc:
+        item.update(result="failed", reason=f"local_write_error:{exc}")
+        return
+    item.update(
+        result="exported",
+        bytes_written=len(content.encode("utf-8")),
+        exported_while_not_ready=item.get("server_status") != "READY",
+    )
+
+
+def _export_counts(files: list[dict]) -> dict:
+    exported_count = sum(item.get("result") == "exported" for item in files)
+    return {
+        "file_count": len(files),
+        "exported_count": exported_count,
+        "non_ready_exported_count": sum(
+            item.get("result") == "exported" and item.get("server_status") != "READY"
+            for item in files
+        ),
+        "skipped_count": sum(item.get("result") == "skipped" for item in files),
+        "failed_count": sum(item.get("result") == "failed" for item in files),
+    }
+
+
+def _run_file_export(args, client, *, workspace_id: str, organization_id: str) -> int:
+    output_file = Path(args.file).expanduser().resolve()
+    if args.out and Path(args.out).expanduser().resolve() == output_file:
+        log("error: --out manifest path must differ from --file content path")
+        return 2
+    if output_file.exists() and (output_file.is_dir() or not args.overwrite):
+        log("error: single-file export blocked before writing; use --overwrite only if replacement is intended")
+        return 2
+
+    existing_parent = output_file.parent
+    while not existing_parent.exists() and existing_parent != existing_parent.parent:
+        existing_parent = existing_parent.parent
+    if existing_parent.exists() and not existing_parent.is_dir():
+        log(f"error: output parent {existing_parent} is not a directory")
+        return 2
+
+    item = {
+        "node_id": args.node_id,
+        "output_path": str(output_file),
+    }
+    content = _read_export_content(
+        client,
+        organization_id=organization_id,
+        workspace_id=workspace_id,
+        item=item,
+    )
+    if content is not None:
+        _write_export_content(output_file, content, item)
+
+    counts = _export_counts([item])
+    complete = counts["skipped_count"] == 0 and counts["failed_count"] == 0
+    result = {
+        "operation": "kb_export",
+        "mode": "file",
+        "node_id": args.node_id,
+        "directory": str(output_file.parent),
+        "output_file": str(output_file),
+        "server_status": item.get("server_status"),
+        "exported_while_not_ready": item.get("exported_while_not_ready", False),
+        "complete": complete,
+        **counts,
+        "issue_count": 0,
+        "issues": [],
+        "files": [item],
+    }
+    _print_export_result(args, result)
+    return 0 if complete else 1
+
+
+def _run_folder_export(args, client, *, workspace_id: str, organization_id: str) -> int:
+    output_dir = Path(args.dir).expanduser().resolve()
+    if output_dir.exists() and not output_dir.is_dir():
+        log(f"error: --dir {output_dir} exists and is not a directory")
+        return 2
+
+    files, issues = _collect_export_files(
+        client,
+        organization_id=organization_id,
+        workspace_id=workspace_id,
+        root_node_id=args.node_id,
+    )
+
+    blocked_paths: list[str] = []
+    for item in files:
+        target = output_dir / item["relative_output_path"]
+        if target.exists() and (target.is_dir() or not args.overwrite):
+            blocked_paths.append(str(target))
+        parent = target.parent
+        while parent != output_dir:
+            if parent.exists() and not parent.is_dir():
+                blocked_paths.append(str(parent))
+                break
+            parent = parent.parent
+
+    if blocked_paths:
+        result = {
+            "operation": "kb_export",
+            "mode": "folder",
+            "node_id": args.node_id,
+            "directory": str(output_dir),
+            "output_file": None,
+            "complete": False,
+            "file_count": len(files),
+            "exported_count": 0,
+            "non_ready_exported_count": 0,
+            "skipped_count": 0,
+            "failed_count": len(set(blocked_paths)),
+            "issue_count": len(issues),
+            "issues": issues,
+            "files": [],
+            "blocked_paths": sorted(set(blocked_paths)),
+            "reason": "existing_paths_require_overwrite_or_conflict_with_directories",
+        }
+        _print_export_result(args, result)
+        log("error: export blocked before writing; use --overwrite only if replacing existing files is intended")
+        return 2
+
+    for item in files:
+        target = output_dir / item["relative_output_path"]
+        content = _read_export_content(
+            client,
+            organization_id=organization_id,
+            workspace_id=workspace_id,
+            item=item,
+        )
+        if content is not None:
+            _write_export_content(target, content, item)
+
+    counts = _export_counts(files)
+    complete = not issues and counts["skipped_count"] == 0 and counts["failed_count"] == 0
+    result = {
+        "operation": "kb_export",
+        "mode": "folder",
+        "node_id": args.node_id,
+        "directory": str(output_dir),
+        "output_file": None,
+        "complete": complete,
+        **counts,
+        "issue_count": len(issues),
+        "issues": issues,
+        "files": files,
+    }
+    _print_export_result(args, result)
+    return 0 if complete else 1
+
+
+def run_export(args, client) -> int:
+    workspace_id, organization_id = client.resolve_scope()
+    if args.file:
+        return _run_file_export(
+            args,
+            client,
+            workspace_id=workspace_id,
+            organization_id=organization_id,
+        )
+    return _run_folder_export(
+        args,
+        client,
+        workspace_id=workspace_id,
+        organization_id=organization_id,
+    )
 
 
 def run_upload(args, client) -> int:
