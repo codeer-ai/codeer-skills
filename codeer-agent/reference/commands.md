@@ -11,10 +11,16 @@ All working files go under **`.codeer/`** in the project root.
 ## `.codeer/` file lifecycle
 
 The server is the source of truth for all agent, eval case, and rubric data.
-Local files are either **caches** of server state or **drafts** staged for apply.
+Accepted Query Distribution and Behavior Contract files are persistent local
+design state, not server objects. Other local files are **caches** of server
+state, **drafts** staged for apply, or pinned evidence.
 
 ```
 .codeer/
+├── design/                             # accepted, persistent local design state
+│   ├── query_distribution.csv         # descriptive demand and eval allocation
+│   └── behavior_contract.md            # normative customer-guidance behavior
+│
 ├── current/                            # working directory for active cycle
 │   ├── agent.json                      # cache:  codeer agent get
 │   ├── eval_cases.json                 # cache:  codeer eval list
@@ -25,35 +31,52 @@ Local files are either **caches** of server state or **drafts** staged for apply
 │   │   └── eval_table.csv
 │   ├── eval_results.json               # cache:  codeer eval run --out (full-suite runs)
 │   ├── local_draft_agent.json          # draft:  codeer agent apply
+│   ├── local_draft_eval_cases.md       # reviewed behavior draft; may contain unresolved pairs
 │   ├── local_draft_eval_cases.json     # draft:  codeer eval cases-apply
 │   ├── local_draft_rubrics.json        # draft:  codeer eval rubrics-apply
 │   └── progress.json                   # batch tracking across eval runs
 │
-└── pinned/                             # user-triggered, auto-dated
+└── pinned/                             # append-only baselines, pre-change evidence, saved revisions
     └── YYYY-MM-DD/                     # append -2, -3 for same-day pins
 ```
 
 ### Rules
 
-1. **`current/` overwrites in place** — no date-stamping, no versioning.
+1. **`design/` is persistent accepted state** — it survives cycles and is never
+   auto-overwritten. Before replacing an accepted design artifact, preserve the
+   prior accepted revision under `pinned/<date>-design/`.
+2. **`current/` overwrites in place** — no date-stamping, no versioning.
    Refresh caches from the server at the start of each cycle.
-2. **`pinned/` is append-only** — before overwriting something the user may
-   want to keep, ask "pin these results?" and copy to `pinned/<date>/`.
-3. **No files outside `current/` and `pinned/`** — nothing at `.codeer/` root.
-4. **No scripts** — `.py`, `.mjs`, `.html`, `.cjs` are prohibited under
+3. **`pinned/` is append-only** — automatically pin the first full baseline
+   and every required pre-change eval before a runtime change. Ask whether to
+   pin other temporary debug or batch results only when preserving them would
+   be useful.
+4. **No files outside `design/`, `current/`, and `pinned/`** — nothing at
+   `.codeer/` root.
+5. **No scripts** — `.py`, `.mjs`, `.html`, `.cjs` are prohibited under
    `.codeer/`. If the CLI cannot do it, say so and stop for user direction.
-5. **Drafts use `local_draft_` prefix** — distinguishes staging files from
-   server caches. Delete drafts after successful apply + cache refresh.
-6. **ID cache files are not used** — no `kb_ids.json`, `agent_ids.json`,
+6. **Drafts use `local_draft_` prefix** — distinguishes local working files
+   from server caches. Delete apply-staging drafts after successful apply +
+   cache refresh. Retain `local_draft_eval_cases.md` while it still records an
+   unresolved case/evaluator pair or an accepted behavior that has not yet been
+   transferred into the server-backed suite.
+7. **ID cache files are not used** — no `kb_ids.json`, `agent_ids.json`,
    `case_ids.json`. The CLI resolves IDs from env vars or server queries.
+
+These paths do not decide whether a customer project commits `.codeer/design/`
+to Git. Treat design artifacts as potentially confidential. Use Git only in an
+approved private repository or use another approved revision store; local
+persistence and pinning do not by themselves authorize sharing the files.
 
 ### Cycle lifecycle
 
-| Phase | What happens to `current/` |
+| Phase | Required handling |
 | --- | --- |
-| Cycle start | Refresh caches: `codeer agent get`, `codeer eval list`, `codeer eval rubrics` |
-| During cycle | Drafts created, diffs shown, applied. Eval exports overwrite `eval_table/`. Debug artifacts overwrite in place per batch. |
-| Pin (optional) | Copy `current/eval_table/` (or any subset) to `pinned/<date>/` |
+| Cycle start | Preserve `design/`; refresh caches in `current/`: `codeer agent get`, `codeer eval list`, `codeer eval rubrics` |
+| During cycle | Drafts created, diffs shown, applied. Eval exports overwrite `current/eval_table/`. Debug artifacts overwrite in place per batch. |
+| First baseline | Automatically copy the exported results plus exact Agent/version and evaluator/judge context to `pinned/<date>-first-baseline/` before diagnosis or repair. |
+| Pre-change eval | Automatically copy the focused pre-change results and context to `pinned/<date>-pre-change/` before a runtime change. |
+| Other pin (optional) | Ask before copying temporary debug or batch evidence to `pinned/<date>/`. |
 | Cycle end (publish) | `current/` stays as final state; next cycle start overwrites it |
 
 ### Batch progress tracking

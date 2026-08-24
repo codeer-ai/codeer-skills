@@ -30,6 +30,29 @@ Missing evidence lowers confidence; it does not license a guessed diagnosis.
 
 ---
 
+## Behavior Contract decision boundary
+
+Read the accepted `.codeer/design/behavior_contract.md` and use it as the
+design anchor for diagnosis without treating it as hidden evaluator evidence.
+
+- If the response violates a clear contract behavior and the case accurately
+  tests that behavior, continue diagnosing the implementation owner.
+- If the case, expected output, rubric, or evaluator demands behavior that the
+  contract does not require or contradicts, classify an eval-system defect.
+- If the contract is materially ambiguous, or faithfully implementing it would
+  still produce a worse customer experience, identify a contract decision for
+  [consultative-guidance.md](consultative-guidance.md) and human acceptance.
+
+Eval Debug does not silently rewrite the Behavior Contract. It is used for all
+non-perfect dynamic evidence, not only when the eval itself may need to change;
+its job is to determine the strongest supported owner. If the contract is not
+available, do not infer it from one rubric or the current Agent settings.
+For a legacy Agent without the persistent artifact, surface the missing design
+evidence and obtain user confirmation before classifying a finding as contract
+divergence or contract improvement.
+
+---
+
 ## Finding method
 
 Dynamic evidence must remain anchored to the static configuration that produced
@@ -170,6 +193,9 @@ repairs.
 
 If a finding appears suite-wide, route the broader static consistency question
 to [static-audit.md](static-audit.md). When the user wants to change the system,
-hand the accepted findings to [repair-planner.md](repair-planner.md). Eval Debug
-does not choose the target state, draft the diff, define the impact regression,
-or apply server changes.
+hand accepted implementation or eval findings to
+[repair-planner.md](repair-planner.md). Route a contract decision to
+[consultative-guidance.md](consultative-guidance.md) first; after the revised
+contract is accepted, update eval cases before planning runtime changes. Eval
+Debug does not choose the target state, draft the diff, define the impact
+regression, or apply server changes.

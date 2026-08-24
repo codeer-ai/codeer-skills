@@ -3,6 +3,20 @@
 Build eval cases that cover the agent's operating scope. Work one category
 at a time so each review batch is mentally manageable.
 
+For a new query-led customer guidance Agent, begin from the accepted
+`.codeer/design/query_distribution.csv` in
+[query-distribution.md](query-distribution.md) and
+`.codeer/design/behavior_contract.md` in
+[consultative-guidance.md](consultative-guidance.md). The distribution defines
+the evidence-backed portfolio; the contract defines correct behavior. Design
+the acceptance cases locally before the Agent exists. An `agent_id` is required
+to apply or run cases, not to decide the customer behavior they should test.
+Use `.codeer/current/local_draft_eval_cases.md` for this human-reviewed design
+draft. It may preserve unresolved evaluator or runtime-evidence decisions that
+cannot yet be represented in the apply-ready JSON manifest.
+For an existing Agent, also inspect its current effective settings and relevant
+production or eval evidence.
+
 ---
 
 ## Diff rule
@@ -15,13 +29,30 @@ cases or rubric changes silently.
 
 ## Step 1 — MECE categories
 
-Inspect the agent's settings, system prompt, KBs, and tools. Propose a
-set of mutually exclusive, collectively exhaustive categories — for example:
-product Q&A, routing, ordering, policy boundaries, tool-backed actions, and
-out-of-scope refusals.
+Inspect the accepted scope, Query Distribution, Behavior Contract, available
+input candidates, and source material. When an Agent already exists, also
+inspect its settings, system prompt, KBs, and tools, but do not let the current
+implementation silently redefine the accepted behavior. Propose a set of
+mutually exclusive, collectively exhaustive categories — for example: product
+Q&A, discovery and narrowing, recommendation boundaries, transaction readiness,
+tool-backed actions, handoff, and out-of-scope handling.
 
 - Aim for 3–6 categories.
 - **Confirm the category structure with the user before writing any cases.**
+
+### Portfolio allocation
+
+Use `eval_target_share` as the designed portfolio target, not a requirement for
+exact integer equality in every small batch. Allocate the available review
+budget across representative base tasks, material lifecycle boundaries, and
+intentional rare-but-high-consequence reserves. Explain rounding, minimum-cell
+coverage, and any departure from the accepted distribution.
+
+Do not infer real-world frequency from candidate count. Do not drop a rare
+high-risk cell merely because its estimated share is low, and do not multiply
+every task by every risk or challenge. When the distribution is provisional or
+has open gaps, label the resulting coverage limits rather than manufacturing
+precision.
 
 ---
 
@@ -54,6 +85,13 @@ can see the agent prompt, KB files, retrieved chunks, tool traces, expected
 output, or diagnosis notes unless that information is explicitly included by
 the evaluator template. After accounting for the evaluator's actual inputs,
 make the rubric as self-sufficient as practical.
+
+Evaluator templates can be inspected before an Agent exists. If the required
+evaluator or its evidence contract is unavailable, do not invent an ID or
+claim the rubric is ready to apply. Keep the intended observable behavior in
+the Markdown local draft and identify the unresolved evaluator decision. Use
+the same unresolved state when the evaluator exists but a not-yet-selected or
+not-yet-configured Tool makes the actual runtime evidence shape unknowable.
 
 **Pair admission gate**: Before assigning an evaluator, be able to state all
 of the following for that case/evaluator pair:
@@ -103,11 +141,24 @@ Common check patterns:
 
 ### 2c. Present for review
 
-Show cases to the user. Keep the batch small enough to review without fatigue.
+Show the Markdown draft cases to the user. Keep the batch small enough to
+review without fatigue. Acceptance at this point covers the case input,
+intended behavior, prohibited outcome, and observable success; it does not
+pretend that an unresolved evaluator ID or runtime evidence shape is final.
 
 ### 2d. Apply
 
-After user approves (with any adjustments):
+After the user approves the cases and the Agent has been created, read the
+DRAFT Agent and Tools with `codeer agent get --full` and read evaluator
+templates with `codeer eval evaluators --full`. Resolve every intended pair
+through the Pair Admission Gate, then convert the admitted cases into
+`.codeer/current/local_draft_eval_cases.json`. If the conversion changes the
+accepted behavior rather than only its evaluator/evidence binding, return the
+semantic change to the user for review. Cases with no admitted pair remain in
+the Markdown draft and do not count as applied coverage.
+
+Present the server diff and obtain the mutation approval required by the parent
+skill. Then apply the admitted cases using the new `agent_id`:
 
 ```bash
 codeer eval cases-apply \
@@ -135,10 +186,11 @@ Then output the eval-cases server link so the user can verify.
 
 ### 2e. Optionally test this batch
 
-Run eval on just the new cases and use **eval-debug** to diagnose any dynamic
-findings. When a finding warrants a change, use **repair-planner** to design and
-review the target state before the owning module applies it. This catches
-problems early.
+After a complete Agent version exists and Static Audit has passed, run eval on
+just the new cases and use **eval-debug** to diagnose any dynamic findings.
+When a finding warrants a change, use **repair-planner** to design and review
+the target state before the owning module applies it. Do not describe a local
+draft or an unevaluated case batch as a baseline.
 
 ### 2f. Next category
 
@@ -149,15 +201,18 @@ Repeat from 2a for the next category.
 ## Step 3 — Static preflight and full sweep
 
 Before the first baseline and after any case, rubric, evaluator, KB, FAQ, or
-agent-settings change, run [static-audit.md](static-audit.md). Do not start the
-full sweep while its verdict is `BLOCKED`.
+agent-settings change—and after an accepted Query Distribution update—run
+[static-audit.md](static-audit.md). Do not start the full sweep while its verdict
+is `BLOCKED`. Include both distribution-to-portfolio alignment and the Behavior
+Contract's semantic alignment with acceptance cases in the audited scope.
 
-After all categories are covered, run eval across ALL cases as a regression
+For a new Agent, after all categories are covered, cases are applied, and the
+first full DRAFT Agent passes Static Audit, run every assigned case/evaluator
+pair. This is the first baseline: the pre-repair dynamic evidence for the
+complete first Agent. On later iterations, the same full sweep is a regression
 check. The default full-suite run uses every case/evaluator pair already
-assigned on the server:
-
-For a full-suite run with many cases, use `--out` to avoid flooding the
-context window:
+assigned on the server. For a full-suite run with many cases, use `--out` to
+avoid flooding the context window:
 
 ```bash
 codeer eval run \
@@ -176,6 +231,10 @@ For a full export (user review, spreadsheet analysis), run:
 codeer eval export \
     --agent <agent_id> --out .codeer/current/eval_table/
 ```
+
+After the first baseline completes, automatically copy the exported results
+plus exact Agent/version, evaluator-template, and judge-model context to
+`.codeer/pinned/<date>-first-baseline/` before any diagnosis or repair.
 
 Then hand off to **eval-debug** for any non-perfect scores. Findings that
 warrant a change go to **repair-planner** before any diff is drafted or applied.
@@ -207,7 +266,10 @@ When building cases from production conversations (Phase 2):
 
 When a case needs previous thread context, use a real persisted history as the
 source. If production traffic already has the right setup, use that history.
-If not, create a seed history through the published agent:
+For an existing Agent with a suitable published version, obtain explicit user
+approval immediately before creating or continuing a seed history, because
+these commands persist conversation state. Then create the seed through the
+published Agent:
 
 ```bash
 codeer history create \
@@ -226,6 +288,15 @@ This uses Chat V2 structured SSE to write real persisted conversation parts
 and returns the `history_id` plus conversation group/part IDs. The command uses
 the published agent version only; the API-key Chat V2 flow cannot pin an
 unpublished draft version.
+
+For a brand-new Agent with no suitable persisted history, this limitation makes
+an authentic multi-turn pair unresolved before first publish. Do not seed it
+through a different Agent or publish merely to create the prerequisite. Keep
+the case in `.codeer/current/local_draft_eval_cases.md`, report the coverage
+blocker, and do not claim a complete multi-turn baseline or publish readiness.
+A deliberately limited first publish requires separate, explicit user risk
+acceptance. Full pre-publish coverage requires Codeer support for
+DRAFT-compatible history seeding or supported inline prior-turn replay.
 
 If either stream times out, reports `response.failed`, or disconnects before
 `response.completed`, inspect the history before retrying. The server may
@@ -272,6 +343,12 @@ work through one batch at a time. This keeps each review cycle
 manageable and avoids running expensive full-suite evals repeatedly
 during the improvement loop.
 
+During Phase 1, batches may organize case authoring, review, and apply, but do
+not repair the Agent between dynamic batches before the first full baseline.
+The batch → diagnose → repair loop below is for Phase 2 after the first baseline
+has been preserved. Otherwise the eventual full sweep is post-repair evidence,
+not the pre-repair first baseline defined by the parent skill.
+
 ### Splitting into batches
 
 Use the MECE categories as the natural batch boundaries. Each batch
@@ -308,5 +385,5 @@ state.
 After all batches are done, re-run [static-audit.md](static-audit.md), then run
 all assigned case/evaluator pairs as a regression check before publishing.
 Reconcile planned and completed pair counts. If the user wants to preserve the
-batch-level progress, pin `current/progress.json` before the full-suite run
-overwrites it.
+batch-level progress beyond the active cycle, pin
+`.codeer/current/progress.json` before it is replaced during later work.
