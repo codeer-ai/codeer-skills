@@ -51,14 +51,16 @@ agent settings and eval case coverage.
 
 For a query-led customer guidance agent, stop after Scope Alignment and use
 [query-distribution.md](query-distribution.md) to create the accepted
-`.codeer/design/query_distribution.csv` from first-party evidence when
-available or an evidence-labeled estimate otherwise. Then use
+`.codeer/design/query_distribution.csv` and
+`.codeer/design/query_examples.csv` from first-party evidence when available
+or a clearly labeled provisional model otherwise. Then use
 [consultative-guidance.md](consultative-guidance.md) to create the accepted
-`.codeer/design/behavior_contract.md`. After both artifacts are accepted, use
-[eval-cases.md](eval-cases.md) to design the portfolio, acceptance cases, and
-rubrics locally. These steps happen before KB upload, Agent Settings design, or
-Agent creation so expected demand and intended customer behavior—not the first
-prompt draft—define what the first Agent must satisfy.
+`.codeer/design/behavior_contract.md`. After the distribution model and Behavior
+Contract are accepted, use [eval-cases.md](eval-cases.md) to design the
+portfolio, acceptance cases, and rubrics locally. These steps happen before KB
+upload, Agent Settings design, or Agent creation so expected demand and intended
+customer behavior—not the first prompt draft—define what the first Agent must
+satisfy.
 
 The cases cannot be applied to the server until the Agent exists. Keep the
 reviewed local manifest ready, continue with the KB and Agent steps below, and

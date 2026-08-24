@@ -64,7 +64,10 @@ For each task, record:
 
 ## Allocation rule
 
-Keep rare high-risk cells even when their observed share is low. Record the deliberate difference between `estimated_real_world_share` and `eval_target_share`.
+Keep rare high-risk query types even when their demand band is low. Their
+`target_cases` may exceed what demand alone would suggest. Explain the
+consequential choice in the review or optional notes rather than requiring a
+dedicated column on every row.
 
 Create at least:
 

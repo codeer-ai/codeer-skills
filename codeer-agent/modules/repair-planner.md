@@ -26,7 +26,8 @@ The planner still needs enough meaning to recover:
 - the current objects that would be affected by a change.
 
 For a query-led customer guidance Agent, also read the accepted
-`.codeer/design/query_distribution.csv` and
+`.codeer/design/query_distribution.csv`,
+`.codeer/design/query_examples.csv`, and
 `.codeer/design/behavior_contract.md` when they are relevant to the finding.
 They are design anchors, not runtime components or instructions to copy into
 the system prompt.

@@ -179,22 +179,19 @@ copying the symptom into the system prompt.
 When the accepted distribution is available, compare it with the designed case
 portfolio and intended run. Confirm that:
 
-- each material core/common cell and intentionally reserved high-consequence
-  cell has meaningful coverage within the available review budget;
-- case allocation is directionally consistent with `eval_target_share`, with
-  rounding, minimum-cell coverage, and deliberate departures explained;
-- risk overweighting is explicit and does not masquerade as an estimated
-  production frequency;
-- candidate count, synthetic variants, public evidence, and challenge count are
-  not used as unsupported prevalence evidence;
-- channel, locale, segment, evidence-window, and sampling limitations remain
-  visible; and
-- open or low-confidence cells are reported rather than silently treated as
-  complete coverage.
+- each material core/common query type and intentionally reserved
+  high-consequence query type has meaningful coverage;
+- case counts align with `target_cases` or have an accepted, explicit
+  departure;
+- every covered query type has a concrete linked example;
+- example count, constructed variants, and public evidence are not used as
+  unsupported prevalence evidence; and
+- material document-level scope or evidence limitations remain visible when
+  they affect the audit conclusion.
 
-Treat omission of a material high-consequence cell required for the intended
-decision as a blocker. Treat ordinary allocation drift, provisional demand
-estimates, or incomplete but interpretable evidence as a warning or open gap.
+Treat omission of a material high-consequence query type required for the
+intended decision as a blocker. Treat an interpretable small-portfolio
+allocation difference as a warning unless it invalidates the intended gate.
 Static Audit assesses the accepted model and portfolio; it does not estimate a
 new distribution or choose the repair.
 
