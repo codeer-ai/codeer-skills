@@ -79,20 +79,21 @@ finding method based on observation, evidence, consequence, likely ownership,
 and uncertainty; neither requires issue codes, JSON, or a fixed report schema.
 
 For query-led product, service, course, support, booking, form, or payment
-guidance, first use **query-distribution** to persist the accepted demand and
-eval-allocation model, then use **consultative-guidance** to persist the
-accepted customer experience. Query Distribution is descriptive; the Behavior
-Contract is normative. Neither is a server object or runtime prompt. Acceptance
-eval cases combine both and should be designed before the Agent is created.
+guidance, first use **query-distribution** to persist the accepted lean demand,
+risk, allocation, and concrete-example model, then use
+**consultative-guidance** to persist the accepted customer experience. Query
+Distribution is descriptive; the Behavior Contract is normative. Neither is a
+server object or runtime prompt. Acceptance eval cases combine both and should
+be designed before the Agent is created.
 
 ### Phase 1: Build (zero to first publish)
 
 | Step | Module | What happens |
 | --- | --- | --- |
 | 1 | **kb-and-agent** | Scope Alignment only |
-| 2 | **query-distribution** | Analyze first-party histories when available; otherwise build an evidence-labeled estimate → user accepts `.codeer/design/query_distribution.csv` |
+| 2 | **query-distribution** | Model only behaviorally distinct customer tasks, demand, risk, target case counts, and concrete inputs → user accepts `.codeer/design/query_distribution.csv` and `.codeer/design/query_examples.csv` |
 | 3 | **consultative-guidance** | Use the distribution and available evidence → recommend dialogue/discovery and risk policies → user accepts `.codeer/design/behavior_contract.md` |
-| 4 | **eval-cases** | Design and review `.codeer/current/local_draft_eval_cases.md` from both artifacts; preserve intended behavior and observable success even when evaluator or runtime evidence binding is still unresolved; no `agent_id` is required yet |
+| 4 | **eval-cases** | Design and review `.codeer/current/local_draft_eval_cases.md` from the accepted distribution model and Behavior Contract; preserve intended behavior and observable success even when evaluator or runtime evidence binding is still unresolved; no `agent_id` is required yet |
 | 5 | **agent-settings → kb-and-agent** | Translate the accepted contract into Agent Settings, KB, Tools, handoff, and the first full DRAFT Agent; use distribution evidence for hot-path decisions |
 | 6 | **eval-cases** | Read the DRAFT, Tools, and evaluator templates → resolve intended pairs through the Pair Admission Gate → produce and apply `.codeer/current/local_draft_eval_cases.json`; unresolved pairs stay local and do not count as coverage |
 | 7 | **static-audit** | Read-only distribution ↔ portfolio, contract ↔ eval, and KB ↔ settings ↔ eval preflight gate |
@@ -206,7 +207,7 @@ codeer-agent/
 │   ├── repair-planner.md ← target state, reviewable diffs, impact verification
 │   └── history.md        ← production analysis, feedback, coverage gaps
 ├── scripts/
-│   └── validate_eval_artifacts.py ← distribution and candidate CSV validation
+│   └── validate_eval_artifacts.py ← distribution and query-example CSV validation
 └── reference/
     ├── consultative-guidance-methods.md ← dialogue and discovery method selection
     ├── query-distribution/ ← methodology, schemas, tasks, risks, and challenges

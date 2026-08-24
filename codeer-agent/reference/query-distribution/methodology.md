@@ -2,154 +2,119 @@
 
 ## Goal
 
-Construct an eval portfolio that can explain:
+Create the smallest distribution that can answer:
 
-1. which customer tasks matter;
-2. which failures have serious industry consequences;
-3. why the selected cases receive their allocation;
-4. which challenge mechanisms are intentionally tested;
-5. how strong the supporting evidence is.
+1. what customers need help with;
+2. when journey state changes correct handling;
+3. how consequential a mistake would be;
+4. how many acceptance cases should cover each query type; and
+5. what concrete customer inputs make each type recognizable.
 
-The persistent Query Distribution records two related but distinct views:
-
-- an evidence-bounded estimate of real customer demand; and
-- a designed eval portfolio that combines representative demand with deliberate
-  risk coverage.
-
-The test set is not a claim that it mirrors production traffic. Keep the Query
-Distribution separate from the Behavior Contract: the former describes what is
-expected to arrive, while the latter defines how the Agent should behave.
+The Query Distribution describes expected work. The Behavior Contract defines
+how the Agent should handle it. The eval portfolio tests the accepted pair.
 
 ## Keep four concepts separate
 
-### Base task
+### Customer task
 
-The outcome the customer wants, such as book, reschedule, check status, cancel, dispute, diagnose, or retrieve a record.
+The outcome the customer wants, such as compare, choose, book, reschedule,
+check status, cancel, dispute, troubleshoot, or retrieve a record.
 
-### Task-specific complication
+### Journey state
 
-A business-state boundary that only makes sense in the task lifecycle, such as changing an order after shipment or rescheduling after the cancellation deadline.
+A business-state boundary that changes correct handling, such as changing an
+order after shipment or rescheduling after a deadline. Leave it blank when
+state does not materially matter.
 
-### Industry risk
+### Demand band
 
-The consequence of mishandling the case, such as delayed medical care, financial loss, privacy exposure, loss of legal rights, or service interruption.
+An ordinal view of expected demand: `core`, `common`, `occasional`, `rare`, or
+`unknown`. Use `unknown` instead of false precision.
 
-### Challenge pattern
+### Risk level
 
-The communication or state-management mechanism that makes the same underlying task harder, such as contradiction, late disclosure, missing attachment, abuse, or fragmented multi-turn input.
+The consequence of mishandling a query: `normal`, `elevated`, `high`, or
+`critical`. Risk is independent of frequency and interaction difficulty.
 
 ## Evidence ladder
 
-Use the strongest available evidence and label its limits.
+Use the strongest available evidence:
 
-1. **Target first-party conversations**: strongest evidence for language and demand within the target organization.
-2. **Target operational records**: tickets, dispositions, search logs, escalation reasons, call categories, or CRM fields.
-3. **Target public surfaces**: official FAQ, help center, forms, policies, reviews, complaints, and public Q&A.
-4. **Close industry proxies**: comparable organizations, professional forums, regulator complaints, court cases, and incident reports.
-5. **Cross-industry structural sources**: useful for task or challenge mechanisms, not target frequency.
-6. **Expert construction**: useful for rare high-risk coverage; label as constructed.
-7. **Synthetic expansion**: useful only after a real base pattern exists; never frequency evidence.
+1. target first-party conversations;
+2. target operational records;
+3. target public surfaces;
+4. close industry proxies;
+5. cross-industry structural sources;
+6. expert construction; and
+7. synthetic expansion after a supported base pattern exists.
 
-Record `evidence_tier`, `source_population`, `adaptation_distance`, and `confidence`.
+Evidence can establish task existence, customer wording, risk, or demand.
+Do not treat support for one claim as support for all four. Public examples and
+constructed cases are not evidence of target-company frequency.
 
-## Research and distribution workflow
+## Workflow
 
-### 1. Frame
+### 1. Frame the material scope
 
-Define company scope, operating models, customer journeys, channels, geography, language, Agent actions, exclusions, and risk owner.
+Define the company, product, customer journeys, locale, supported Agent
+actions, exclusions, and consequence owner. Persist separate notes only when
+scope or evidence limits need to survive the session.
 
-### 2. Map base tasks
+### 2. Map behaviorally distinct tasks and states
 
-Use official workflows and customer-facing surfaces first. Model lifecycle transitions instead of relying on a flat intent list.
+Start from customer outcomes and official workflows. Split a query type only
+when the distinction changes the correct answer, next move, authority boundary,
+risk policy, or necessary eval coverage.
 
-### 3. Find friction and unmet states
+### 3. Assign demand and risk
 
-Use public questions, reviews, complaint records, and project data to find:
+Use a demand band supported by available evidence. Judge risk separately using
+the relevant industry consequences. Do not add provenance and confidence
+columns by default; explain material uncertainty in notes or the review.
 
-- failed or blocked transitions;
-- repeated contacts;
-- missing prerequisites;
-- exception requests;
-- handoff and ownership gaps;
-- common task combinations.
+### 4. Allocate target cases
 
-### 4. Build an industry-risk register
+Set `target_cases` as an integer based on:
 
-For each task or transition, ask what happens if the Agent:
+- representative core demand;
+- deliberate rare-but-severe reserves;
+- material journey boundaries; and
+- the available review budget.
 
-- gives incorrect information;
-- fails to escalate;
-- takes an unauthorized action;
-- discloses protected information;
-- creates false certainty;
-- delays a time-sensitive next step.
+The allocation need not mirror traffic. Explain a consequential departure in
+the review or optional notes; do not require a per-row rationale field.
 
-Keep severity independent from prevalence.
+### 5. Add concrete examples
 
-### 5. Estimate observed demand
+Add representative examples first. Then add boundary or risk examples only
+when they expose distinct handling or failure mechanisms. Preserve necessary
+multi-turn context and deidentify observed inputs.
 
-Estimate `estimated_real_world_share` only when evidence permits. Prefer ranges or ordinal bands over false precision. Set the field blank when the evidence only proves existence.
+Use provenance labels honestly:
 
-### 6. Design the eval allocation
+- `observed` for deidentified target first-party examples;
+- `adapted` for examples grounded in a source but rewritten for the target;
+- `constructed` for deliberately authored coverage.
 
-Set `eval_target_share` using:
+### 6. Deduplicate by meaning
 
-- representative coverage;
-- intentional rare-but-severe risk reserves;
-- operating-model breadth;
-- channel and language requirements;
-- review budget.
+Retain two examples only when they differ in task, journey state, disclosure
+order, consequence, or a failure mechanism that matters. Wording variation
+alone is not a reason to keep another row.
 
-Record `overweight_reason` whenever allocation exceeds the estimated real-world share.
+### 7. Review and stop
 
-### 7. Generate base inputs
+Stop when every material query type has a representative input and additions
+no longer cover a meaningful task, state, risk, or boundary gap. Report
+remaining uncertainty instead of filling the table with speculative metadata
+or low-value synthetic variants.
 
-Generate plain inputs before adversarial variants. Preserve source meaning without copying copyrighted text. Keep full multi-turn context in `input_display` and the latest evaluand in `target_user_query`.
+## Production evidence
 
-### 8. Add challenge variants selectively
+Use a sufficiently broad declared history scope before changing demand bands.
+One failure or negative conversation normally adds an eval probe or a
+deidentified example; it does not establish distribution drift.
 
-Use challenges that plausibly change the Agent's failure probability. Prefer one mechanism per diagnostic variant. Combine two only when the interaction is realistic or the risk demands stress testing.
-
-### 9. Deduplicate and cluster
-
-Exact uniqueness is insufficient. Assign:
-
-- `cluster_id` for semantically similar scenarios;
-- `variant_family_id` for the same base situation expressed through different challenge mechanisms.
-
-Do not delete a variant merely because wording overlaps; retain it only when it tests a distinct state, disclosure order, channel, or failure mechanism.
-
-### 10. Review in stages
-
-Distinguish:
-
-- generated candidate;
-- evidence-checked candidate;
-- domain-reviewed candidate;
-- approved eval case;
-- empirically validated eval case.
-
-Schema validity does not prove domain correctness or representative value.
-
-## Coverage saturation
-
-Do not stop at an arbitrary row count. Stop when proposed additions no longer cover a meaningful gap across:
-
-- operating model and task lifecycle;
-- representative demand;
-- industry risk;
-- channel and language;
-- relevant challenge mechanism;
-- evidence confidence.
-
-Report unresolved gaps instead of filling them with low-value synthetic variations.
-
-## Empirical difficulty
-
-Keep designed challenge separate from observed model difficulty:
-
-- `designed_challenge_level`: structural expectation before testing;
-- `empirical_failure_rate`: measured across runs or models;
-- `observed_failure_modes`: actual errors.
-
-Use empirical results to improve pattern knowledge, not to rewrite historical evidence.
+If first-party data later supports a numeric share, add an optional
+`observed_share` column only when a current decision will use it. Do not make
+that field part of the default schema.

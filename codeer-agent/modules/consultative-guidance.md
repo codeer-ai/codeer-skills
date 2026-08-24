@@ -25,9 +25,11 @@ KB, or Tools.
 
 Read the completed Scope Alignment from [kb-and-agent.md](kb-and-agent.md) and
 the accepted `.codeer/design/query_distribution.csv` from
-[query-distribution.md](query-distribution.md). Then inspect whatever product
-documents, KB content, current settings, tools, evals, and production-history
-findings are available. Do not ask the user to repeat decisions already
+[query-distribution.md](query-distribution.md), together with
+`.codeer/design/query_examples.csv`. Then inspect whatever product documents,
+KB content, current settings, tools, evals, and production-history findings are
+available. Use the concrete examples to test whether a proposed policy produces
+the intended experience. Do not ask the user to repeat decisions already
 supported by that evidence.
 
 Ask only unresolved questions whose answers would materially change the
@@ -63,7 +65,10 @@ action readiness together:
 - **Retrieve** when the response or recommendation depends on authoritative
   facts that are not already established in the conversation.
 - **Show or generate a visual** only when visual comparison materially improves
-  the decision and the configured source or tool can support it.
+  the decision and an approved retrievable image URL or configured tool can
+  support it. The frontend may render image URLs; absence of images in the
+  current KB is a content gap, not evidence that the Agent lacks visual
+  presentation capability.
 - **Recommend** once the agent has enough information to narrow responsibly.
   Explain the match in customer-relevant terms, distinguish facts from
   judgment, and preserve meaningful alternatives.
@@ -86,8 +91,21 @@ when selecting discovery and recommendation methods.
 ## Draft the Behavior Contract
 
 Use the clearest format for the agent. Do not force a schema, script, or fixed
-number of questions. Make the following decisions explicit when they are
-material:
+number of questions.
+
+### Minimum-sufficient contract rule
+
+Include only decisions that change the Agent's response, next move, evidence
+requirement, authority boundary, or success condition. Omit non-material
+sections instead of filling placeholders. Consolidate query types under one
+general policy when they should be handled the same way.
+
+Do not repeat the Query Distribution, query examples, source inventory, Agent
+Settings, or eval-case list inside the contract. Refer to a query type or add a
+short illustrative branch only when it makes an otherwise ambiguous policy
+reviewable. If a proposed section has no clear downstream use, omit it.
+
+Make the following decisions explicit only when they are material:
 
 1. **Journey outcomes** — the customer decision or next step for each in-scope
    scenario, including acceptable non-conversion outcomes.
@@ -154,12 +172,12 @@ scarcity, urgency, authority, social proof, prices, eligibility, or tool
 results, but it cannot authorize fabrication, exaggeration, or unsupported
 claims. User acceptance does not override this boundary.
 
-The accepted file should record lightweight revision metadata: status,
-contract version, accepted or last-updated date, applicable Agent/version when
-known, and unresolved assumptions. It is ready when a reviewer can tell, for
-the important branches, which next move is appropriate, what evidence or user
-input is needed, what the Agent must not do, and what a successful outcome
-looks like.
+The accepted file should record material unresolved assumptions. Add status,
+contract version, dates, or applicable Agent/version metadata only when the
+current project workflow will use them; otherwise rely on file and revision
+history. The contract is ready when a reviewer can tell, for the important
+branches, which next move is appropriate, what evidence or user input is
+needed, what the Agent must not do, and what a successful outcome looks like.
 
 After acceptance, persist `.codeer/design/behavior_contract.md`. Then use
 [eval-cases.md](eval-cases.md) to design the acceptance cases and rubrics

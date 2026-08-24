@@ -1,79 +1,36 @@
 #!/usr/bin/env python3
-"""Validate persistent query-distribution and input-candidate CSV artifacts."""
+"""Validate the lean Query Distribution and query-example CSV artifacts."""
 
 from __future__ import annotations
 
 import argparse
 import csv
-import math
 import pathlib
 import sys
 
 
 DISTRIBUTION_COLUMNS = {
-    "distribution_cell_id",
-    "operating_model",
-    "task_family",
-    "task_id",
-    "task_complication_id",
-    "representativeness_band",
-    "estimated_real_world_share",
-    "eval_target_share",
-    "industry_risk_level",
-    "risk_type_ids",
-    "evidence_tier",
-    "evidence_confidence",
-    "source_population",
-    "adaptation_distance",
-    "evidence_window",
-    "source_channels",
-    "sample_scope",
-    "sample_size",
-    "exclusions",
-    "evidence_basis",
-    "source_urls",
-    "overweight_reason",
-    "open_gap",
-    "last_reviewed_at",
+    "query_type_id",
+    "customer_task",
+    "journey_state",
+    "demand_band",
+    "risk_level",
+    "target_cases",
 }
 
-CANDIDATE_COLUMNS = {
-    "candidate_id",
-    "distribution_cell_id",
-    "input_display",
-    "target_user_query",
-    "task_id",
-    "task_complication_id",
-    "industry_risk_level",
-    "risk_type_ids",
-    "challenge_pattern_ids",
-    "channel_pattern_ids",
-    "designed_challenge_level",
-    "evidence_basis",
-    "evidence_confidence",
-    "cluster_id",
-    "variant_family_id",
-    "review_status",
-    "source_urls",
+EXAMPLE_COLUMNS = {
+    "example_id",
+    "query_type_id",
+    "input",
+    "provenance",
+    "purpose",
 }
 
 ENUMS = {
-    "representativeness_band": {"core", "common", "occasional", "rare", "unknown"},
-    "industry_risk_level": {"normal", "elevated", "high", "critical"},
-    "evidence_confidence": {"low", "medium", "high"},
-    "designed_challenge_level": {"baseline", "moderate", "stress"},
-    "evidence_basis": {
-        "observed",
-        "adapted",
-        "expert_constructed",
-        "synthetic_variant",
-    },
-    "review_status": {
-        "generated",
-        "evidence_checked",
-        "domain_reviewed",
-        "approved",
-    },
+    "demand_band": {"core", "common", "occasional", "rare", "unknown"},
+    "risk_level": {"normal", "elevated", "high", "critical"},
+    "provenance": {"observed", "adapted", "constructed"},
+    "purpose": {"representative", "boundary", "risk"},
 }
 
 
@@ -81,19 +38,6 @@ def read_csv(path: pathlib.Path) -> tuple[list[str], list[dict[str, str]]]:
     with path.open(newline="", encoding="utf-8-sig") as handle:
         reader = csv.DictReader(handle)
         return list(reader.fieldnames or []), list(reader)
-
-
-def parse_share(value: str, label: str, row_number: int, errors: list[str]) -> float | None:
-    if not value.strip():
-        return None
-    try:
-        parsed = float(value)
-    except ValueError:
-        errors.append(f"{label} row {row_number}: share is not numeric: {value!r}")
-        return None
-    if parsed < 0 or parsed > 1:
-        errors.append(f"{label} row {row_number}: share must be between 0 and 1")
-    return parsed
 
 
 def validate_enum(
@@ -121,112 +65,112 @@ def validate_unique(
             errors.append(f"{label} row {row_number}: missing {field}")
         elif value in seen:
             errors.append(f"{label} row {row_number}: duplicate {field}={value!r}")
-        seen.add(value)
+        if value:
+            seen.add(value)
     return seen
+
+
+def parse_target_cases(value: str, row_number: int, errors: list[str]) -> int | None:
+    try:
+        parsed = int(value)
+    except ValueError:
+        errors.append(
+            f"distribution row {row_number}: target_cases must be a non-negative integer"
+        )
+        return None
+    if parsed < 0:
+        errors.append(
+            f"distribution row {row_number}: target_cases must be a non-negative integer"
+        )
+        return None
+    return parsed
 
 
 def validate(
     distribution_path: pathlib.Path,
-    candidates_path: pathlib.Path,
+    examples_path: pathlib.Path,
 ) -> list[str]:
     errors: list[str] = []
     distribution_headers, distribution_rows = read_csv(distribution_path)
-    candidate_headers, candidate_rows = read_csv(candidates_path)
+    example_headers, example_rows = read_csv(examples_path)
 
     missing_distribution = DISTRIBUTION_COLUMNS - set(distribution_headers)
-    missing_candidates = CANDIDATE_COLUMNS - set(candidate_headers)
+    missing_examples = EXAMPLE_COLUMNS - set(example_headers)
     if missing_distribution:
         errors.append(
             "distribution: missing columns " + ", ".join(sorted(missing_distribution))
         )
-    if missing_candidates:
-        errors.append("candidates: missing columns " + ", ".join(sorted(missing_candidates)))
+    if missing_examples:
+        errors.append("examples: missing columns " + ", ".join(sorted(missing_examples)))
     if errors:
         return errors
 
-    distribution_ids = validate_unique(
-        distribution_rows, "distribution_cell_id", "distribution", errors
-    )
-    validate_unique(candidate_rows, "candidate_id", "candidates", errors)
+    if not distribution_rows:
+        errors.append("distribution: must contain at least one query type")
+    if not example_rows:
+        errors.append("examples: must contain at least one example")
 
-    eval_shares: list[float] = []
+    query_type_ids = validate_unique(
+        distribution_rows, "query_type_id", "distribution", errors
+    )
+    validate_unique(example_rows, "example_id", "examples", errors)
+
+    targets: dict[str, int] = {}
+    total_target_cases = 0
     for row_number, row in enumerate(distribution_rows, start=2):
-        for field in ("representativeness_band", "industry_risk_level", "evidence_confidence"):
-            validate_enum(row, field, row_number, "distribution", errors)
-        for field in (
-            "source_population",
-            "evidence_window",
-            "sample_scope",
-            "evidence_basis",
-            "last_reviewed_at",
-        ):
+        query_type_id = row.get("query_type_id", "").strip()
+        for field in ("customer_task", "demand_band", "risk_level", "target_cases"):
             if not row.get(field, "").strip():
                 errors.append(f"distribution row {row_number}: missing {field}")
-        eval_share = parse_share(
-            row.get("eval_target_share", ""),
-            "distribution",
-            row_number,
-            errors,
-        )
-        if eval_share is None:
-            errors.append(f"distribution row {row_number}: missing eval_target_share")
-        else:
-            eval_shares.append(eval_share)
-        parse_share(
-            row.get("estimated_real_world_share", ""),
-            "distribution",
-            row_number,
-            errors,
-        )
-        if row.get("eval_target_share", "").strip() and row.get(
-            "estimated_real_world_share", ""
-        ).strip():
-            try:
-                if (
-                    float(row["eval_target_share"])
-                    > float(row["estimated_real_world_share"]) + 1e-9
-                    and not row.get("overweight_reason", "").strip()
-                ):
-                    errors.append(
-                        f"distribution row {row_number}: overweight_reason required"
-                    )
-            except ValueError:
-                pass
+        validate_enum(row, "demand_band", row_number, "distribution", errors)
+        validate_enum(row, "risk_level", row_number, "distribution", errors)
+        target_raw = row.get("target_cases", "").strip()
+        if target_raw:
+            target_cases = parse_target_cases(target_raw, row_number, errors)
+            if target_cases is not None:
+                targets[query_type_id] = target_cases
+                total_target_cases += target_cases
 
-    if eval_shares and not math.isclose(sum(eval_shares), 1.0, abs_tol=1e-6):
-        errors.append(
-            f"distribution: eval_target_share totals {sum(eval_shares):.8f}, expected 1"
-        )
+    if distribution_rows and total_target_cases == 0:
+        errors.append("distribution: target_cases total must be greater than zero")
 
-    for row_number, row in enumerate(candidate_rows, start=2):
-        for field in (
-            "industry_risk_level",
-            "designed_challenge_level",
-            "evidence_basis",
-            "evidence_confidence",
-            "review_status",
-        ):
-            validate_enum(row, field, row_number, "candidates", errors)
-        parent = row.get("distribution_cell_id", "").strip()
-        if parent not in distribution_ids:
-            errors.append(
-                f"candidates row {row_number}: unknown distribution_cell_id={parent!r}"
-            )
-        for field in (
-            "input_display",
-            "target_user_query",
-            "task_id",
-            "cluster_id",
-            "variant_family_id",
-        ):
+    linked_types: set[str] = set()
+    representative_types: set[str] = set()
+    seen_inputs: set[tuple[str, str]] = set()
+    for row_number, row in enumerate(example_rows, start=2):
+        parent = row.get("query_type_id", "").strip()
+        customer_input = row.get("input", "").strip()
+        for field in ("query_type_id", "input", "provenance", "purpose"):
             if not row.get(field, "").strip():
-                errors.append(f"candidates row {row_number}: missing {field}")
-        if (
-            row.get("designed_challenge_level") == "baseline"
-            and row.get("challenge_pattern_ids", "").strip()
-        ):
+                errors.append(f"examples row {row_number}: missing {field}")
+        validate_enum(row, "provenance", row_number, "examples", errors)
+        validate_enum(row, "purpose", row_number, "examples", errors)
+
+        if parent and parent not in query_type_ids:
             errors.append(
-                f"candidates row {row_number}: baseline should not carry challenge_pattern_ids"
+                f"examples row {row_number}: unknown query_type_id={parent!r}"
+            )
+        elif customer_input:
+            linked_types.add(parent)
+            if row.get("purpose", "").strip() == "representative":
+                representative_types.add(parent)
+
+        duplicate_key = (parent, customer_input)
+        if customer_input and duplicate_key in seen_inputs:
+            errors.append(
+                f"examples row {row_number}: duplicate input for query_type_id={parent!r}"
+            )
+        if customer_input:
+            seen_inputs.add(duplicate_key)
+
+    for query_type_id in sorted(query_type_ids):
+        if query_type_id not in linked_types:
+            errors.append(
+                f"examples: query_type_id={query_type_id!r} has no linked example"
+            )
+        if targets.get(query_type_id, 0) > 0 and query_type_id not in representative_types:
+            errors.append(
+                f"examples: query_type_id={query_type_id!r} needs a representative example"
             )
 
     return errors
@@ -235,10 +179,10 @@ def validate(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("distribution_csv", type=pathlib.Path)
-    parser.add_argument("candidates_csv", type=pathlib.Path)
+    parser.add_argument("examples_csv", type=pathlib.Path)
     args = parser.parse_args()
 
-    errors = validate(args.distribution_csv, args.candidates_csv)
+    errors = validate(args.distribution_csv, args.examples_csv)
     if errors:
         for error in errors:
             print(f"ERROR: {error}")

@@ -5,14 +5,15 @@ KB configuration, retrieval routes, model, or handoff settings.
 
 For a query-led customer guidance Agent, first read the accepted
 `.codeer/design/query_distribution.csv` from
-[query-distribution.md](query-distribution.md), the accepted
+[query-distribution.md](query-distribution.md), its accepted
+`.codeer/design/query_examples.csv`, the accepted
 `.codeer/design/behavior_contract.md` from
 [consultative-guidance.md](consultative-guidance.md), and the reviewed
 acceptance cases from [eval-cases.md](eval-cases.md). The distribution describes
-expected demand and eval allocation; the contract defines the intended customer
-experience; the cases test it. None should be copied verbatim into the system
-prompt. Translate them into the simplest coherent ownership split across Agent
-Settings, KB, Tools, and handoff.
+expected demand, risk, and eval allocation; the examples ground the customer
+inputs; the contract defines the intended experience; and the cases test it.
+None should be copied verbatim into the system prompt. Translate them into the
+simplest coherent ownership split across Agent Settings, KB, Tools, and handoff.
 
 When improving an existing Agent, do not use a settings repair to make an
 unapproved change to the Behavior Contract. If evidence indicates that the
