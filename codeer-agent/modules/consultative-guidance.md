@@ -27,9 +27,11 @@ KB, or Tools.
 
 Read the completed Scope Alignment from [kb-and-agent.md](kb-and-agent.md) and
 the accepted `.codeer/design/query_distribution.csv` from
-[query-distribution.md](query-distribution.md). Then inspect whatever product
-documents, KB content, current settings, tools, evals, and production-history
-findings are available. Do not ask the user to repeat decisions already
+[query-distribution.md](query-distribution.md), together with
+`.codeer/design/query_examples.csv`. Then inspect whatever product documents,
+KB content, current settings, tools, evals, and production-history findings are
+available. Use the concrete examples to test whether a proposed policy produces
+the intended experience. Do not ask the user to repeat decisions already
 supported by that evidence.
 
 Ask only unresolved questions whose answers would materially change the
@@ -65,7 +67,10 @@ action readiness together:
 - **Retrieve** when the response or recommendation depends on authoritative
   facts that are not already established in the conversation.
 - **Show or generate a visual** only when visual comparison materially improves
-  the decision and the configured source or tool can support it.
+  the decision and an approved retrievable image URL or configured tool can
+  support it. The frontend may render image URLs; absence of images in the
+  current KB is a content gap, not evidence that the Agent lacks visual
+  presentation capability.
 - **Recommend** once the agent has enough information to narrow responsibly.
   Explain the match in customer-relevant terms, distinguish facts from
   judgment, and preserve meaningful alternatives.
@@ -105,6 +110,8 @@ true:
 - an acceptance case could test its outcome or boundary without prescribing
   exact response wording.
 
+If a proposed statement has no clear downstream use, omit it.
+
 Do not add content merely because it is useful somewhere in the Agent system.
 Keep these in their owning layer instead:
 
@@ -112,11 +119,16 @@ Keep these in their owning layer instead:
 - the canonical Evidence and autonomy boundaries below, unless a
   domain-specific choice changes observable behavior or governance requires an
   explicit acknowledgement;
+- the Query Distribution, query examples, and source inventory in their own
+  design or source artifacts instead of repeating them;
 - product facts and complete procedures in the KB;
 - prompt, retrieval, tool-schema, and orchestration details in Agent Settings
   or Tool configuration; and
 - concrete examples, paraphrases, rare variants, and nearby boundaries in the
   eval portfolio when they instantiate an already-clear principle.
+
+Refer to a query type or add a short illustrative branch only when it makes an
+otherwise ambiguous policy reviewable.
 
 Increase detail progressively. Add the smallest general rule only when
 implementation, eval, or production-history evidence shows that the existing
@@ -225,12 +237,12 @@ results, but it cannot authorize fabrication, exaggeration, or unsupported
 claims. User acceptance does not override this boundary, and the contract does
 not need to repeat the canonical list for the boundary to apply.
 
-The accepted file should record lightweight revision metadata: status,
-contract version, accepted or last-updated date, applicable Agent/version when
-known, and unresolved assumptions. It is ready when a reviewer can tell, for
-the important branches, which next move is appropriate, what evidence or user
-input is needed, what the Agent must not do, and what a successful outcome
-looks like.
+The accepted file should record material unresolved assumptions. Add status,
+contract version, dates, or applicable Agent/version metadata only when the
+current project workflow will use them; otherwise rely on file and revision
+history. The contract is ready when a reviewer can tell, for the important
+branches, which next move is appropriate, what evidence or user input is
+needed, what the Agent must not do, and what a successful outcome looks like.
 
 After acceptance, persist `.codeer/design/behavior_contract.md`. Then use
 [eval-cases.md](eval-cases.md) to design the acceptance cases and rubrics

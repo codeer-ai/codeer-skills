@@ -4,12 +4,13 @@ Analyze production conversations to drive continuous improvement. This module
 is the entry point for Phase 2 (Improve).
 
 Before analyzing behavior or demand, read the accepted
-`.codeer/design/query_distribution.csv` and
+`.codeer/design/query_distribution.csv`,
+`.codeer/design/query_examples.csv`, and
 `.codeer/design/behavior_contract.md`. They answer different questions: what
-customer work was expected, and how the Agent was intended to handle it. For a
-legacy Agent without these artifacts, surface the missing design evidence and
-reconstruct it with user acceptance before making strong claims about contract
-divergence or distribution drift.
+customer work was expected, what concrete inputs represent it, and how the
+Agent was intended to handle it. For a legacy Agent without these artifacts,
+surface the missing design evidence and reconstruct it with user acceptance
+before making strong claims about contract divergence or distribution drift.
 
 ---
 
@@ -124,24 +125,25 @@ accepted design context is unavailable. Surface the gap for user confirmation.
 
 Use [query-distribution.md](query-distribution.md) when the selected history
 scope is broad enough to inform demand. Treat the conversation or customer task
-as the unit rather than counting messages. Record channels, date range,
-population, selection criteria, exclusions, repeated contacts, seasonality,
-campaign effects, and other sampling limits.
+as the unit rather than counting messages. State the inspected channels, date
+range, population, selection criteria, and material sampling limits in the
+analysis or optional notes rather than adding them to every distribution row.
 
-Compare observed task families, lifecycle states, channels, segments, and
-risks with the accepted distribution. Distinguish:
+Compare observed customer tasks, journey states, demand, and risks with the
+accepted distribution and examples. Distinguish:
 
-- **distribution drift** — meaningful new evidence changes a cell,
-  representativeness band, supported share, channel or segment scope, risk
-  understanding, or eval allocation;
-- **eval-portfolio gap** — the accepted distribution already contains the cell,
-  but reviewed cases do not cover it adequately; and
+- **distribution drift** — meaningful new evidence changes a customer task,
+  journey state, demand band, risk level, or target case allocation;
+- **example gap** — a meaningful customer input is missing from the accepted
+  examples without changing the underlying distribution;
+- **eval-portfolio gap** — the accepted distribution already contains the
+  query type, but reviewed cases do not cover it adequately; and
 - **individual behavior evidence** — a conversation exposes a failure or
   success without supporting a frequency conclusion.
 
 One failure, negative conversation, or first-page sample normally creates an
-eval probe, not a distribution revision. Never copy raw conversations into the
-canonical distribution.
+eval probe or deidentified example, not a distribution revision. Never copy raw
+sensitive conversations into either canonical CSV.
 
 ### Tool usage analysis
 
@@ -181,9 +183,10 @@ implementation decisions distinct.
 
 Use [query-distribution.md](query-distribution.md) to present the complete
 revision and obtain user acceptance before replacing
-`.codeer/design/query_distribution.csv`. Then:
+`.codeer/design/query_distribution.csv` or
+`.codeer/design/query_examples.csv`. Then:
 
-1. update eval allocation and candidate coverage when warranted;
+1. update target case allocation and example coverage when warranted;
 2. revise `.codeer/design/behavior_contract.md` only when the new demand model
    changes the appropriate customer experience or a stable risk policy; and
 3. change Agent Settings, KB, or Tools only after any contract revision is

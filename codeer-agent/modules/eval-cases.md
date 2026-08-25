@@ -6,11 +6,13 @@ at a time so each review batch is mentally manageable.
 For a new query-led customer guidance Agent, begin from the accepted
 `.codeer/design/query_distribution.csv` in
 [query-distribution.md](query-distribution.md) and
+`.codeer/design/query_examples.csv`, plus the accepted
 `.codeer/design/behavior_contract.md` in
 [consultative-guidance.md](consultative-guidance.md). The distribution defines
-the evidence-backed portfolio; the contract defines correct behavior. Design
-the acceptance cases locally before the Agent exists. An `agent_id` is required
-to apply or run cases, not to decide the customer behavior they should test.
+the evidence-backed portfolio, the examples supply concrete customer inputs,
+and the contract defines correct behavior. Design the acceptance cases locally
+before the Agent exists. An `agent_id` is required to apply or run cases, not
+to decide the customer behavior they should test.
 Use `.codeer/current/local_draft_eval_cases.md` for this human-reviewed design
 draft. It may preserve unresolved evaluator or runtime-evidence decisions that
 cannot yet be represented in the apply-ready JSON manifest.
@@ -29,8 +31,8 @@ cases or rubric changes silently.
 
 ## Step 1 — MECE categories
 
-Inspect the accepted scope, Query Distribution, Behavior Contract, available
-input candidates, and source material. When an Agent already exists, also
+Inspect the accepted scope, Query Distribution, query examples, Behavior
+Contract, and source material. When an Agent already exists, also
 inspect its settings, system prompt, KBs, and tools, but do not let the current
 implementation silently redefine the accepted behavior. Propose a set of
 mutually exclusive, collectively exhaustive categories — for example: product
@@ -42,17 +44,16 @@ tool-backed actions, handoff, and out-of-scope handling.
 
 ### Portfolio allocation
 
-Use `eval_target_share` as the designed portfolio target, not a requirement for
-exact integer equality in every small batch. Allocate the available review
-budget across representative base tasks, material lifecycle boundaries, and
-intentional rare-but-high-consequence reserves. Explain rounding, minimum-cell
-coverage, and any departure from the accepted distribution.
+Use `target_cases` as the accepted integer portfolio allocation. Preserve the
+intent of that allocation when review constraints require a smaller batch, and
+propose a distribution diff when the full target should change. Allocate
+coverage across representative tasks, material journey boundaries, and
+intentional rare-but-high-consequence reserves.
 
-Do not infer real-world frequency from candidate count. Do not drop a rare
-high-risk cell merely because its estimated share is low, and do not multiply
-every task by every risk or challenge. When the distribution is provisional or
-has open gaps, label the resulting coverage limits rather than manufacturing
-precision.
+Do not infer real-world frequency from example count. Do not drop a rare
+high-risk query type merely because demand is low, and do not multiply every
+task by every risk or challenge. Treat accepted examples as candidate inputs,
+not automatically approved eval cases.
 
 ---
 

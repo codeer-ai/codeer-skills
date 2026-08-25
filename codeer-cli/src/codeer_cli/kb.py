@@ -234,7 +234,6 @@ def read_file_content(
     *,
     organization_id: str,
     workspace_id: str,
-    kb_id: str,
     node_id: str,
 ) -> dict:
     return client.get(f"{_base(organization_id, workspace_id)}/files/{node_id}/content")

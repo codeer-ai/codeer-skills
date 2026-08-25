@@ -73,12 +73,14 @@ Record generalized, reusable findings only. Keep raw dialogue and project-specif
 - **Confidence**: medium
 - **Limitations**: local annotation exports contain multiple annotator rows; counts require aggregation before use.
 
-## F-METHOD-001 — Keep observed demand and eval allocation separate
+## F-METHOD-001 — Do not turn uncertain demand into false precision
 
 - **Status**: proposal derived from the veterinary eval attempt
 - **Applicable operating models**: all
 - **Observation**: public and adapted sources can establish task existence and risk without supporting precise target-company traffic shares.
-- **Design implication**: record `estimated_real_world_share` separately from `eval_target_share`, evidence confidence, and intentional risk overweighting.
+- **Design implication**: use an ordinal `demand_band` and an independent
+  integer `target_cases` allocation by default. Add `observed_share` only when
+  a defined first-party sample supports it and a current decision will use it.
 - **Evidence**: veterinary candidate-pool retrospective, checked 2026-07-23
 - **Confidence**: high
 - **Limitations**: allocation still requires reviewer judgment when first-party frequency is absent.
