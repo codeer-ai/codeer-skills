@@ -238,6 +238,45 @@ paths containing `*` so the shell passes the wildcard to the CLI. Advanced
 settings can still be passed through `--config-json`; explicit crawler flags
 override matching JSON keys.
 
+## Exporting KB snapshot content
+
+Export one file directly from the content endpoint:
+
+```bash
+codeer kb export \
+  --node-id <file-node-id> \
+  --file guide.md
+```
+
+Or recursively export a folder or an entire KB root:
+
+```bash
+codeer kb export \
+  --node-id <folder-or-kb-root-node-id> \
+  --dir kb-export \
+  --out kb-export-manifest.json
+```
+
+`--file` and `--dir` are mutually exclusive. Single-file mode maps directly to
+the external file-content endpoint and lets the caller choose the exact local
+path. Folder mode recursively lists the node tree, calls that endpoint for each
+file, and writes the extracted snapshot content as UTF-8 Markdown. Existing
+`.md`/`.markdown` names are preserved; other folder-export names receive an
+additional `.md` suffix (for example, `guide.pdf` becomes `guide.pdf.md`) so the
+export is not mistaken for the original binary upload.
+
+The command asks the content endpoint for every file regardless of indexing
+status. If the endpoint returns text, it is exported even when the status is
+not `READY`; the full manifest preserves that server status and marks the file
+as `exported_while_not_ready`. If the endpoint returns `content: null`, the file
+is skipped and the command exits non-zero. Existing target files block the
+entire export before any content is written; pass `--overwrite` only when
+replacing those local files is intended.
+
+This is a snapshot-content export, not an original-file backup. The server API
+returns processed text and does not return the original PDF, DOCX, or other
+binary bytes through this endpoint.
+
 ## KB node rename and delete
 
 Knowledge Base roots, folders, and files are all KnowledgeNodes. Use

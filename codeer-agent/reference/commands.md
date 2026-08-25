@@ -127,6 +127,7 @@ completes, record the summary in `progress.json` and move to the next batch.
 | `codeer agent impact` | Check downstream agents affected by this agent |
 | `codeer agent publish` | Publish an approved agent version |
 | `codeer kb list` | List knowledge bases in workspace |
+| `codeer kb export` | Export available KB file snapshot contents to local Markdown files |
 | `codeer kb upload` | Create/reuse KB + upload files + poll until indexed |
 | `codeer kb node-rename` | Rename a KB root, folder, or file node |
 | `codeer kb node-delete` | Delete a KB root, folder, or file node and descendants |
@@ -226,6 +227,41 @@ writes the complete server response while keeping stdout compact.
 `idle_timeout_minutes` must be a positive integer or `null`. Human handoff is
 available in evaluation runs and live published-agent conversations with a
 non-empty `external_user_id`; internal editor Live Test does not activate it.
+
+## `codeer kb export`
+
+Export one file directly from the content endpoint:
+
+```bash
+codeer kb export \
+  --node-id <file-node-id> \
+  --file kb/guide.md
+```
+
+Or recursively export a folder or KB root:
+
+```bash
+codeer kb export \
+  --node-id <folder-or-kb-root-node-id> \
+  --dir kb/ \
+  --out .codeer/current/kb_export_manifest.json
+```
+
+`--file` and `--dir` are mutually exclusive. Single-file mode calls
+`GET /external/knowledge-bases/files/{node_id}/content` once and writes the
+returned text to the exact requested path. Folder mode recursively preserves
+KB folders and calls that endpoint for every descendant file. It keeps `.md`
+and `.markdown` filenames; other folder-export names receive an additional
+`.md` suffix because the endpoint returns processed text rather than original
+binary bytes. Every file is requested regardless of indexing status. When the
+endpoint returns text for a non-READY file, the CLI exports it and records the
+status in the manifest. A `null` content response is skipped and produces a
+non-zero exit status.
+
+Existing target files block the export before content is written. Use
+`--overwrite` only when replacing those local exports is intended. `--out`
+writes the full per-file manifest while stdout remains compact unless `--full`
+is passed.
 
 ## KB node rename/delete
 

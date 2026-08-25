@@ -84,6 +84,20 @@ Base path: `/organizations/{org_id}/workspaces/{ws_id}/knowledge_bases`
 | `POST .../files/status` | Batch-poll indexing status by node ID |
 | `GET .../{kb_id}/nodes/{node_id}/content` | Read a file's extracted content |
 
+The workspace API-key external routes used by `codeer-cli` include:
+
+| Method & path | Purpose |
+| --- | --- |
+| `GET /external/knowledge-bases/nodes?parent_id={node_id}` | List KB roots or direct children |
+| `GET /external/knowledge-bases/files/{node_id}/content` | Read one file's extracted snapshot content |
+
+`codeer kb export --node-id <file-id> --file <path>` maps directly to the second
+route. `codeer kb export --node-id <folder-id> --dir <path>` recursively follows
+the first route and calls the second route for every file. Any returned text is
+written as UTF-8 Markdown regardless of indexing status, with that status
+preserved in the manifest. A `null` content response cannot be exported. The
+command does not reconstruct the originally uploaded binary file.
+
 Attach KB files to an agent by listing their node IDs in the agent's
 `unified_tools[].knowledge_node_ids`.
 

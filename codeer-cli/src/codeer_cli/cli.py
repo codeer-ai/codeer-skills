@@ -3,7 +3,7 @@
     codeer check
     codeer agent list|get|apply|diff|versions
     codeer model list
-    codeer kb list|files|upload|node-rename|node-delete|faq-list|faq-get|faq-create|faq-update|faq-delete
+    codeer kb list|files|export|upload|node-rename|node-delete|faq-list|faq-get|faq-create|faq-update|faq-delete
     codeer eval list|label-list|label-create|label-update|label-delete|case-update|case-delete|evaluators|evaluator-create|evaluator-update|run|export|reconcile|cases-apply|rubrics|rubrics-apply
     codeer history list|get|conversations|negative-feedback|create|send
 """
@@ -31,6 +31,8 @@ Safe workflow for coding agents:
   codeer agent get <agent-id> --full
   codeer kb list
   codeer kb files --kb-id <kb-id>
+  codeer kb export --node-id <file-id> --file guide.md
+  codeer kb export --node-id <folder-id> --dir kb-export
   codeer eval list --agent <agent-id>
   codeer eval label-list
   codeer eval case-update --case <case-id> --input "..." --dry-run
