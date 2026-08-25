@@ -206,7 +206,8 @@ against the canonical Evidence and autonomy boundaries in
 urgency, authority, social proof, prices, eligibility, and Tool outcomes are
 allowed; a contract requiring fabrication, exaggeration, or unsupported claims
 is a blocker even when the cases, rubrics, settings, KB, and Tools all agree
-with it.
+with it. The contract inherits these canonical boundaries without restating
+them; missing duplicated boundary prose is not a contract-coverage gap.
 
 Then compare the contract semantically with the cases, expected outputs, and
 rubrics. Use a simple judgment review. Confirm that:
@@ -214,14 +215,19 @@ rubrics. Use a simple judgment review. Confirm that:
 - no case or mandatory criterion demands behavior absent from or contradictory
   to the contract;
 - answer-versus-question initiative, consent before consequential actions,
-  truthfulness and uncertainty, recommendation boundaries, and handoff
-  expectations agree with the contract;
+  recommendation boundaries, and handoff expectations agree with the material
+  decisions in the contract, while truthfulness and uncertainty also satisfy
+  the canonical boundaries;
 - an optional discovery strategy has not become a mandatory script or fixed
   wording requirement;
 - material high-consequence behaviors and nearby boundaries have some
   observable coverage; and
 - expected outputs and rubrics test decisions and outcomes without
   over-specifying phrasing.
+
+Assess decision coverage, not document length or one-to-one rule/case mapping.
+One contract principle may govern several journeys and cases; concrete variants
+belong in the eval portfolio unless they expose a distinct material decision.
 
 Treat an explicit contradiction or violation of a hard contract boundary as a
 blocker. Treat a material but still interpretable coverage omission as a gap or
