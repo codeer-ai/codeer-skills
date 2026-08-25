@@ -86,13 +86,24 @@ Distribution is descriptive; the Behavior Contract is normative. Neither is a
 server object or runtime prompt. Acceptance eval cases combine both and should
 be designed before the Agent is created.
 
+Treat the Behavior Contract as the business reviewer and Agent builder's record
+of material, observable customer-experience decisions. Start with
+minimum-sufficient, principle-level coverage of the important journeys,
+decision branches, and high-consequence boundaries. Do not turn it into a full
+support manual by restating generic service norms, canonical skill guardrails,
+implementation details, or each eval variant. Add narrower contract detail only
+when implementation, eval, or production evidence exposes a material ambiguity
+or an intentional experience change; follow
+[modules/consultative-guidance.md](modules/consultative-guidance.md) for the
+admission and progressive-detail rules.
+
 ### Phase 1: Build (zero to first publish)
 
 | Step | Module | What happens |
 | --- | --- | --- |
 | 1 | **kb-and-agent** | Scope Alignment only |
 | 2 | **query-distribution** | Model only behaviorally distinct customer tasks, demand, risk, target case counts, and concrete inputs → user accepts `.codeer/design/query_distribution.csv` and `.codeer/design/query_examples.csv` |
-| 3 | **consultative-guidance** | Use the distribution and available evidence → recommend dialogue/discovery and risk policies → user accepts `.codeer/design/behavior_contract.md` |
+| 3 | **consultative-guidance** | Use the distribution and available evidence → draft a minimum-sufficient record of material dialogue/discovery and risk decisions → user accepts `.codeer/design/behavior_contract.md` |
 | 4 | **eval-cases** | Design and review `.codeer/current/local_draft_eval_cases.md` from the accepted distribution model and Behavior Contract; preserve intended behavior and observable success even when evaluator or runtime evidence binding is still unresolved; no `agent_id` is required yet |
 | 5 | **agent-settings → kb-and-agent** | Translate the accepted contract into Agent Settings, KB, Tools, handoff, and the first full DRAFT Agent; use distribution evidence for hot-path decisions |
 | 6 | **eval-cases** | Read the DRAFT, Tools, and evaluator templates → resolve intended pairs through the Pair Admission Gate → produce and apply `.codeer/current/local_draft_eval_cases.json`; unresolved pairs stay local and do not count as coverage |

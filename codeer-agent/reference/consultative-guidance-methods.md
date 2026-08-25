@@ -69,8 +69,12 @@ selection.
   answer or recommend quickly, and avoid repeating discovery already present in
   the conversation or memory.
 
-These are defaults, not mandatory flows. The Behavior Contract should state
-the observable signals for switching approach.
+These are defaults, not mandatory flows or required contract sections. Put a
+switching signal in the Behavior Contract only when it changes a material,
+observable customer-experience decision and is not already clear from a
+higher-level principle. Keep method mechanics and concrete variants in the
+implementation or eval portfolio instead of expanding the customer-reviewed
+contract.
 
 ## Foundational sources
 
