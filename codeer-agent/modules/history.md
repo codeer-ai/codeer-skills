@@ -14,6 +14,40 @@ before making strong claims about contract divergence or distribution drift.
 
 ---
 
+## Step 0 — Define the improvement outcome
+
+Before broad sampling or coding, establish from the request, accepted design
+evidence, and available operational context what outcome this analysis is meant
+to improve. Reuse stable journey outcomes and guardrails from the accepted
+Behavior Contract, but do not assume that they fully specify the current
+research question. Ask the user only about unresolved choices that would
+materially change the analysis. Define only what the current decision needs:
+
+- the primary outcome and any secondary outcomes or guardrails;
+- the customer intention, population, or entry-condition stratum in scope;
+- the observation horizon, such as one response, one task, multiple Histories,
+  a work object, or a longitudinal user outcome;
+- observable success, failure, acceptable alternative, and missing-evidence
+  handling;
+- the decision this analysis must inform and what result could change it; and
+- whether the work is descriptive, diagnostic, predictive, or intended to
+  support a later causal test.
+
+Choose the analysis unit after defining the outcome. Conversation, exchange,
+semantic Episode, customer task, History, work object, user, and cohort are
+candidate units rather than one mandatory hierarchy. Use the minimum unit that
+can observe both the outcome and the Agent decisions that may affect it. When a
+semantic Episode boundary is itself inferred, keep the underlying messages and
+Tool events available so uncertain segmentation does not become hidden fact.
+
+Apply an outcome-relevance gate before adding a field, profile, category, or
+coding dimension. Keep it only when it helps select an Agent decision, measure
+or explain an outcome, support a fair comparison, protect a material
+guardrail, or drive a named Contract, Eval, settings, Tool, KB, handoff, or
+experiment decision. Otherwise omit it.
+
+---
+
 ## Step 1 — Pull production data
 
 Not all channels provide explicit feedback (thumbs up/down). Conversation
@@ -49,6 +83,13 @@ Start with flagged turns where feedback is available:
 codeer history negative-feedback --agent <agent_id>
 ```
 
+Negative feedback and other failure signals provide an enriched diagnostic
+sample, not a representative denominator. When the analysis claims demand,
+frequency, ordinary success, or association with an outcome, also define a
+representative or explicitly stratified sample and state its selection frame.
+Use failure and protection cases in parallel for mechanism discovery and Eval
+creation without presenting their share as the production rate.
+
 ### Then browse conversations
 
 For channels without feedback signals, export the complete Chat V2 parts before
@@ -78,22 +119,56 @@ the history before retrying because the turn may already have been persisted.
 
 ---
 
-## Step 2 — Analyze and categorize
+## Step 2 — Analyze entry conditions and Agent decisions
 
-Read through production conversations and classify findings:
+Use two explanatory axes around the accepted analysis outcome:
 
-- **Failures** — agent gave wrong answer, hallucinated, missed a tool
-  call, broke a hard rule
-- **Improvement opportunities** — agent was technically correct but could
-  be better (tone, clarity, conversion flow)
-- **Successful patterns** — agent did something right that increased
-  conversion or user satisfaction (these need protection from regressions)
+1. **Observable user entry condition** — the current intention, stated goal
+   specificity, supplied context, existing work object, journey or readiness
+   state, urgency, constraints, risk, authority, and only evidence-supported
+   operational profiles that can change correct handling.
+2. **Agent decision policy** — the decision point, evidence available at that
+   point, missing information and consequence of error, chosen answer, question,
+   retrieval, recommendation, draft, Tool, validation, action, or handoff
+   policy, and a plausible alternative policy.
+
+Entry conditions are context the Agent must adapt to, not a way to assign the
+Agent's responsibility back to the user. Separate what existed before the
+Agent acted from what the Agent could observe and from what happened afterward.
+Do not infer personality, motivation, sophistication, or another latent profile
+from wording unless the evidence supports it and the distinction has a named
+decision use.
+
+Action verbs such as `answer`, `ask`, `retrieve`, `draft`, `execute`, or
+`handoff` are useful trace labels but not complete improvement findings. Analyze
+the policy at the level that can guide a later change: under what observable
+condition the Agent chose the move, why an alternative may have been more
+appropriate, what immediate state changed, and which accepted outcome or
+guardrail the difference may affect.
+
+Treat user correction, continuation, abandonment, reuse, feedback, and return
+as observed behavior, outcome evidence, mediators, or sampling signals. Do not
+equate them with quality or stop the diagnosis there. Trace backward to the
+Agent decision that may have enabled or impeded the target outcome, while
+preserving meaningful alternative explanations.
+
+Classify outcome-anchored findings as:
+
+- **Failures** — an Agent decision or result violated the accepted outcome,
+  guardrail, source truth, Tool contract, or hard boundary;
+- **Improvement opportunities** — the Agent may have chosen a less effective
+  policy despite remaining technically acceptable; and
+- **Successful patterns** — an Agent decision appears to advance or protect
+  the outcome and needs protection from regressions.
 
 ### Map findings to MECE categories
 
-Map each finding to an existing category from the eval suite (established
-during initial eval case design). If a finding doesn't fit any existing
-category, propose a new one — this is a coverage gap.
+For each actionable Agent improvement that proceeds to Eval coverage, map the
+finding to an existing category from the eval suite (established during
+initial eval case design). If it does not fit, propose a new category as a
+coverage gap. Do not force descriptive demand, outcome, fairness, selection,
+or product observations into the Agent Eval taxonomy when they have not passed
+the Actionability Gate.
 
 ### Separate evidence from diagnosis
 
@@ -121,6 +196,31 @@ When an accepted Behavior Contract is available, distinguish two decisions:
 Do not infer the contract from current settings or eval rubrics when the
 accepted design context is unavailable. Surface the gap for user confirmation.
 
+### Actionability gate
+
+Before presenting an item as an Agent improvement finding, make the following
+ideas reviewable in the clearest format for the task:
+
+- the target outcome, relevant population or intention, and guardrails;
+- the observable entry condition and Agent decision point;
+- the action policy the Agent followed and the successful, failed, or
+  counterfactual alternative;
+- the immediate observed effect and meaningful alternative explanations;
+- the strongest mechanism hypothesis and its evidence limits;
+- a modifiable behavioral treatment candidate stated at a reusable policy
+  level rather than as production wording;
+- the likely owner, such as the Behavior Contract, system prompt, Tool policy,
+  KB, retrieval, handoff, evaluator, UI, or platform; and
+- the reproduction, generalization, boundary, protection, production, or
+  experimental evidence needed next.
+
+This is a coverage lens, not a required report schema. If the evidence does not
+identify a decision point, alternative policy, treatment candidate, or
+testable downstream use, retain the observation as descriptive product,
+demand, or selection evidence rather than calling it an Agent improvement.
+The likely owner is provisional until Eval Debug or Repair Planner reads the
+complete evidence and configuration.
+
 ### Query-distribution analysis
 
 Use [query-distribution.md](query-distribution.md) when the selected history
@@ -147,11 +247,20 @@ sensitive conversations into either canonical CSV.
 
 ### Tool usage analysis
 
-Look for patterns in tool behavior:
+Separate trace facts from normative judgments. Trace facts include the Tool
+selected, arguments, result, error, latency, repetition, and whether the result
+was referenced. Judgments such as whether the Agent should have called the
+Tool, chose the best route, stopped at the right time, used the result
+correctly, or advanced the task require a policy, reference trajectory,
+external end state, or explicit human rubric.
+
+Look for decision-policy patterns in tool behavior:
 
 - Is a tool being called too often? (e.g. 13 KB calls for a simple question)
 - Is a tool being skipped when it should be used?
 - Are tool queries effective or are they missing relevant content?
+- What observable evidence gap justified the call, what decision or work
+  object did the result change, and what stopping condition applied?
 
 ### Identify unserved scenarios and useful probes
 
@@ -165,8 +274,11 @@ that could distinguish the plausible causes.
 ## Step 3 — Present and prioritize
 
 Present observations separately from inferences. Include evidence, consequence,
-mechanism hypothesis, uncertainty, and successful patterns to protect. Recommend
-which categories need investigation or new cases without prescribing a settings
+mechanism hypothesis, uncertainty, successful patterns to protect, and any
+Actionability Gate treatment candidate. Make clear whether each item is a
+description, selection or demand signal, Agent improvement hypothesis,
+supported implementation divergence, or causal conclusion. Recommend which
+categories need investigation or new cases without prescribing a settings
 patch from the surface symptom. When distribution drift is proposed, show the
 sample scope, evidence limits, and before/after distribution separately from
 behavioral findings. Let the user pick which categories to work on and in what

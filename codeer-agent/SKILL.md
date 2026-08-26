@@ -78,6 +78,46 @@ verification-planning stage. Static Audit and Eval Debug share a flexible
 finding method based on observation, evidence, consequence, likely ownership,
 and uncertainty; neither requires issue codes, JSON, or a fixed report schema.
 
+### Outcome-anchored lifecycle
+
+Anchor design and improvement work in a user-accepted outcome or outcome
+hierarchy for the relevant journey, population, and observation horizon. The
+outcome may be immediate, task-level, or longitudinal, and may vary across
+behaviorally distinct customer tasks or states. Include acceptable alternative
+or non-conversion outcomes and material safety, authority, quality, and autonomy
+guardrails. Treat the **Outcome Contract** as the opening part of the Behavior
+Contract, not as a separate design artifact. Analysis-specific outcomes and
+measurement choices belong in the current analysis scope unless they represent
+a stable intended customer experience that the user accepts into the contract.
+Scope Alignment business or conversion goals and Query Distribution task
+language are evidence for this decision, not parallel normative authorities.
+The accepted Behavior Contract is the sole normative design source for stable
+runtime customer outcomes and guardrails.
+
+Admit a field, profile, category, finding, or rule only when it helps select an
+appropriate Agent decision, measure or explain an outcome, support a fair
+comparison, protect a material guardrail, or drive a named downstream review,
+Eval, settings, Tool, KB, handoff, or experiment decision. Observable user entry
+conditions describe the context the Agent must adapt to; they do not transfer
+accountability for the Agent's next move back to the user. Do not create Persona
+or operational-profile taxonomies unless an observable distinction selects
+different correct handling. A profile may instead be an **analytic stratum**
+when it is useful for fair comparison, outcome measurement, or heterogeneous-
+effect analysis but does not change the Agent policy; keep that stratum in the
+analysis or sampling design rather than turning it into a Query Type, Behavior
+Contract branch, or runtime Persona inference.
+
+Production improvement findings must identify a modifiable Agent decision or
+action policy, the entry condition and decision point where it applies, a
+plausible alternative action and any available successful or failed contrast,
+the outcome and guardrails it is expected to affect, and the evidence needed to
+validate the change. Action verbs such as `ask`, `retrieve`, `draft`, or
+`handoff` are trace labels, not complete findings.
+Conversation, exchange, Episode, task, History, work object, user, and cohort
+are selectable analysis units; choose the minimum unit that can observe both
+the target outcome and the Agent decisions that may affect it rather than
+imposing one universal conversation decomposition.
+
 For query-led product, service, course, support, booking, form, or payment
 guidance, first use **query-distribution** to persist the accepted lean demand,
 risk, allocation, and concrete-example model, then use
@@ -87,13 +127,14 @@ server object or runtime prompt. Acceptance eval cases combine both and should
 be designed before the Agent is created.
 
 Treat the Behavior Contract as the business reviewer and Agent builder's record
-of material, observable customer-experience decisions. Start with
-minimum-sufficient, principle-level coverage of the important journeys,
-decision branches, and high-consequence boundaries. Do not turn it into a full
-support manual by restating generic service norms, canonical skill guardrails,
-implementation details, or each eval variant. Add narrower contract detail only
-when implementation, eval, or production evidence exposes a material ambiguity
-or an intentional experience change; follow
+of stable intended customer outcomes, guardrails, and material observable
+customer-experience decisions. Start with minimum-sufficient, principle-level
+coverage of the important journeys, decision branches, and high-consequence
+boundaries. Do not turn it into a full support manual by restating generic
+service norms, canonical skill guardrails, implementation details, or each eval
+variant. Add narrower contract detail only when implementation, eval, or
+production evidence exposes a material ambiguity or an intentional experience
+change; follow
 [modules/consultative-guidance.md](modules/consultative-guidance.md) for the
 admission and progressive-detail rules.
 
@@ -102,8 +143,8 @@ admission and progressive-detail rules.
 | Step | Module | What happens |
 | --- | --- | --- |
 | 1 | **kb-and-agent** | Scope Alignment only |
-| 2 | **query-distribution** | Model only behaviorally distinct customer tasks, demand, risk, target case counts, and concrete inputs → user accepts `.codeer/design/query_distribution.csv` and `.codeer/design/query_examples.csv` |
-| 3 | **consultative-guidance** | Use the distribution and available evidence → draft a minimum-sufficient record of material dialogue/discovery and risk decisions → user accepts `.codeer/design/behavior_contract.md` |
+| 2 | **query-distribution** | Model only behaviorally distinct customer tasks and entry conditions, demand, risk, target case counts, and concrete inputs; do not create operational profile categories unless an observable distinction changes correct handling → user accepts `.codeer/design/query_distribution.csv` and `.codeer/design/query_examples.csv` |
+| 3 | **consultative-guidance** | Use the distribution and available evidence → define journey outcomes and guardrails, then the material dialogue, initiative, Tool, handoff, and risk decisions that advance or protect them → user accepts `.codeer/design/behavior_contract.md` |
 | 4 | **eval-cases** | Design and review `.codeer/current/local_draft_eval_cases.md` from the accepted distribution model and Behavior Contract; preserve intended behavior and observable success even when evaluator or runtime evidence binding is still unresolved; no `agent_id` is required yet |
 | 5 | **agent-settings → kb-and-agent** | Translate the accepted contract into Agent Settings, KB, Tools, handoff, and the first full DRAFT Agent; use distribution evidence for hot-path decisions |
 | 6 | **eval-cases** | Read the DRAFT, Tools, and evaluator templates → resolve intended pairs through the Pair Admission Gate → produce and apply `.codeer/current/local_draft_eval_cases.json`; unresolved pairs stay local and do not count as coverage |
@@ -159,10 +200,14 @@ entry paths.
 
 #### Production-history path
 
-1. Use **history** to read both persistent design artifacts, pull conversations,
-   separate observations from diagnosis, identify successful behavior to
-   protect, and distinguish implementation defects, contract improvements,
-   distribution drift, and eval-portfolio gaps.
+1. Use **history** to read the persistent design artifacts, establish the
+   current analysis outcome, population, observation horizon, and unit from the
+   request and available evidence, and confirm only material ambiguity with the
+   user before pulling the necessary conversations. Compare observable entry
+   conditions and Agent decision policies, separate observations from
+   diagnosis, identify successful behavior to protect, and distinguish
+   implementation defects, contract improvements, distribution drift, and
+   eval-portfolio gaps.
 2. For meaningful distribution drift, use **query-distribution** to present the
    evidence scope and before/after model for user acceptance. Update eval
    allocation when warranted; change the Behavior Contract only if the new

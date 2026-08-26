@@ -10,9 +10,10 @@ For a new query-led customer guidance Agent, begin from the accepted
 `.codeer/design/behavior_contract.md` in
 [consultative-guidance.md](consultative-guidance.md). The distribution defines
 the evidence-backed portfolio, the examples supply concrete customer inputs,
-and the contract defines correct behavior. Design the acceptance cases locally
-before the Agent exists. An `agent_id` is required to apply or run cases, not
-to decide the customer behavior they should test.
+and the contract defines the accepted outcomes, guardrails, and correct Agent
+decision policies. Design the acceptance cases locally before the Agent exists.
+An `agent_id` is required to apply or run cases, not to decide the customer
+behavior they should test.
 Use `.codeer/current/local_draft_eval_cases.md` for this human-reviewed design
 draft. It may preserve unresolved evaluator or runtime-evidence decisions that
 cannot yet be represented in the apply-ready JSON manifest.
@@ -246,20 +247,38 @@ warrant a change go to **repair-planner** before any diff is drafted or applied.
 
 When building cases from production conversations (Phase 2):
 
-- Create a reproduction case for each distinct failure behavior. Deduplicate
-  histories that show the same mechanism while retaining materially different
-  boundaries or contexts.
+- Start from the accepted analysis outcome and the production finding's
+  treatment candidate. Identify the observable entry context, the Agent
+  decision being tested, the expected action policy, the prohibited or unsafe
+  alternative, the immediate observable outcome, and material guardrails.
+  Do not require a rigid case schema when the same meaning is clear in the
+  input, expected behavior, rubric, and metadata.
+- Create a reproduction case for each distinct failure mechanism. Deduplicate
+  histories that show the same decision-policy defect while retaining
+  materially different boundaries or contexts.
 - Each successful pattern becomes a case where the current agent should
   pass (and must keep passing after changes).
 - Add only the paraphrase, generalization, boundary, or successful-contrast
   probes needed to test a causal hypothesis or the scope of a proposed change.
 - Rewrite findings into the smallest input that makes the behavior
   objectively judgeable. Don't copy production messages verbatim — isolate
-  the specific behavior being tested.
+  the decision context and behavior being tested. A case that passes only on
+  the original wording does not establish a reusable policy.
 - Treat these cases as evidence and validation probes. Never copy their wording,
   entities, or answer shapes into agent settings.
 - Use `meta.previous_conversations` in `codeer eval cases-apply` when the
   failure requires multi-turn context.
+
+An offline acceptance Eval verifies that the Agent reliably implements the
+intended decision policy and produces evidence visible to its evaluator. It
+does not by itself establish a delayed or longitudinal outcome such as
+retention, implementation, revenue, classroom change, or long-term time saved.
+Use an immediate observable outcome or faithful proxy in the case, then name
+the production measurement needed to see whether the real outcome moves. A
+causal improvement claim additionally requires an appropriate controlled or
+credible quasi-experimental design; uncontrolled monitoring can support trend
+or association claims only. Never require an evaluator to judge an outcome
+that its input contract cannot observe.
 
 ---
 

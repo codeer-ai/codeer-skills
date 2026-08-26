@@ -81,7 +81,10 @@ to load only relevant task families.
 ## Step 2 — Define behaviorally distinct query types
 
 Use one row per customer task and journey state that materially changes the
-correct answer, next move, authority boundary, or risk policy.
+correct answer, next move, Tool choice, authority boundary, or risk policy.
+Customer-outcome language describes the task here; it does not establish a
+normative runtime outcome or guardrail before the Behavior Contract is
+accepted.
 
 - Write `customer_task` in plain customer-outcome language.
 - Fill `journey_state` only when state changes the correct handling; otherwise
@@ -94,7 +97,38 @@ correct answer, next move, authority boundary, or risk policy.
   portfolio. It is not a traffic estimate.
 
 Do not create a taxonomy column for every possible axis. Split a query type
-only when the distinction changes behavior or necessary eval coverage.
+only when the distinction changes correct handling. Put challenge, fairness,
+or sampling variation that does not change the intended policy in examples,
+Eval metadata, or the relevant analysis design instead.
+
+### Entry conditions and operational profiles
+
+Do not create Personas or profile categories by default. Distinguish the
+customer's current intention, the observable condition in which they enter this
+task, and any more persistent profile claim:
+
+- **intention** — the customer work to complete now;
+- **entry condition** — currently supplied context, existing work object,
+  journey or readiness state, urgency, constraint, risk, or authority; and
+- **operational profile** — a repeatable customer distinction supported by
+  evidence across tasks or conversations.
+
+Promote an entry condition or operational profile into the distribution only
+when an observable distinction changes correct handling. Use
+`journey_state` when the state is part of a behaviorally distinct task row. If
+the same task and policy still apply, keep concrete variation in
+`query_examples.csv` or the Eval portfolio instead of multiplying every query
+type by every possible profile. When a distinction matters only for comparing
+outcomes, fairness, or heterogeneous effects, treat it as an analytic stratum
+in that analysis or sampling design; it is not an operational profile, Query
+Type, or Behavior Contract branch.
+
+Treat Persona narratives, inferred personality, motivation, sophistication,
+demographics, or stylistic preference as product-research context rather than
+operational distribution fields unless first-party evidence establishes an
+observable distinction that changes correct handling. One user may enter
+different tasks in different states, so a persistent profile never substitutes
+for the current entry condition.
 
 Prefer evidence in this order:
 
@@ -127,6 +161,12 @@ Use `purpose` to distinguish `representative`, `boundary`, and `risk` examples.
 Preserve full prior turns in `input` when the latest user message cannot be
 interpreted correctly on its own. Deidentify sensitive data and do not retain
 more source text than needed.
+
+Use examples to preserve materially different observable entry conditions
+without prematurely creating new query types or profiles. An example variation
+is useful when it tests whether the same policy generalizes, identifies a
+nearby decision boundary, or provides evidence that handling should actually
+diverge.
 
 Do not infer demand from example count. Do not multiply every task by every
 channel, tone, risk, and challenge. Add an example only when it supplies a

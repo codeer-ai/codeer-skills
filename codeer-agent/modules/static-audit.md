@@ -112,8 +112,8 @@ Build a compact dependency map:
 ```text
 accepted Query Distribution -> eval portfolio allocation -> acceptance cases
   (when applicable)            -> assigned evaluator -> observable evidence
-accepted Behavior Contract -> acceptance case -> assigned evaluator -> rubric
-  (when applicable)          -> observable evidence
+accepted Behavior Contract (outcomes, guardrails, decision policies)
+  -> acceptance case -> assigned evaluator -> rubric -> observable evidence
 case -> assigned evaluator -> rubric -> required source/tool behavior
      -> agent version -> settings/tools -> KB attachment -> FAQ target
 ```
@@ -209,6 +209,9 @@ them; missing duplicated boundary prose is not a contract-coverage gap.
 Then compare the contract semantically with the cases, expected outputs, and
 rubrics. Use a simple judgment review. Confirm that:
 
+- each material journey's accepted customer or task outcome, acceptable
+  alternative outcome, and guardrails are represented by observable decision
+  coverage where the intended gate requires it;
 - no case or mandatory criterion demands behavior absent from or contradictory
   to the contract;
 - answer-versus-question initiative, consent before consequential actions,
@@ -221,6 +224,14 @@ rubrics. Use a simple judgment review. Confirm that:
   observable coverage; and
 - expected outputs and rubrics test decisions and outcomes without
   over-specifying phrasing.
+
+Where the contract uses an entry condition or operational profile to select a
+different policy, confirm that the distinction is observable in the case and
+actually changes correct handling. Do not require a Persona taxonomy or a
+separate operational case for profile variation that leaves the decision
+policy unchanged. A fairness, outcome-comparison, or heterogeneous-effect
+stratum may still belong in production analysis or sampling metadata without
+becoming a Query Type, contract branch, or runtime Persona inference.
 
 Assess decision coverage, not document length or one-to-one rule/case mapping.
 One contract principle may govern several journeys and cases; concrete variants

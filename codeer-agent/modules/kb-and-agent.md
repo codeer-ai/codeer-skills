@@ -29,8 +29,11 @@ an existing agent.
    "enterprise intake", "card product Q&A").
 2. **Out-of-scope** — what to deflect or escalate (legal advice, medical,
    competitor pricing, sensitive personal data, etc.).
-3. **Conversion goals** — what counts as a successful outcome per category
-   (booking link click, form submission, purchase URL, callback request).
+3. **Business or conversion goals** — candidate success signals per category
+   (booking link click, form submission, purchase URL, callback request). At
+   this stage they are non-normative business context, not accepted Agent
+   outcomes; reconcile them with customer outcomes and guardrails in the
+   Behavior Contract before runtime design.
 4. **Hard rules** — anything the agent must never do (never quote a price
    not in the KB, never invent a course slug, etc.).
 5. **Tools used** — which tools the agent needs and why (knowledge base,
@@ -115,12 +118,15 @@ PROCESSING state are not yet available for retrieval.
 
 ## Step 3 — Create agent
 
-Write `.codeer/current/local_draft_agent.json`. Pull allowed outcomes and
-boundaries from the Scope Alignment and accepted Behavior Contract; use
-supported Query Distribution evidence for hot-path and capacity decisions; use
-the reviewed acceptance cases as verification input rather than prompt text;
-and attach KB node IDs from `codeer kb list` output. Apply the target-state gate
-in [agent-settings.md](agent-settings.md) before presenting the payload diff.
+Write `.codeer/current/local_draft_agent.json`. Pull stable normative customer
+outcomes and guardrails from the accepted Behavior Contract; use Scope
+Alignment for scope, capabilities, and operational context, and use supported
+Query Distribution evidence for hot-path and capacity decisions. Business or
+conversion goals from Scope Alignment are not independent runtime objectives.
+Use the reviewed acceptance cases as verification input rather than prompt
+text, and attach KB node IDs from `codeer kb list` output. Apply the target-
+state gate in [agent-settings.md](agent-settings.md) before presenting the
+payload diff.
 
 Discuss with the user:
 

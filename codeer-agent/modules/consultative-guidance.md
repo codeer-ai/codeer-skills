@@ -37,7 +37,9 @@ supported by that evidence.
 Ask only unresolved questions whose answers would materially change the
 contract. Typical decision gaps are:
 
-- the customer decisions and successful next steps for each in-scope scenario;
+- the primary customer or task outcome, acceptable alternative or
+  non-conversion outcomes, observable success evidence, and material
+  guardrails for each in-scope journey;
 - what can already be inferred or retrieved, what must be learned before a
   recommendation or action, and what the agent should not ask for;
 - the cost and reversibility of a wrong recommendation or premature action;
@@ -50,6 +52,56 @@ contract. Typical decision gaps are:
 Recommend a suitable approach and explain the decisive tradeoff. The user may
 choose another compatible method; do not present one sales framework as the
 only valid option.
+
+---
+
+## Anchor the contract in outcomes
+
+Begin the Behavior Contract with an **Outcome Contract** for the behaviorally
+distinct journeys in scope. This is an opening part of
+`.codeer/design/behavior_contract.md`, not a separate artifact or runtime
+metric. Capture only what later behavior, Eval, or governance decisions will
+use:
+
+- the primary customer or task outcome and relevant population or customer
+  intention;
+- acceptable alternative, refusal, handoff, or non-conversion outcomes;
+- observable immediate evidence that the intended experience occurred;
+- a delayed or cross-conversation outcome only when it is material and there is
+  a plausible way to observe it;
+- safety, authority, quality, autonomy, cost, or other guardrails that must not
+  be sacrificed for the primary outcome; and
+- material attribution limits when the business or longitudinal result is not
+  fully under the Agent's control.
+
+Reconcile Scope Alignment business and conversion goals with the descriptive
+customer tasks, entry states, and risks in Query Distribution, but treat both
+as inputs for review. Only the user-accepted Behavior Contract establishes the
+stable normative runtime outcomes and guardrails. A booking, purchase,
+containment, or retention proxy does not become an Agent objective merely
+because it appeared during Scope Alignment.
+
+Use outcomes as the reason for the later information, initiative, discovery,
+recommendation, Tool, consent, risk, and handoff policies. Do not optimize a
+business proxy such as conversion, containment, satisfaction, or retention in
+isolation from the customer outcome and guardrails. Analysis-specific outcomes,
+time windows, and statistical definitions belong in the current analysis scope
+unless the user accepts them as a stable intended customer experience.
+
+Treat observable user entry conditions as policy-selection context. Model an
+intention, journey state, work-object state, urgency, readiness, risk,
+authority, or operational profile only when an observable distinction selects
+different correct handling, such as the answer, next move, Tool, handoff, or
+risk policy. Do not infer a Persona, personality, sophistication, or motivation
+from wording when the available evidence does not establish it. If a
+distinction changes only a concrete example, presentation variation, sampling
+need, or outcome comparison, keep it in the examples, Eval portfolio, or
+analysis design rather than expanding the contract.
+
+Apply an outcome-relevance gate to proposed contract content. Keep it only when
+it helps the Agent select an appropriate decision, advances or protects an
+accepted outcome, resolves a fair-comparison or governance need, or has a named
+downstream Eval or implementation use. Otherwise omit it.
 
 ---
 
@@ -148,31 +200,34 @@ number of questions. Use the following as a coverage lens, not as mandatory
 sections or a checklist to expand. Make a category explicit only when it
 contains a material decision under the admission rule above:
 
-1. **Journey outcomes** — the customer decision or next step for each
-   behaviorally distinct journey class, including acceptable non-conversion
-   outcomes.
-2. **Information policy** — what the agent may infer, retrieve, or ask; what is
+1. **Outcome Contract** — the primary customer or task outcome for each
+   behaviorally distinct journey, acceptable alternative or non-conversion
+   outcomes, observable evidence, material delayed outcomes, attribution
+   limits, and guardrails.
+2. **Entry conditions and adaptation** — the observable intentions, journey or
+   work-object states, constraints, readiness, urgency, risk, authority, or
+   evidence-supported operational profiles that change correct handling. Do
+   not create a Persona taxonomy merely to describe customer differences.
+3. **Information policy** — what the agent may infer, retrieve, or ask; what is
    required before recommending or acting; and what information is unnecessary
    or too sensitive to collect.
-3. **Initiative policy** — when to answer, ask, retrieve, compare, recommend,
+4. **Initiative policy** — when to answer, ask, retrieve, compare, recommend,
    use a tool, or hand off, including the main boundaries between those moves.
-4. **Discovery strategy** — the chosen method or composition and the signals
+5. **Discovery strategy** — the chosen method or composition and the signals
    that should deepen, shorten, or switch it. SPIN may be used lightly as a
    question-design tool, but never as a mandatory interrogation sequence.
-5. **Recommendation and refinement** — how many options to surface, how to
+6. **Recommendation and refinement** — how many options to surface, how to
    explain fit and tradeoffs, how to use feedback or critique to narrow, and
    how to respond when evidence is insufficient.
-6. **Progression and consent** — what readiness signal permits a booking,
+7. **Progression and consent** — what readiness signal permits a booking,
    form, payment, or other consequential action; what must be confirmed first;
    and how the user can decline or step back.
-7. **Handoff and limits** — human-transfer triggers, unsupported requests, and
+8. **Handoff and limits** — human-transfer triggers, unsupported requests, and
    the helpful context to provide without pretending the transfer succeeded.
-8. **Risk and boundary policies** — rare or high-consequence conditions that
+9. **Risk and boundary policies** — rare or high-consequence conditions that
    require a stable, observable change in verification, uncertainty disclosure,
    consent, recommendation, action, or handoff. State the general policy rather
    than cataloging concrete edge cases.
-9. **Success and failure behavior** — observable outcomes the acceptance evals
-   must cover, including nearby boundaries and important non-conversion cases.
 
 ### Compression example
 
@@ -241,8 +296,9 @@ The accepted file should record material unresolved assumptions. Add status,
 contract version, dates, or applicable Agent/version metadata only when the
 current project workflow will use them; otherwise rely on file and revision
 history. The contract is ready when a reviewer can tell, for the important
-branches, which next move is appropriate, what evidence or user input is
-needed, what the Agent must not do, and what a successful outcome looks like.
+branches, what outcome and guardrails govern the journey, which next move is
+appropriate for the observable entry condition, what evidence or user input is
+needed, and what the Agent must not do.
 
 After acceptance, persist `.codeer/design/behavior_contract.md`. Then use
 [eval-cases.md](eval-cases.md) to design the acceptance cases and rubrics

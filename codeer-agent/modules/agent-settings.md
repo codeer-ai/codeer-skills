@@ -41,6 +41,8 @@ Treat an eval failure or production finding as evidence about the current
 configuration, not as a requirement to encode verbatim. Optimize for the state
 of the whole agent after the change:
 
+- The configuration implements the accepted customer or task outcomes and
+  guardrails through clear, observable Agent decision policies.
 - The agent satisfies its operating requirements and hard boundaries.
 - Each component has one clear responsibility.
 - Each behavior has one primary owner.
@@ -135,15 +137,18 @@ Examples:
 
 Before proposing a change:
 
-1. Trace the observed behavior through response reasoning, tool selection,
-   retrieval, source content, and evaluator judgment as applicable.
+1. Trace the observable entry condition, Agent decision point, chosen action
+   policy, and outcome evidence through response behavior, tool selection,
+   retrieval, source content, and evaluator judgment as applicable. Do not
+   require or invent hidden chain-of-thought.
 2. Read the complete relevant settings, not only the line that appears closest
    to the symptom. Find conflicts, overlaps, missing priorities, and misplaced
    responsibilities.
 3. State the behavioral mechanism at a level that explains the case without
-   naming its incidental wording or entities. Check whether the same decision
-   principle governs adjacent scenarios; retain category-specific detail only
-   when the requirements genuinely differ.
+   naming its incidental wording or entities. Identify the accepted outcome
+   and guardrails, the alternative action policy being considered, and whether
+   the same decision principle governs adjacent scenarios; retain
+   category-specific detail only when the requirements genuinely differ.
 4. Consider meaningful alternative causes and record the supporting and
    contradicting evidence. State uncertainty instead of inventing certainty.
 5. Describe the intended target state and component ownership before writing
@@ -185,6 +190,8 @@ Before showing a settings diff, present:
   decisions, including material confidence limits and open gaps;
 - the accepted Behavior Contract and reviewed acceptance behavior this target
   state is meant to implement, including any material ambiguity still open;
+- the customer or task outcome, guardrails, observable entry condition, and
+  Agent decision policy the change is meant to affect;
 - the observed failure and strongest supported mechanism;
 - the current configuration defect and relevant evidence;
 - the proposed target state and why responsibility belongs in each component;
