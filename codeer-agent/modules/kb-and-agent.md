@@ -22,15 +22,21 @@ an existing agent.
 
 ## Step 1 — Scope alignment
 
-**Do this before any KB or agent work.** Pin down six things with the user:
+**Do this before any KB or agent work.** For the first version, pin down six
+things with the user without turning scope alignment into a scenario inventory:
 
-1. **In-scope categories** — 3–6 concrete usage scenarios the agent must
-   handle (e.g. "B2C consultation routing", "course recommendation",
-   "enterprise intake", "card product Q&A").
-2. **Out-of-scope** — what to deflect or escalate (legal advice, medical,
-   competitor pricing, sensitive personal data, etc.).
-3. **Business or conversion goals** — candidate success signals per category
-   (booking link click, form submission, purchase URL, callback request). At
+1. **Core scenario** — one smallest valuable end-to-end situation that
+   expresses why the Agent exists: the observable user intention or task,
+   starting state, material constraint, and supported Agent role. Choose the
+   central value path, not merely the easiest FAQ.
+2. **Candidate core outcome and exclusions** — the user-visible result this
+   version should help produce and what it deliberately defers, deflects, or
+   escalates (legal advice, medical advice, competitor pricing, unsupported
+   operations, etc.). The outcome remains non-normative until accepted in the
+   Behavior Contract.
+3. **Business or conversion goals** — candidate success signals for the core
+   scenario (booking link click, form submission, purchase URL, callback
+   request). At
    this stage they are non-normative business context, not accepted Agent
    outcomes; reconcile them with customer outcomes and guardrails in the
    Behavior Contract before runtime design.
@@ -43,27 +49,33 @@ an existing agent.
    needed. Human handoff is separate from Call Agent, which delegates to
    another AI agent.
 
-Keep the answers in conversation context. Assign each requirement to the
-component that should own it: stable behavior and boundaries in the system
-prompt, source-of-truth facts in the KB, operational triggers in tool or
-handoff settings, and observable requirements in eval coverage. Do not persist
-scope as a file; once the agent is on the server, scope is captured in the
-agent settings and eval case coverage.
+Known additional scenarios may remain explicitly deferred without being fully
+specified. Add one only when it becomes part of the accepted build scope.
 
-### Route through distribution, contract, and eval design before building
+Keep the working answers in conversation context until the Behavior Contract is
+accepted. Do not create a separate Scope Alignment artifact: the persistent
+Behavior Contract owns the accepted core scenario, outcome, material
+boundaries, and exclusions; Agent Settings and Eval coverage record how that
+scope is implemented and tested. Assign source-of-truth facts to the KB and
+operational triggers to Tool or handoff settings rather than duplicating them
+in the contract.
+
+### Route through contract and eval design before building
 
 For a query-led customer guidance agent, stop after Scope Alignment and use
-[query-distribution.md](query-distribution.md) to create the accepted
-`.codeer/design/query_distribution.csv` and
-`.codeer/design/query_examples.csv` from first-party evidence when available
-or a clearly labeled provisional model otherwise. Then use
 [consultative-guidance.md](consultative-guidance.md) to create the accepted
-`.codeer/design/behavior_contract.md`. After the distribution model and Behavior
-Contract are accepted, use [eval-cases.md](eval-cases.md) to design the
-portfolio, acceptance cases, and rubrics locally. These steps happen before KB
-upload, Agent Settings design, or Agent creation so expected demand and intended
-customer behavior—not the first prompt draft—define what the first Agent must
-satisfy.
+`.codeer/design/behavior_contract.md` for the one core scenario and outcome.
+Then use [eval-cases.md](eval-cases.md) to design its small end-to-end acceptance
+set locally. These steps happen before KB upload, Agent Settings design, or
+Agent creation so intended customer behavior—not the first prompt draft—defines
+what the first Agent must satisfy.
+
+Use [query-distribution.md](query-distribution.md) before or after the contract
+only when a named demand, weighted portfolio, capacity, hot-path, or drift
+decision requires analysis. Keep a one-off result in the current analysis;
+create the optional `.codeer/design/query_distribution.csv` and
+`.codeer/design/query_examples.csv` artifacts only when the model needs reuse.
+Their absence does not block a first core-scenario build.
 
 The cases cannot be applied to the server until the Agent exists. Keep the
 reviewed local manifest ready, continue with the KB and Agent steps below, and
@@ -121,8 +133,9 @@ PROCESSING state are not yet available for retrieval.
 Write `.codeer/current/local_draft_agent.json`. Pull stable normative customer
 outcomes and guardrails from the accepted Behavior Contract; use Scope
 Alignment for scope, capabilities, and operational context, and use supported
-Query Distribution evidence for hot-path and capacity decisions. Business or
-conversion goals from Scope Alignment are not independent runtime objectives.
+Query Distribution evidence for hot-path and capacity decisions only when that
+optional analysis exists and applies. Business or conversion goals from Scope
+Alignment are not independent runtime objectives.
 Use the reviewed acceptance cases as verification input rather than prompt
 text, and attach KB node IDs from `codeer kb list` output. Apply the target-
 state gate in [agent-settings.md](agent-settings.md) before presenting the

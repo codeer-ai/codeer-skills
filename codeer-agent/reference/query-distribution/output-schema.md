@@ -1,6 +1,7 @@
-# Query Distribution and examples schema
+# Optional Query Distribution and examples schema
 
-Use two persistent canonical files:
+Use these two persistent canonical files only when an active demand or
+allocation decision justifies the optional Query Distribution:
 
 - `.codeer/design/query_distribution.csv`
 - `.codeer/design/query_examples.csv`

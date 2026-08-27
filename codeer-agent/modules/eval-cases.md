@@ -1,19 +1,20 @@
 # Eval Case Design
 
-Build eval cases that cover the agent's operating scope. Work one category
-at a time so each review batch is mentally manageable.
+Build eval cases that cover the Agent's accepted operating scope. For a first
+version, begin with a small end-to-end acceptance set for the one core scenario
+in the Behavior Contract. Work one scenario or later portfolio group at a time
+so each review batch is mentally manageable.
 
 For a new query-led customer guidance Agent, begin from the accepted
-`.codeer/design/query_distribution.csv` in
-[query-distribution.md](query-distribution.md) and
-`.codeer/design/query_examples.csv`, plus the accepted
 `.codeer/design/behavior_contract.md` in
-[consultative-guidance.md](consultative-guidance.md). The distribution defines
-the evidence-backed portfolio, the examples supply concrete customer inputs,
-and the contract defines the accepted outcomes, guardrails, and correct Agent
-decision policies. Design the acceptance cases locally before the Agent exists.
-An `agent_id` is required to apply or run cases, not to decide the customer
-behavior they should test.
+[consultative-guidance.md](consultative-guidance.md). It defines the core
+scenario, accepted outcome, guardrails, and correct Agent decision policies.
+When optional `.codeer/design/query_distribution.csv` or
+`.codeer/design/query_examples.csv` artifacts exist and apply, read them through
+[query-distribution.md](query-distribution.md); they can inform portfolio
+allocation and concrete inputs but are not prerequisites. Design the acceptance
+cases locally before the Agent exists. An `agent_id` is required to apply or run
+cases, not to decide the customer behavior they should test.
 Use `.codeer/current/local_draft_eval_cases.md` for this human-reviewed design
 draft. It may preserve unresolved evaluator or runtime-evidence decisions that
 cannot yet be represented in the apply-ready JSON manifest.
@@ -30,37 +31,58 @@ cases or rubric changes silently.
 
 ---
 
-## Step 1 — MECE categories
+## Step 1 — Select minimum-sufficient scenario coverage
 
-Inspect the accepted scope, Query Distribution, query examples, Behavior
-Contract, and source material. When an Agent already exists, also
-inspect its settings, system prompt, KBs, and tools, but do not let the current
-implementation silently redefine the accepted behavior. Propose a set of
-mutually exclusive, collectively exhaustive categories — for example: product
-Q&A, discovery and narrowing, recommendation boundaries, transaction readiness,
-tool-backed actions, handoff, and out-of-scope handling.
+Inspect the accepted scope, Behavior Contract, and source material. When an
+Agent already exists, also inspect its settings, system prompt, KBs, and Tools,
+but do not let the current implementation silently redefine accepted behavior.
 
-- Aim for 3–6 categories.
-- **Confirm the category structure with the user before writing any cases.**
+For the first version, keep one core scenario and select only the variants
+needed to make its end-to-end behavior judgeable:
 
-### Portfolio allocation
+- a representative path from the observable starting state to the core or an
+  acceptable alternative outcome;
+- a missing-information or readiness branch only when it changes the next
+  correct move;
+- a high-consequence, consent, authority, or handoff boundary only when it is
+  material to this scenario; and
+- a paraphrase, disclosure-order, or nearby-boundary probe only when needed to
+  show that the decision policy generalizes beyond one wording.
 
-Use `target_cases` as the accepted integer portfolio allocation. Preserve the
-intent of that allocation when review constraints require a smaller batch, and
-propose a distribution diff when the full target should change. Allocate
-coverage across representative tasks, material journey boundaries, and
-intentional rare-but-high-consequence reserves.
+These are Eval variants of one scenario, not new Behavior Contract scenarios.
+Do not require a MECE category map or invent additional journeys before the
+core path is stable. When the accepted scope later contains several scenarios
+or a large suite needs review groups, propose 3–6 mutually exclusive,
+collectively exhaustive portfolio categories and confirm that structure with
+the user before writing grouped cases.
 
-Do not infer real-world frequency from example count. Do not drop a rare
-high-risk query type merely because demand is low, and do not multiply every
-task by every risk or challenge. Treat accepted examples as candidate inputs,
-not automatically approved eval cases.
+End-to-end acceptance may use a small set of state-complete cases, each carrying
+the prior facts needed to judge one material decision point. This can verify the
+ask, answer, recommend, Tool, consent, or handoff policies across the journey;
+it does not establish turn-to-turn memory or sequential conversation behavior.
+When prior assistant behavior or disclosure order materially changes the
+correct response, use the authentic multi-turn requirements below and keep the
+pair unresolved if the DRAFT runtime cannot supply that evidence.
+
+### Optional portfolio allocation
+
+When an accepted Query Distribution exists, use `target_cases` as the intended
+integer allocation and preserve deliberate high-consequence reserves. When no
+distribution exists, choose the smallest case set that covers the accepted
+core behavior and report results by meaningful slices such as representative,
+boundary, or high-risk; do not present the aggregate pass rate as traffic-
+weighted production quality.
+
+Do not infer real-world frequency from example or case count. Do not drop a
+material high-risk boundary merely because demand is low, and do not multiply
+every task by every risk or challenge. Treat accepted examples as candidate
+inputs, not automatically approved Eval cases.
 
 ---
 
-## Step 2 — Category loop
+## Step 2 — Scenario loop
 
-For each category (user picks order, or go sequentially):
+For the core scenario, and later for each accepted scenario or portfolio group:
 
 ### 2a. Decide case count
 
@@ -69,7 +91,8 @@ hallucination risk. State the count and rationale — the user can adjust.
 
 ### 2b. Generate cases + rubrics
 
-Write cases for this category only. Each case carries per-evaluator rubrics.
+Write cases for this scenario or portfolio group only. Each case carries per-
+evaluator rubrics.
 On the server, that rubric row is also the case/evaluator assignment. A case
 only runs with evaluators it is assigned to, so every manifest case needs a
 `rubrics` entry for each tester that should judge it.
@@ -194,27 +217,33 @@ When a finding warrants a change, use **repair-planner** to design and review
 the target state before the owning module applies it. Do not describe a local
 draft or an unevaluated case batch as a baseline.
 
-### 2f. Next category
+### 2f. Next accepted scenario or group
 
-Repeat from 2a for the next category.
+Stop after the accepted first-version core scenario is covered. Otherwise,
+repeat from 2a for the next accepted scenario or portfolio group; do not expand
+the Behavior Contract merely to continue the loop.
 
 ---
 
 ## Step 3 — Static preflight and full sweep
 
-Before the first baseline and after any case, rubric, evaluator, KB, FAQ, or
-agent-settings change—and after an accepted Query Distribution update—run
-[static-audit.md](static-audit.md). Do not start the full sweep while its verdict
-is `BLOCKED`. Include both distribution-to-portfolio alignment and the Behavior
-Contract's semantic alignment with acceptance cases in the audited scope.
+Before the first baseline, a full regression, or a publish decision, run a full
+[static-audit.md](static-audit.md). After a bounded exploratory case or rubric
+change, a scoped audit is sufficient before a focused probe when it checks all
+affected static dependencies and no whole-system claim is made. Run a full
+audit after any accepted KB, FAQ, settings, evaluator, assignment, Behavior
+Contract, or optional Query Distribution change before the next full sweep.
+Do not start a run while the applicable audit verdict is `BLOCKED`. Always
+include the Behavior Contract's semantic alignment with affected acceptance
+cases; include distribution-to-portfolio alignment only when applicable.
 
-For a new Agent, after all categories are covered, cases are applied, and the
-first full DRAFT Agent passes Static Audit, run every assigned case/evaluator
-pair. This is the first baseline: the pre-repair dynamic evidence for the
-complete first Agent. On later iterations, the same full sweep is a regression
-check. The default full-suite run uses every case/evaluator pair already
-assigned on the server. For a full-suite run with many cases, use `--out` to
-avoid flooding the context window:
+For a new Agent, after the accepted first-version scope is covered, cases are
+applied, and the first full DRAFT Agent passes Static Audit, run every assigned
+case/evaluator pair. This is the first baseline: the pre-repair dynamic evidence
+for that accepted scope, not proof of broader unmodeled scenario coverage. On
+later iterations, the same full sweep is a regression check. The default full-
+suite run uses every case/evaluator pair already assigned on the server. For a
+full-suite run with many cases, use `--out` to avoid flooding the context window:
 
 ```bash
 codeer eval run \
@@ -371,8 +400,9 @@ not the pre-repair first baseline defined by the parent skill.
 
 ### Splitting into batches
 
-Use the MECE categories as the natural batch boundaries. Each batch
-should be small enough to review without fatigue (typically 10–20 cases).
+Use accepted scenarios or established portfolio categories as the natural batch
+boundaries. Each batch should be small enough to review without fatigue
+(typically 10–20 cases).
 
 ### Running a batch
 

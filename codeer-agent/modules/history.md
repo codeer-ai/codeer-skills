@@ -3,14 +3,15 @@
 Analyze production conversations to drive continuous improvement. This module
 is the entry point for Phase 2 (Improve).
 
-Before analyzing behavior or demand, read the accepted
-`.codeer/design/query_distribution.csv`,
-`.codeer/design/query_examples.csv`, and
-`.codeer/design/behavior_contract.md`. They answer different questions: what
-customer work was expected, what concrete inputs represent it, and how the
-Agent was intended to handle it. For a legacy Agent without these artifacts,
-surface the missing design evidence and reconstruct it with user acceptance
-before making strong claims about contract divergence or distribution drift.
+Before analyzing behavior, read the accepted
+`.codeer/design/behavior_contract.md`; it defines the intended scenario,
+outcome, guardrails, and decision policies. When optional
+`.codeer/design/query_distribution.csv` or
+`.codeer/design/query_examples.csv` artifacts exist and the analysis concerns
+demand, allocation, or drift, read them as well. For a legacy Agent without a
+Behavior Contract, surface the missing normative design evidence before making
+strong claims about contract divergence. The absence of an optional Query
+Distribution is not a gap unless the requested decision requires one.
 
 ---
 
@@ -161,14 +162,16 @@ Classify outcome-anchored findings as:
 - **Successful patterns** — an Agent decision appears to advance or protect
   the outcome and needs protection from regressions.
 
-### Map findings to MECE categories
+### Map findings to accepted scenario coverage
 
 For each actionable Agent improvement that proceeds to Eval coverage, map the
-finding to an existing category from the eval suite (established during
-initial eval case design). If it does not fit, propose a new category as a
-coverage gap. Do not force descriptive demand, outcome, fairness, selection,
-or product observations into the Agent Eval taxonomy when they have not passed
-the Actionability Gate.
+finding to the accepted core scenario, an accepted expansion, or an established
+portfolio group. If it does not fit, decide whether it is an Eval variant whose
+handling is already clear or a behaviorally distinct scenario that first needs
+Behavior Contract acceptance. Do not create a new category merely to file the
+finding, and do not force descriptive demand, outcome, fairness, selection, or
+product observations into the Agent Eval taxonomy when they have not passed the
+Actionability Gate.
 
 ### Separate evidence from diagnosis
 
@@ -221,29 +224,34 @@ demand, or selection evidence rather than calling it an Agent improvement.
 The likely owner is provisional until Eval Debug or Repair Planner reads the
 complete evidence and configuration.
 
-### Query-distribution analysis
+### Scenario coverage and optional query-distribution analysis
 
-Use [query-distribution.md](query-distribution.md) when the selected history
-scope is broad enough to inform demand. Treat the conversation or customer task
-as the unit rather than counting messages. State the inspected channels, date
-range, population, selection criteria, and material sampling limits in the
-analysis or optional notes rather than adding them to every distribution row.
+Compare observed customer intentions, starting states, constraints, decision
+points, and risks with the accepted Behavior Contract. Distinguish:
 
-Compare observed customer tasks, journey states, demand, and risks with the
-accepted distribution and examples. Distinguish:
-
-- **distribution drift** — meaningful new evidence changes a customer task,
-  journey state, demand band, risk level, or target case allocation;
-- **example gap** — a meaningful customer input is missing from the accepted
-  examples without changing the underlying distribution;
-- **eval-portfolio gap** — the accepted distribution already contains the
-  query type, but reviewed cases do not cover it adequately; and
+- **Eval variant or example gap** — the accepted scenario and decision policy
+  already apply, but a meaningful phrasing, disclosure order, input state, or
+  boundary is not covered;
+- **scenario candidate** — an observable difference changes the appropriate
+  outcome, next move, required evidence, Tool, handoff, consent, or risk policy
+  and may justify expanding the Behavior Contract;
+- **eval-portfolio gap** — the accepted Behavior Contract already determines
+  correct handling, but reviewed cases do not cover it adequately; and
 - **individual behavior evidence** — a conversation exposes a failure or
   success without supporting a frequency conclusion.
 
+Use [query-distribution.md](query-distribution.md) only when the selected
+history scope and current decision justify a demand, weighted-allocation,
+capacity, hot-path, or drift model. Treat the conversation or customer task as
+the unit rather than counting messages. State the inspected channels, date
+range, population, selection criteria, and material sampling limits. When an
+accepted distribution exists, **distribution drift** means meaningful new
+evidence changes a customer task, journey state, demand band, risk level, or
+target case allocation.
+
 One failure, negative conversation, or first-page sample normally creates an
-eval probe or deidentified example, not a distribution revision. Never copy raw
-sensitive conversations into either canonical CSV.
+Eval probe or scenario candidate, not a Query Distribution. Never copy raw
+sensitive conversations into canonical design artifacts.
 
 ### Tool usage analysis
 
@@ -265,9 +273,12 @@ Look for decision-policy patterns in tool behavior:
 ### Identify unserved scenarios and useful probes
 
 Find specific user query patterns that the current eval suite doesn't cover.
-These become candidates for new eval cases. When a mechanism remains
-uncertain, identify paraphrases, nearby boundaries, or successful contrasts
-that could distinguish the plausible causes.
+When the accepted contract already determines correct handling, these become
+candidate Eval cases. When handling would materially differ, treat them as
+candidate Behavior Contract expansions and obtain acceptance before changing
+runtime behavior. When a mechanism remains uncertain, identify paraphrases,
+nearby boundaries, or successful contrasts that could distinguish the
+plausible causes.
 
 ---
 
@@ -278,23 +289,26 @@ mechanism hypothesis, uncertainty, successful patterns to protect, and any
 Actionability Gate treatment candidate. Make clear whether each item is a
 description, selection or demand signal, Agent improvement hypothesis,
 supported implementation divergence, or causal conclusion. Recommend which
-categories need investigation or new cases without prescribing a settings
-patch from the surface symptom. When distribution drift is proposed, show the
-sample scope, evidence limits, and before/after distribution separately from
-behavioral findings. Let the user pick which categories to work on and in what
-order.
+scenarios or finding groups need investigation or new cases without prescribing
+a settings patch from the surface symptom. When an optional distribution is created or
+revised, show the sample scope, evidence limits, and before/after model
+separately from behavioral findings. Let the user pick which findings or
+scenario groups to work on and in what order.
 
 ---
 
 ## Step 4 — Choose the follow-on path
 
-After the user chooses priorities, keep distribution, contract, and
-implementation decisions distinct.
+After the user chooses priorities, keep scenario coverage, optional demand
+analysis, contract, and implementation decisions distinct.
 
-### Meaningful Query Distribution update
+### Optional Query Distribution creation or update
 
-Use [query-distribution.md](query-distribution.md) to present the complete
-revision and obtain user acceptance before replacing
+Use [query-distribution.md](query-distribution.md) only when a named downstream
+decision requires it. For a one-off estimate, report the evidence scope,
+uncertainty, and conclusion without creating canonical artifacts. When later
+decisions need a reusable model, present the complete new model or revision and
+obtain user acceptance before creating or replacing
 `.codeer/design/query_distribution.csv` or
 `.codeer/design/query_examples.csv`. Then:
 
@@ -304,8 +318,8 @@ revision and obtain user acceptance before replacing
 3. change Agent Settings, KB, or Tools only after any contract revision is
    accepted and expressed in eval cases.
 
-A distribution-only update may end with eval-portfolio maintenance and no
-runtime Agent change.
+A distribution-only creation or update may end with Eval-portfolio maintenance
+and no runtime Agent change.
 
 ### Implementation divergence against an unchanged contract
 
@@ -314,7 +328,9 @@ Transition to **eval-cases**:
 - Each distinct failure behavior → a representative reproduction case where
   the current agent should fail
 - Each successful pattern → a case that must keep passing
-- Each unserved scenario → a new case for coverage
+- Each unserved input whose handling is already clear → a new case for coverage;
+  route a behaviorally distinct scenario to Consultative Customer Guidance
+  first
 - Each uncertain mechanism → only the generalization, boundary, or contrast
   probes needed to distinguish the plausible causes
 

@@ -28,11 +28,12 @@ The planner still needs enough meaning to recover:
 - the current objects that would be affected by a change.
 
 For a query-led customer guidance Agent, also read the accepted
-`.codeer/design/query_distribution.csv`,
-`.codeer/design/query_examples.csv`, and
-`.codeer/design/behavior_contract.md` when they are relevant to the finding.
-They are design anchors, not runtime components or instructions to copy into
-the system prompt.
+`.codeer/design/behavior_contract.md` when it is relevant to the finding. Read
+optional `.codeer/design/query_distribution.csv` and
+`.codeer/design/query_examples.csv` artifacts only when they exist and the
+finding depends on demand, allocation, or concrete-input evidence. They are
+design anchors, not runtime components or instructions to copy into the system
+prompt.
 
 Read current affected state before drafting a diff. A finding is evidence about
 the system, not a command to preserve its wording or proposed remedy. If the
@@ -72,11 +73,16 @@ of the revised behavior, then update acceptance eval cases first. Re-enter the
 planner with the accepted contract and pre-change eval evidence. Do not hide an
 unapproved contract change inside Agent Settings, KB, Tools, or a rubric.
 
-If the accepted finding is distribution drift or an eval-portfolio allocation
-gap, route it to [query-distribution.md](query-distribution.md) and
-[eval-cases.md](eval-cases.md). Do not plan a runtime repair unless the accepted
-distribution change also changes the Behavior Contract, an operational
-dependency, capacity, tool path, or another runtime owner.
+If the accepted finding is a scenario-coverage gap, route it to
+[eval-cases.md](eval-cases.md) when the existing Behavior Contract already
+determines correct handling; route it first to
+[consultative-guidance.md](consultative-guidance.md) when it requires a new
+outcome, behavior path, or stable boundary. If the decision also requires
+demand or allocation evidence, use the optional
+[query-distribution.md](query-distribution.md) module. Do not plan a runtime
+repair for a distribution-only change unless it also changes the Behavior
+Contract, an operational dependency, capacity, Tool path, or another runtime
+owner.
 
 ---
 
@@ -227,7 +233,8 @@ Choose the additional impact set from the changed owner:
 
 | Changed owner | Minimum impact set |
 | --- | --- |
-| Query Distribution or eval-portfolio allocation | Changed cells, neighboring allocation boundaries, risk reserves, and distribution-to-portfolio audit; runtime regression only when the Agent also changes |
+| Behavior Contract scenario or outcome | Core path, material branch, nearby boundary, accepted alternative outcome, and protected guardrails; update Evals before runtime changes |
+| Optional Query Distribution or eval-portfolio allocation | Changed cells, neighboring allocation boundaries, risk reserves, and distribution-to-portfolio audit; runtime regression only when the Agent also changes |
 | One case rubric | The pair plus calibration examples and adjacent cases using the same criterion |
 | FAQ/routing target | Reproduction, same-source variants, similar routes, boundary, negative control |
 | One KB policy/file | Dependent Content/Source pairs and routes to that source |

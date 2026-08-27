@@ -2,7 +2,8 @@
 
 ## Goal
 
-Create the smallest distribution that can answer:
+When a named downstream decision needs demand or allocation evidence, create
+the smallest distribution that can answer:
 
 1. what customers need help with;
 2. when journey state changes correct handling;
@@ -10,8 +11,10 @@ Create the smallest distribution that can answer:
 4. how many acceptance cases should cover each query type; and
 5. what concrete customer inputs make each type recognizable.
 
-The Query Distribution describes expected work. The Behavior Contract defines
-how the Agent should handle it. The eval portfolio tests the accepted pair.
+The Query Distribution is optional and describes expected work. The Behavior
+Contract defines how the Agent should handle its accepted scenarios and does
+not require a distribution to exist. When both artifacts exist, the Eval
+portfolio tests the accepted pair.
 
 ## Keep four concepts separate
 

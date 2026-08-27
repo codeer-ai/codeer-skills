@@ -1,6 +1,6 @@
 ---
 name: codeer-agent
-description: Design, build, evaluate, publish, and analyze Codeer agents over the Codeer API. Use for customer-query distributions, customer-guidance behavior contracts, agent settings and system-prompt design, root-cause improvement, knowledge base uploads, eval cases and rubrics, draft live tests, publishing, production history analysis, and feedback review.
+description: Design, build, evaluate, publish, and analyze Codeer agents over the Codeer API. Use for scenario-centered behavior contracts, optional customer-query demand analysis, agent settings and system-prompt design, root-cause improvement, knowledge base uploads, eval cases and rubrics, draft live tests, publishing, production history analysis, and feedback review.
 ---
 
 # Codeer Agent Lifecycle — skill
@@ -62,8 +62,9 @@ The `codeer` CLI must already be installed and authenticated before this skill
 uses it. See **onboarding.md** for profile setup, workspace scope, and
 installation from the public GitHub skill URL.
 
-**At the start of any Codeer-skill session, run `codeer check`**
-to validate auth, workspace, and agent config.
+Before the first Codeer server read or write in a session, run `codeer check`
+to validate auth, workspace, and agent config. Purely local design, artifact
+review, or static file work does not require a server check.
 
 ---
 
@@ -80,19 +81,27 @@ and uncertainty; neither requires issue codes, JSON, or a fixed report schema.
 
 ### Outcome-anchored lifecycle
 
-Anchor design and improvement work in a user-accepted outcome or outcome
-hierarchy for the relevant journey, population, and observation horizon. The
-outcome may be immediate, task-level, or longitudinal, and may vary across
-behaviorally distinct customer tasks or states. Include acceptable alternative
-or non-conversion outcomes and material safety, authority, quality, and autonomy
-guardrails. Treat the **Outcome Contract** as the opening part of the Behavior
-Contract, not as a separate design artifact. Analysis-specific outcomes and
-measurement choices belong in the current analysis scope unless they represent
-a stable intended customer experience that the user accepts into the contract.
-Scope Alignment business or conversion goals and Query Distribution task
-language are evidence for this decision, not parallel normative authorities.
-The accepted Behavior Contract is the sole normative design source for stable
-runtime customer outcomes and guardrails.
+Anchor design and improvement work in a user-accepted customer or task outcome.
+For a first Agent version, choose one **core scenario** and one **core outcome**
+that form the smallest valuable end-to-end journey. Do not begin by inventorying
+every possible scenario, profile, or edge case. Include acceptable alternative
+or non-conversion outcomes and only the material safety, authority, quality, and
+autonomy guardrails needed to keep that journey reliable. A small first scope
+does not relax the canonical evidence and autonomy boundaries.
+
+Treat the core scenario, outcome, and behavior path as the opening of the
+Behavior Contract, not as separate artifacts. Expand the contract one scenario
+at a time only when an observable difference changes the intended outcome,
+next move, required evidence, Tool or handoff path, consent boundary, or risk
+policy. Keep wording, product, Persona, channel, and challenge variations in
+Eval coverage when the same decision policy still applies.
+
+Analysis-specific outcomes and measurement choices belong in the current
+analysis scope unless they represent a stable intended customer experience that
+the user accepts into the contract. Scope Alignment business or conversion
+goals and optional demand evidence are inputs to this decision, not parallel
+normative authorities. The accepted Behavior Contract is the sole normative
+design source for stable runtime customer outcomes and guardrails.
 
 Admit a field, profile, category, finding, or rule only when it helps select an
 appropriate Agent decision, measure or explain an outcome, support a fair
@@ -119,22 +128,24 @@ the target outcome and the Agent decisions that may affect it rather than
 imposing one universal conversation decomposition.
 
 For query-led product, service, course, support, booking, form, or payment
-guidance, first use **query-distribution** to persist the accepted lean demand,
-risk, allocation, and concrete-example model, then use
-**consultative-guidance** to persist the accepted customer experience. Query
-Distribution is descriptive; the Behavior Contract is normative. Neither is a
-server object or runtime prompt. Acceptance eval cases combine both and should
-be designed before the Agent is created.
+guidance, use **consultative-guidance** to persist the accepted core scenario,
+outcome, and behavior path. Use **query-distribution** only when supported
+frequency, weighted portfolio allocation, capacity, hot-path, or production-
+drift decisions require a separate demand model. Query Distribution is optional
+and descriptive; the Behavior Contract is normative. Neither is a server object
+or runtime prompt. Acceptance eval cases should be designed before the Agent is
+created and can use concrete inputs directly from the accepted scenario and
+source evidence when no distribution artifact exists.
 
 Treat the Behavior Contract as the business reviewer and Agent builder's record
 of stable intended customer outcomes, guardrails, and material observable
-customer-experience decisions. Start with minimum-sufficient, principle-level
-coverage of the important journeys, decision branches, and high-consequence
-boundaries. Do not turn it into a full support manual by restating generic
-service norms, canonical skill guardrails, implementation details, or each eval
-variant. Add narrower contract detail only when implementation, eval, or
-production evidence exposes a material ambiguity or an intentional experience
-change; follow
+customer-experience decisions. Start with one core scenario, one core outcome,
+and the minimum end-to-end decisions and high-consequence boundaries needed to
+make that journey reviewable. Do not turn it into a full support manual by
+restating generic service norms, canonical skill guardrails, implementation
+details, or each eval variant. Add narrower contract detail only when
+implementation, eval, or production evidence exposes a material ambiguity or
+an intentional experience change; follow
 [modules/consultative-guidance.md](modules/consultative-guidance.md) for the
 admission and progressive-detail rules.
 
@@ -142,21 +153,22 @@ admission and progressive-detail rules.
 
 | Step | Module | What happens |
 | --- | --- | --- |
-| 1 | **kb-and-agent** | Scope Alignment only |
-| 2 | **query-distribution** | Model only behaviorally distinct customer tasks and entry conditions, demand, risk, target case counts, and concrete inputs; do not create operational profile categories unless an observable distinction changes correct handling → user accepts `.codeer/design/query_distribution.csv` and `.codeer/design/query_examples.csv` |
-| 3 | **consultative-guidance** | Use the distribution and available evidence → define journey outcomes and guardrails, then the material dialogue, initiative, Tool, handoff, and risk decisions that advance or protect them → user accepts `.codeer/design/behavior_contract.md` |
-| 4 | **eval-cases** | Design and review `.codeer/current/local_draft_eval_cases.md` from the accepted distribution model and Behavior Contract; preserve intended behavior and observable success even when evaluator or runtime evidence binding is still unresolved; no `agent_id` is required yet |
-| 5 | **agent-settings → kb-and-agent** | Translate the accepted contract into Agent Settings, KB, Tools, handoff, and the first full DRAFT Agent; use distribution evidence for hot-path decisions |
+| 1 | **kb-and-agent** | Scope Alignment selects one core scenario, one candidate core outcome, material exclusions, capabilities, and boundaries |
+| 2 | **consultative-guidance** | Use available evidence → define the core outcome and guardrails, then the minimum behavior path, Tool, handoff, and risk decisions that advance or protect them → user accepts `.codeer/design/behavior_contract.md` |
+| 3 | **query-distribution** *(optional; may run before Step 2)* | Only when an active decision requires demand evidence—for example, selecting the core scenario or allocating a broader portfolio → perform the minimum analysis; persist accepted CSV artifacts only when a reusable demand or allocation model is needed |
+| 4 | **eval-cases** | Design and review a small end-to-end acceptance set for the accepted core scenario; use optional distribution evidence only when available and relevant → preserve intended behavior and observable success in `.codeer/current/local_draft_eval_cases.md` before an `agent_id` exists |
+| 5 | **agent-settings → kb-and-agent** | Translate the accepted contract into Agent Settings, KB, Tools, handoff, and the first full DRAFT Agent; use optional supported demand evidence only for decisions it can justify |
 | 6 | **eval-cases** | Read the DRAFT, Tools, and evaluator templates → resolve intended pairs through the Pair Admission Gate → produce and apply `.codeer/current/local_draft_eval_cases.json`; unresolved pairs stay local and do not count as coverage |
-| 7 | **static-audit** | Read-only distribution ↔ portfolio, contract ↔ eval, and KB ↔ settings ↔ eval preflight gate |
-| 8 | **eval-cases → eval-debug → repair-planner** | Run and automatically pin the first full assigned-pair baseline → diagnose non-perfect dynamic evidence → plan and review any repair |
+| 7 | **static-audit** | Read-only contract/scenario ↔ eval and KB ↔ settings ↔ eval preflight gate; include distribution ↔ portfolio only when an accepted distribution exists |
+| 8 | **eval-cases → eval-debug → repair-planner** | Run and automatically pin the first full assigned-pair baseline for the accepted first-version scope → diagnose non-perfect dynamic evidence → plan and review any repair |
 | 9 | **owning module → static-audit → eval-cases** | Apply approved repair → re-audit → focused checks and full assigned-pair regression |
 | 10 | **kb-and-agent** | Publish after the final gate and separate user go-ahead |
 
-Before implementation, run a local semantic review of the distribution against
-the draft case portfolio and the Behavior Contract against the draft cases.
-This local-only review does not require server state and is not a full Static
-Audit clearance.
+Before implementation, run a local semantic review of the Behavior Contract's
+core scenario and behavior path against the draft cases. When an accepted Query
+Distribution exists and is being used, also review it against the draft case
+portfolio. This local-only review does not require server state and is not a
+full Static Audit clearance.
 
 When a material acceptance case requires authentic prior conversation state,
 remember that `codeer history create` and `codeer history send` use a published
@@ -208,10 +220,12 @@ entry paths.
    diagnosis, identify successful behavior to protect, and distinguish
    implementation defects, contract improvements, distribution drift, and
    eval-portfolio gaps.
-2. For meaningful distribution drift, use **query-distribution** to present the
-   evidence scope and before/after model for user acceptance. Update eval
-   allocation when warranted; change the Behavior Contract only if the new
-   demand model changes the appropriate customer experience or risk policy.
+2. When the analysis decision requires demand or allocation evidence, use
+   **query-distribution** for the minimum analysis and persist an optional model
+   only when it needs reuse across later allocation, capacity, weighted-
+   reporting, or drift decisions. A newly observed scenario normally creates
+   an Eval probe first; expand the Behavior Contract only when correct handling
+   or a stable risk policy changes.
 3. For an implementation defect against the unchanged contract, add the
    smallest reproduction and protection cases, run Static Audit, and run a
    focused pre-change eval on the current Agent before **eval-debug →
@@ -233,12 +247,12 @@ Repeat the relevant path as new eval or production evidence arrives.
 
 | You want to... | Read |
 | --- | --- |
-| Build or update the customer-query demand and eval-allocation model | [modules/query-distribution.md](modules/query-distribution.md) |
+| Build or update an optional customer-query demand and eval-allocation model | [modules/query-distribution.md](modules/query-distribution.md) |
 | Design or intentionally revise query-led customer guidance behavior | [modules/consultative-guidance.md](modules/consultative-guidance.md) |
 | Design or change any agent settings | [modules/agent-settings.md](modules/agent-settings.md) |
 | Set up KB, create or update an agent | [modules/kb-and-agent.md](modules/kb-and-agent.md) |
 | Design eval cases and rubrics | [modules/eval-cases.md](modules/eval-cases.md) |
-| Audit distribution ↔ portfolio, contract ↔ eval, and KB ↔ settings consistency before running eval | [modules/static-audit.md](modules/static-audit.md) |
+| Audit contract/scenario ↔ eval and KB ↔ settings consistency, plus optional distribution ↔ portfolio alignment | [modules/static-audit.md](modules/static-audit.md) |
 | Diagnose existing response/tool/retrieval/judge evidence | [modules/eval-debug.md](modules/eval-debug.md) |
 | Turn accepted findings into a target state, diff, and verification plan | [modules/repair-planner.md](modules/repair-planner.md) |
 | Analyze production conversations | [modules/history.md](modules/history.md) |
@@ -255,9 +269,9 @@ codeer-agent/
 ├── modules/
 │   ├── agent-settings.md  ← target-state design and component ownership
 │   ├── consultative-guidance.md ← customer-guidance Behavior Contract
-│   ├── query-distribution.md ← persistent demand and eval-allocation model
+│   ├── query-distribution.md ← optional demand and eval-allocation model
 │   ├── kb-and-agent.md   ← scope, KB design/upload, agent create/publish
-│   ├── eval-cases.md     ← MECE categories, case design, rubric authoring
+│   ├── eval-cases.md     ← scenario coverage, case design, rubric authoring
 │   ├── static-audit.md   ← scoped or full static evidence findings
 │   ├── eval-debug.md     ← dynamic evidence and causal findings
 │   ├── repair-planner.md ← target state, reviewable diffs, impact verification
