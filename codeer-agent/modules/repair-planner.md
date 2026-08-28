@@ -82,7 +82,10 @@ demand or allocation evidence, use the optional
 [query-distribution.md](query-distribution.md) module. Do not plan a runtime
 repair for a distribution-only change unless it also changes the Behavior
 Contract, an operational dependency, capacity, Tool path, or another runtime
-owner.
+owner. When the finding requires broader evaluator architecture, portfolio
+allocation, representativeness, deduplication, or retirement decisions, use
+[eval-portfolio.md](eval-portfolio.md) before drafting the maintained-suite
+diff.
 
 ---
 
@@ -142,6 +145,12 @@ changed lines or the pass rate of one case.
 For a rubric edit, show the before/after text, relevant source truth, evaluator
 visibility, and why each mandatory criterion is necessary. A correct, relevant,
 concise answer should not fail for omitting merely helpful detail.
+
+When several cases, pairs, or evaluator dimensions may change together, read
+[eval-portfolio.md](eval-portfolio.md) and preserve its accepted coverage
+universe, unique-value findings, and comparison constraints. Do not optimize
+one pair in isolation when the actual decision is whether the suite should
+keep, merge, retire, add, or recalibrate a broader set.
 
 If the evaluator cannot see the evidence required by a criterion, compare at
 least the plausible choices: make the rubric self-sufficient, assign an
@@ -213,6 +222,27 @@ user has seen the complete diff and explicitly approved the change.
 
 ## Step 6 — Plan impact-based verification
 
+### Pre-change impact hypothesis
+
+Before the approved change is applied, create a reviewable comparison map for
+every changed owner:
+
+- the intended Agent decision or action-policy change;
+- the observable response, Tool, retrieval, handoff, or evaluator behavior
+  expected to move and in which direction;
+- the exact affected cases and case/evaluator pairs;
+- nearby boundaries and previously passing impacted behavior to protect;
+- negative controls expected to remain stable; and
+- the pinned Agent/version, case, evaluator-template, judge-model, and run
+  context required for a comparable post-change result.
+
+This is a prediction, not a success claim. Do not rewrite it after seeing the
+results. If Agent and evaluator changes cannot be separated, state that Agent-
+effect attribution will be unavailable and establish a new baseline. After the
+focused and full runs, use
+[regression-triage.md](regression-triage.md) to compare this map and the approved
+diff with the observed result deltas before Eval Debug assigns a causal owner.
+
 Every proposed repair needs, where applicable:
 
 - the exact reproduction;
@@ -262,6 +292,7 @@ when other assignments exist.
 After the user approves the proposal, use the module and registered CLI command
 that own each change. Read back the effective state, run the planned focused
 checks, re-audit changed static state, and then run the required regression.
-Publish remains a separate action requiring explicit user confirmation. A
-completed plan, approved diff, or passing reproduction does not authorize
-publish.
+Use **regression-triage** after each comparable run to reconcile the predicted
+impact, protected controls, completed pairs, and observed deltas. Publish
+remains a separate action requiring explicit user confirmation. A completed
+plan, approved diff, or passing reproduction does not authorize publish.

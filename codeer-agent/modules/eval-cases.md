@@ -21,6 +21,12 @@ cannot yet be represented in the apply-ready JSON manifest.
 For an existing Agent, also inspect its current effective settings and relevant
 production or eval evidence.
 
+Use [eval-portfolio.md](eval-portfolio.md) first when the active decision is
+broader than authoring a bounded scenario batch—for example evaluator
+architecture, representative allocation, suite deduplication, pair retirement,
+or model-call and maintenance reduction. This module remains the owner of the
+concrete case, rubric, assignment, review, and apply-ready manifest.
+
 ---
 
 ## Diff rule
@@ -36,6 +42,9 @@ cases or rubric changes silently.
 Inspect the accepted scope, Behavior Contract, and source material. When an
 Agent already exists, also inspect its settings, system prompt, KBs, and Tools,
 but do not let the current implementation silently redefine accepted behavior.
+When an accepted Eval Portfolio proposal exists, use its coverage universe,
+portfolio layers, unique-value findings, and keep/merge/retire/add boundaries as
+design input without treating the proposal as approval to mutate cases.
 
 For the first version, keep one core scenario and select only the variants
 needed to make its end-to-end behavior judgeable:
@@ -212,10 +221,13 @@ Then output the eval-cases server link so the user can verify.
 ### 2e. Optionally test this batch
 
 After a complete Agent version exists and Static Audit has passed, run eval on
-just the new cases and use **eval-debug** to diagnose any dynamic findings.
-When a finding warrants a change, use **repair-planner** to design and review
-the target state before the owning module applies it. Do not describe a local
-draft or an unevaluated case batch as a baseline.
+just the new cases. Use
+[regression-triage.md](regression-triage.md) first when a comparable prior run
+or substantial result set exists, then use **eval-debug** to diagnose every
+non-perfect dynamic finding. When a finding warrants a change, use
+**repair-planner** to design and review the target state before the owning
+module applies it. Do not describe a local draft or an unevaluated case batch
+as a baseline.
 
 ### 2f. Next accepted scenario or group
 
@@ -267,8 +279,12 @@ After the first baseline completes, automatically copy the exported results
 plus exact Agent/version, evaluator-template, and judge-model context to
 `.codeer/pinned/<date>-first-baseline/` before any diagnosis or repair.
 
-Then hand off to **eval-debug** for any non-perfect scores. Findings that
-warrant a change go to **repair-planner** before any diff is drafted or applied.
+Then use **regression-triage** for baseline result clustering without claiming a
+prior-version effect, and hand every non-perfect score to **eval-debug**.
+For later focused and full runs, triage the approved Agent diff, predeclared
+impact map, protected controls, and observed deltas before deeper diagnosis.
+Findings that warrant a change go to **repair-planner** before any diff is
+drafted or applied.
 
 ---
 
@@ -297,6 +313,11 @@ When building cases from production conversations (Phase 2):
   entities, or answer shapes into agent settings.
 - Use `meta.previous_conversations` in `codeer eval cases-apply` when the
   failure requires multi-turn context.
+
+When several History findings create an allocation, representativeness,
+evaluator-design, deduplication, or retirement decision, use
+[eval-portfolio.md](eval-portfolio.md) before drafting concrete cases. A single
+clear reproduction or protection case does not require a portfolio review.
 
 An offline acceptance Eval verifies that the Agent reliably implements the
 intended decision policy and produces evidence visible to its evaluator. It
@@ -379,6 +400,12 @@ modify an evaluator. Common reasons:
 - Need a domain-specific scoring rubric structure
 - Need a different scoring scale or pass/fail threshold
 
+Before proposing a new evaluator for a maintained suite, use the value and
+observability tests in [eval-portfolio.md](eval-portfolio.md). A new evaluator
+must detect a distinct material failure through evidence the runtime actually
+supplies; an existing pair with a clearer rubric or correct assignment is
+preferable when it provides the same decision value.
+
 Use `codeer eval evaluators` to list available evaluators. If the CLI
 supports evaluator creation/update, use it; otherwise say it is not
 supported by the CLI.
@@ -416,8 +443,10 @@ codeer eval run \
     --evaluator <evaluator_id>
 ```
 
-Diagnose findings within the batch before moving on (hand off to
-**eval-debug**, then to **repair-planner** when a change is warranted).
+When a comparable batch result exists, use **regression-triage** to organize
+deltas and controls. Diagnose every non-perfect finding within the batch before
+moving on (hand off to **eval-debug**, then to **repair-planner** when a change
+is warranted).
 
 ### Tracking progress
 
@@ -434,6 +463,8 @@ state.
 
 After all batches are done, re-run [static-audit.md](static-audit.md), then run
 all assigned case/evaluator pairs as a regression check before publishing.
-Reconcile planned and completed pair counts. If the user wants to preserve the
-batch-level progress beyond the active cycle, pin
+Reconcile planned and completed pair counts, then use **regression-triage** to
+compare the approved Agent diff and impact hypothesis with the full-suite
+deltas and protected controls. If the user wants to preserve the batch-level
+progress beyond the active cycle, pin
 `.codeer/current/progress.json` before it is replaced during later work.

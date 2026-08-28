@@ -30,6 +30,38 @@ Missing evidence lowers confidence; it does not license a guessed diagnosis.
 
 ---
 
+## Failure-cluster orchestration
+
+When a run contains several independent failure groups, the parent Agent may
+delegate clusters to read-only sub-agents. If a prior comparable run or planned
+Agent change exists, use [regression-triage.md](regression-triage.md) first to
+match pairs, organize deltas, and preserve the Agent-version diff. Triage does
+not assign the causal owner; every non-perfect result still enters this module.
+
+Build provisional work units from a shared failure signature or decision
+mechanism, such as the same rubric conflict, Tool path, retrieval route, source
+family, handoff boundary, or evaluator visibility problem. Do not cluster only
+by topic, numeric score, or similar evaluator wording. Do not assign one worker
+per case unless a unique high-consequence trace requires independent review.
+
+The parent must pin the complete run evidence and static anchors before
+delegation. Give each worker the relevant cases and traces, the accepted
+Behavior Contract, exact Agent/version and KB snapshot, evaluator template and
+judge fingerprint, plus selected passing controls or successful contrasts.
+Withhold a proposed repair or preferred owner when independent diagnosis is the
+point of the delegation.
+
+Each worker applies the full dynamic causal chain to its cluster and returns
+the observation, decisive evidence, earliest supported mechanism, consequence,
+likely owner, alternative explanations, uncertainty, and smallest
+discriminating evidence needed. The parent then checks whether apparently
+separate clusters share an earlier common owner, whether one cross-cutting eval
+defect explains both failures and false passes, and whether passing controls
+contradict the proposed mechanism. Resolve conflicts from the underlying traces
+rather than averaging worker confidence or taking a majority vote.
+
+---
+
 ## Behavior Contract decision boundary
 
 Read the accepted `.codeer/design/behavior_contract.md` and use it as the

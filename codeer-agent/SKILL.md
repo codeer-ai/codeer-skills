@@ -1,6 +1,6 @@
 ---
 name: codeer-agent
-description: Design, build, evaluate, publish, and analyze Codeer agents over the Codeer API. Use for scenario-centered behavior contracts, optional customer-query demand analysis, agent settings and system-prompt design, root-cause improvement, knowledge base uploads, eval cases and rubrics, draft live tests, publishing, production history analysis, and feedback review.
+description: Design, build, evaluate, publish, and analyze Codeer agents over the Codeer API. Use for scenario-centered behavior contracts, optional customer-query demand analysis, agent settings and system-prompt design, root-cause improvement, knowledge base uploads, eval cases and rubrics, eval-portfolio optimization, version-aware regression analysis, draft live tests, publishing, production history analysis, and feedback review.
 ---
 
 # Codeer Agent Lifecycle — skill
@@ -68,6 +68,44 @@ review, or static file work does not require a server check.
 
 ---
 
+## Sub-agent orchestration
+
+Use sub-agents when the environment supports them and either the work contains
+at least two independent units that can share one pinned evidence set and be
+meaningfully synthesized, or one bounded review materially benefits from an
+independent, context-isolated perspective. Do not delegate a small scoped read
+merely to use parallelism. If sub-agents are unavailable or the work is too
+coupled, perform the same module sequentially.
+
+The parent Agent remains the decision owner. It must:
+
+- establish the outcome, scope, analysis unit, and exact Agent/version target;
+- read or export server state once when practical, then give workers the same
+  immutable local evidence and object fingerprints;
+- keep user communication, cross-workstream synthesis, final ownership and
+  causal judgments, canonical artifact writes, and every server mutation; and
+- resolve disagreements from evidence rather than worker votes.
+
+Workers are read-only investigators. They must not mutate Codeer server state,
+edit canonical project artifacts, broaden the accepted scope, rewrite the
+Behavior Contract, or apply a repair. Give each worker only the shared anchors,
+its bounded assignment, and any common coding or judgment guide. For an
+independent audit or challenge, do not preload the parent's suspected diagnosis
+or proposed repair. Workers should return findings through their handoff rather
+than shared files. If a large intermediate artifact is unavoidable, the parent
+must assign a unique non-canonical path that no other worker will edit.
+
+A worker handoff may use any reviewable format, but it must preserve the
+assigned scope, evidence inspected, observations, consequence, likely owner,
+material alternatives or counterexamples, uncertainty, and the smallest next
+evidence needed. The parent must reconcile overlap, calibration differences,
+and missing units before making a whole-system or population-level claim.
+
+The module-specific sections below define safe work units for History, Static
+Audit, Eval Debug, version-aware triage, and Eval-portfolio optimization.
+
+---
+
 ## Two-phase lifecycle
 
 Static Audit and Eval Debug are evidence-to-finding stages. Use
@@ -78,6 +116,13 @@ change, use **repair-planner** as the separate target-state, diff, and
 verification-planning stage. Static Audit and Eval Debug share a flexible
 finding method based on observation, evidence, consequence, likely ownership,
 and uncertainty; neither requires issue codes, JSON, or a fixed report schema.
+
+Use **regression-triage** after a completed comparable run to connect an exact
+Agent-version diff and predeclared impact map with observed result deltas before
+Eval Debug assigns the causal owner. Use **eval-portfolio** when the decision is
+which cases, pairs, or evaluators provide enough distinct evidence to justify
+their run and maintenance cost. Both are read-only analysis and design stages;
+neither applies changes.
 
 ### Outcome-anchored lifecycle
 
@@ -156,12 +201,12 @@ admission and progressive-detail rules.
 | 1 | **kb-and-agent** | Scope Alignment selects one core scenario, one candidate core outcome, material exclusions, capabilities, and boundaries |
 | 2 | **consultative-guidance** | Use available evidence → define the core outcome and guardrails, then the minimum behavior path, Tool, handoff, and risk decisions that advance or protect them → user accepts `.codeer/design/behavior_contract.md` |
 | 3 | **query-distribution** *(optional; may run before Step 2)* | Only when an active decision requires demand evidence—for example, selecting the core scenario or allocating a broader portfolio → perform the minimum analysis; persist accepted CSV artifacts only when a reusable demand or allocation model is needed |
-| 4 | **eval-cases** | Design and review a small end-to-end acceptance set for the accepted core scenario; use optional distribution evidence only when available and relevant → preserve intended behavior and observable success in `.codeer/current/local_draft_eval_cases.md` before an `agent_id` exists |
+| 4 | **eval-portfolio** *(when portfolio or evaluator architecture needs review)* → **eval-cases** | Select the minimum decision-useful portfolio and evaluator coverage, then design and review a small end-to-end acceptance set for the accepted core scenario; use optional distribution evidence only when available and relevant → preserve intended behavior and observable success in `.codeer/current/local_draft_eval_cases.md` before an `agent_id` exists |
 | 5 | **agent-settings → kb-and-agent** | Translate the accepted contract into Agent Settings, KB, Tools, handoff, and the first full DRAFT Agent; use optional supported demand evidence only for decisions it can justify |
 | 6 | **eval-cases** | Read the DRAFT, Tools, and evaluator templates → resolve intended pairs through the Pair Admission Gate → produce and apply `.codeer/current/local_draft_eval_cases.json`; unresolved pairs stay local and do not count as coverage |
-| 7 | **static-audit** | Read-only contract/scenario ↔ eval and KB ↔ settings ↔ eval preflight gate; include distribution ↔ portfolio only when an accepted distribution exists |
-| 8 | **eval-cases → eval-debug → repair-planner** | Run and automatically pin the first full assigned-pair baseline for the accepted first-version scope → diagnose non-perfect dynamic evidence → plan and review any repair |
-| 9 | **owning module → static-audit → eval-cases** | Apply approved repair → re-audit → focused checks and full assigned-pair regression |
+| 7 | **static-audit** | Read-only contract/scenario ↔ eval, contract ↔ implementation, and eval ↔ observable-runtime preflight gate; a full audit may use the three independent alignment lanes; include distribution ↔ portfolio only when an accepted distribution exists |
+| 8 | **eval-cases → regression-triage → eval-debug → repair-planner** | Run and automatically pin the first full assigned-pair baseline → organize baseline result clusters → diagnose non-perfect dynamic evidence → plan and review any repair |
+| 9 | **owning module → static-audit → eval-cases → regression-triage** | Apply approved repair → re-audit → focused checks and full assigned-pair regression → compare the Agent diff, predicted impact, and observed result delta |
 | 10 | **kb-and-agent** | Publish after the final gate and separate user go-ahead |
 
 Before implementation, run a local semantic review of the Behavior Contract's
@@ -196,12 +241,16 @@ entry paths.
 
 #### Eval-failure path
 
-1. Send every non-perfect dynamic result to **eval-debug**. Determine whether
-   the strongest owner is the eval system, the implementation of an unchanged
-   Behavior Contract, or the Behavior Contract itself.
+1. For a comparable or substantial run, use **regression-triage** to match the
+   prior and current Agent/eval context, classify result deltas, and organize
+   failure clusters. Send every non-perfect dynamic result to **eval-debug**.
+   Determine whether the strongest owner is the eval system, the implementation
+   of an unchanged Behavior Contract, or the Behavior Contract itself.
 2. For a case, rubric, evaluator, or assignment defect, use
-   **repair-planner → eval-cases**, then Static Audit and rerun the affected
-   pairs. Do not change the Agent merely to satisfy a defective eval.
+   **repair-planner → eval-cases**. Use **eval-portfolio** first when the
+   finding requires broader evaluator architecture, portfolio allocation,
+   deduplication, or retirement decisions. Then run Static Audit and rerun the
+   affected pairs. Do not change the Agent merely to satisfy a defective eval.
 3. For an Agent Settings, KB, Tool, handoff, retrieval, or platform defect
    against an unchanged contract, use **repair-planner → owning module**, then
    Static Audit, focused verification, and the required regression.
@@ -226,18 +275,24 @@ entry paths.
    reporting, or drift decisions. A newly observed scenario normally creates
    an Eval probe first; expand the Behavior Contract only when correct handling
    or a stable risk policy changes.
-3. For an implementation defect against the unchanged contract, add the
+3. When History exposes several candidate probes, evaluator-design needs,
+   suite redundancy, or a material allocation choice, use **eval-portfolio** to
+   propose the minimum decision-useful keep, merge, retire, and add set. A
+   single clear reproduction or protection probe may go directly to
+   **eval-cases**.
+4. For an implementation defect against the unchanged contract, add the
    smallest reproduction and protection cases, run Static Audit, and run a
    focused pre-change eval on the current Agent before **eval-debug →
    repair-planner**.
-4. For an intentional contract improvement, use **consultative-guidance** to
+5. For an intentional contract improvement, use **consultative-guidance** to
    compare current and proposed customer behavior and obtain user acceptance.
    Update the persistent contract and acceptance cases first, then run a focused
    pre-change eval on the current Agent so the behavioral delta is visible
    before planning the runtime repair.
-5. Apply approved changes through the owning module, run Static Audit, run the
-   focused impact set and full assigned-pair regression as required, then use
-   **kb-and-agent** for a separately approved publish or rollback.
+6. Apply approved changes through the owning module, run Static Audit, run the
+   focused impact set and full assigned-pair regression as required, use
+   **regression-triage** to compare the planned Agent diff with observed deltas,
+   then use **kb-and-agent** for a separately approved publish or rollback.
 
 Repeat the relevant path as new eval or production evidence arrives.
 
@@ -252,7 +307,9 @@ Repeat the relevant path as new eval or production evidence arrives.
 | Design or change any agent settings | [modules/agent-settings.md](modules/agent-settings.md) |
 | Set up KB, create or update an agent | [modules/kb-and-agent.md](modules/kb-and-agent.md) |
 | Design eval cases and rubrics | [modules/eval-cases.md](modules/eval-cases.md) |
+| Optimize evaluator value, case/pair coverage, representativeness, and maintenance cost | [modules/eval-portfolio.md](modules/eval-portfolio.md) |
 | Audit contract/scenario ↔ eval and KB ↔ settings consistency, plus optional distribution ↔ portfolio alignment | [modules/static-audit.md](modules/static-audit.md) |
+| Compare Agent-version changes, predicted impact, and eval-result deltas | [modules/regression-triage.md](modules/regression-triage.md) |
 | Diagnose existing response/tool/retrieval/judge evidence | [modules/eval-debug.md](modules/eval-debug.md) |
 | Turn accepted findings into a target state, diff, and verification plan | [modules/repair-planner.md](modules/repair-planner.md) |
 | Analyze production conversations | [modules/history.md](modules/history.md) |
@@ -272,7 +329,9 @@ codeer-agent/
 │   ├── query-distribution.md ← optional demand and eval-allocation model
 │   ├── kb-and-agent.md   ← scope, KB design/upload, agent create/publish
 │   ├── eval-cases.md     ← scenario coverage, case design, rubric authoring
+│   ├── eval-portfolio.md ← evaluator value and minimum-sufficient portfolio design
 │   ├── static-audit.md   ← scoped or full static evidence findings
+│   ├── regression-triage.md ← Agent-version and eval-result delta analysis
 │   ├── eval-debug.md     ← dynamic evidence and causal findings
 │   ├── repair-planner.md ← target state, reviewable diffs, impact verification
 │   └── history.md        ← production analysis, feedback, coverage gaps
