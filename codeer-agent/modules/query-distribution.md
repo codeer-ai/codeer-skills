@@ -213,9 +213,11 @@ downstream decisions that justified their creation:
 
 1. **consultative-guidance** may use query types, states, risks, and examples to
    choose or expand behaviorally distinct scenarios;
-2. **eval-cases** uses `target_cases` and examples to design the acceptance
-   portfolio; and
-3. **agent-settings** uses supported demand and miss consequence for hot-path
+2. **eval-portfolio** may use `target_cases`, risk reserves, evidence limits,
+   and examples for allocation, representativeness, or maintenance decisions;
+3. **eval-cases** uses the accepted allocation and examples to design concrete
+   acceptance cases and rubrics; and
+4. **agent-settings** uses supported demand and miss consequence for hot-path
    decisions. Do not copy allocation counts or speculative frequency into the
    runtime prompt.
 
@@ -234,7 +236,10 @@ risk level, or target case allocation.
 Present the evidence limits and before/after diff for user acceptance. Revise
 the Behavior Contract only when the appropriate customer experience or stable
 risk policy changes. Revise Agent Settings, KB, or Tools only after any
-contract change is accepted and expressed in eval cases.
+contract change is accepted and expressed in eval cases. When the revision
+changes broader allocation, representativeness, evaluator value, or suite
+maintenance, use [eval-portfolio.md](eval-portfolio.md) before drafting the
+concrete case changes.
 
 Keep revision history in Git or another project history when available. The
 canonical files describe the current accepted model; do not accumulate raw

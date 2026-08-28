@@ -118,6 +118,44 @@ with `stream: true`. It only reports success after `response.completed`. If it
 times out, returns `response.failed`, or disconnects early, export and inspect
 the history before retrying because the turn may already have been persisted.
 
+### Parallel partition protocol
+
+Use sub-agents only after Step 0 has fixed the analysis outcome, population,
+observation horizon, analysis unit, sampling frame, and outcome-relevant coding
+dimensions. The parent Agent should export the required conversations once and
+assign immutable local files or explicit History IDs; workers must not pull
+different ad hoc pages or redefine the population. Give every worker the
+accepted Behavior Contract revision and applicable Agent/version and KB
+snapshot fingerprints in addition to the shared analysis design and assigned
+conversation evidence.
+
+Choose partitions that preserve the question being answered:
+
+- stratified samples or cohorts for comparative outcome analysis;
+- disjoint History or task batches for a large common coding job;
+- failure-enriched and successful-protection samples for mechanism discovery;
+  or
+- distinct accepted scenarios or established portfolio groups when their
+  decision policies can be analyzed independently.
+
+Do not assign one worker per message or let each worker invent its own taxonomy.
+When coding judgment is consequential, give workers a small shared calibration
+slice and the same coding guide before they analyze disjoint partitions. Count
+the shared slice only once. If calibration exposes a material disagreement,
+resolve the definition or inspect more evidence before scaling the partition.
+
+Each worker must report its assigned selection frame, units inspected, covered
+date range when relevant, observations, supporting and challenging examples,
+mechanism hypotheses, likely owner, sampling limits, and useful next evidence.
+No worker may infer population frequency from its shard unless that shard's
+sampling design supports the estimate.
+
+The parent Agent reconciles duplicate histories, calibration differences,
+cross-partition patterns, and conflicting explanations. Re-read the underlying
+conversation evidence for disputed high-consequence findings. Preserve
+successful patterns and denominator limits in the synthesis rather than
+combining worker conclusions by majority vote.
+
 ---
 
 ## Step 2 — Analyze entry conditions and Agent decisions
@@ -278,7 +316,10 @@ candidate Eval cases. When handling would materially differ, treat them as
 candidate Behavior Contract expansions and obtain acceptance before changing
 runtime behavior. When a mechanism remains uncertain, identify paraphrases,
 nearby boundaries, or successful contrasts that could distinguish the
-plausible causes.
+plausible causes. A single clear probe can proceed to
+[eval-cases.md](eval-cases.md). When the finding raises a broader keep, merge,
+retire, allocation, representativeness, or evaluator-design decision, route it
+first to [eval-portfolio.md](eval-portfolio.md).
 
 ---
 
@@ -318,8 +359,8 @@ obtain user acceptance before creating or replacing
 3. change Agent Settings, KB, or Tools only after any contract revision is
    accepted and expressed in eval cases.
 
-A distribution-only creation or update may end with Eval-portfolio maintenance
-and no runtime Agent change.
+A distribution-only creation or update may end with
+[eval-portfolio.md](eval-portfolio.md) maintenance and no runtime Agent change.
 
 ### Implementation divergence against an unchanged contract
 

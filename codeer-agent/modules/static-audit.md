@@ -130,6 +130,61 @@ This map is evidence for the audit. It is not a proposal to change any layer.
 
 ---
 
+### Parallel full-audit alignment lanes
+
+After the parent Agent pins the target and inventories the effective system, a
+full audit may use three read-only sub-agent lanes. A small scoped audit should
+normally stay with one investigator. Every lane receives the same target
+fingerprints and dependency map plus the immutable contract, settings, source,
+case, evaluator, assignment, and runtime-contract evidence relevant to its
+lane. No lane may claim whole-system clearance or draft a repair.
+
+**Lane A — Normative alignment**
+
+```text
+Behavior Contract -> acceptance cases -> expected behavior and rubrics
+optional Query Distribution -> portfolio allocation -> cases
+```
+
+Check that the accepted outcomes, alternative outcomes, decision policies,
+guardrails, and material boundaries are represented without letting cases or
+rubrics invent requirements. Include distribution alignment only when the
+accepted portfolio claims to use it.
+
+**Lane B — Implementation alignment**
+
+```text
+Behavior Contract -> Agent settings / Tools / handoff
+                  -> KB source truth / retrieval / routing
+```
+
+Check that the effective implementation can carry the accepted behavior and
+that canonical ownership, source truth, Tool contracts, handoff settings, and
+retrieval wiring do not contradict or duplicate one another. The current
+implementation cannot redefine the Behavior Contract.
+
+**Lane C — Eval observability alignment**
+
+```text
+case -> rubric -> assigned evaluator -> observable runtime evidence
+     -> Agent/version target -> Tool/output/retrieval evidence shape
+```
+
+Check pair admission, evaluator visibility, runtime satisfiability,
+assignment integrity, planned pair counts, manifest/server consistency, and
+comparison fingerprints. Existing evaluator or Agent objects do not count as
+coverage unless the planned run actually assigns and observes them.
+
+The overlap among lanes is deliberate: cases appear in A and C, while the
+Behavior Contract appears in A and B. The parent must reconcile cross-lane
+findings against the shared evidence. For example, settings and cases may agree
+with each other while both violate the contract, or a normatively correct case
+may still be unobservable. A blocker in one lane cannot be canceled by a pass
+in another. Only the parent issues the combined full-audit verdict and states
+which categories were not reviewed.
+
+---
+
 ## Step 3 — Audit source truth and retrieval wiring
 
 Check all of the following:
@@ -259,7 +314,10 @@ Treat an explicit contradiction or violation of a hard contract boundary as a
 blocker. Treat a material but still interpretable coverage omission as a gap or
 warning unless the intended decision requires that behavior to be tested in
 the current run. Leave the exact case, rubric, contract, or implementation
-change to the appropriate follow-on module.
+change to the appropriate follow-on module. Route a single clear missing probe
+to [eval-cases.md](eval-cases.md); route broader allocation,
+representativeness, evaluator-design, deduplication, or retirement questions to
+[eval-portfolio.md](eval-portfolio.md).
 
 ### Coverage and assignment integrity
 
@@ -344,7 +402,9 @@ Also check:
 Record evaluator template and judge-model fingerprints with the baseline.
 Scores before and after a judge/template change are not directly comparable.
 Changing the agent and evaluator together also removes causal attribution;
-separate those changes or explicitly declare a new baseline.
+separate those changes or explicitly declare a new baseline. After a comparable
+run, use [regression-triage.md](regression-triage.md) to connect the approved
+Agent diff and impact hypothesis to observed result deltas.
 
 ---
 
