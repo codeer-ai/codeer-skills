@@ -22,20 +22,29 @@ The planner still needs enough meaning to recover:
 
 - what was observed and why it matters;
 - the evidence supporting the finding;
+- the target outcome, relevant entry condition and Agent decision point,
+  expected guardrails, and any proposed alternative action policy;
 - the likely owner and material uncertainty; and
 - the current objects that would be affected by a change.
 
 For a query-led customer guidance Agent, also read the accepted
-`.codeer/design/query_distribution.csv`,
-`.codeer/design/query_examples.csv`, and
-`.codeer/design/behavior_contract.md` when they are relevant to the finding.
-They are design anchors, not runtime components or instructions to copy into
-the system prompt.
+`.codeer/design/behavior_contract.md` when it is relevant to the finding. Read
+optional `.codeer/design/query_distribution.csv` and
+`.codeer/design/query_examples.csv` artifacts only when they exist and the
+finding depends on demand, allocation, or concrete-input evidence. They are
+design anchors, not runtime components or instructions to copy into the system
+prompt.
 
 Read current affected state before drafting a diff. A finding is evidence about
 the system, not a command to preserve its wording or proposed remedy. If the
 finding and current state disagree, surface the mismatch and return it to
 Static Audit or Eval Debug instead of planning against stale evidence.
+
+Treat a History-derived behavioral treatment and likely owner as a candidate,
+not as an instruction to patch that component. Confirm that the evidence links
+the observable entry condition, decision policy, and expected outcome strongly
+enough to justify a repair rather than another contrast, boundary probe,
+production read, or experiment.
 
 ---
 
@@ -64,11 +73,16 @@ of the revised behavior, then update acceptance eval cases first. Re-enter the
 planner with the accepted contract and pre-change eval evidence. Do not hide an
 unapproved contract change inside Agent Settings, KB, Tools, or a rubric.
 
-If the accepted finding is distribution drift or an eval-portfolio allocation
-gap, route it to [query-distribution.md](query-distribution.md) and
-[eval-cases.md](eval-cases.md). Do not plan a runtime repair unless the accepted
-distribution change also changes the Behavior Contract, an operational
-dependency, capacity, tool path, or another runtime owner.
+If the accepted finding is a scenario-coverage gap, route it to
+[eval-cases.md](eval-cases.md) when the existing Behavior Contract already
+determines correct handling; route it first to
+[consultative-guidance.md](consultative-guidance.md) when it requires a new
+outcome, behavior path, or stable boundary. If the decision also requires
+demand or allocation evidence, use the optional
+[query-distribution.md](query-distribution.md) module. Do not plan a runtime
+repair for a distribution-only change unless it also changes the Behavior
+Contract, an operational dependency, capacity, Tool path, or another runtime
+owner.
 
 ---
 
@@ -98,7 +112,9 @@ component to conceal a contract defect owned by another.
 ## Step 3 — Design the target state
 
 Describe the simplest coherent state that resolves the accepted findings while
-preserving required behavior. Prefer the earliest adequate intervention:
+preserving required behavior. State which Agent decision changes, the outcome
+it is expected to advance, and the guardrails and successful behavior it must
+protect. Prefer the earliest adequate intervention:
 
 1. make no change when the behavior is acceptable or the finding does not
    justify a repair;
@@ -205,11 +221,20 @@ Every proposed repair needs, where applicable:
 - a negative control; and
 - impacted cases that previously passed.
 
+When the motivating claim concerns a delayed or longitudinal outcome, separate
+verification into two gates: focused and regression Evals show that the Agent
+implements the accepted action policy; production measurement shows whether
+the real outcome moves and supports monitoring or association claims; and an
+appropriate controlled or credible quasi-experimental design is required to
+attribute causal improvement to the policy. Do not present the first gate, or
+uncontrolled monitoring alone, as causal outcome evidence.
+
 Choose the additional impact set from the changed owner:
 
 | Changed owner | Minimum impact set |
 | --- | --- |
-| Query Distribution or eval-portfolio allocation | Changed cells, neighboring allocation boundaries, risk reserves, and distribution-to-portfolio audit; runtime regression only when the Agent also changes |
+| Behavior Contract scenario or outcome | Core path, material branch, nearby boundary, accepted alternative outcome, and protected guardrails; update Evals before runtime changes |
+| Optional Query Distribution or eval-portfolio allocation | Changed cells, neighboring allocation boundaries, risk reserves, and distribution-to-portfolio audit; runtime regression only when the Agent also changes |
 | One case rubric | The pair plus calibration examples and adjacent cases using the same criterion |
 | FAQ/routing target | Reproduction, same-source variants, similar routes, boundary, negative control |
 | One KB policy/file | Dependent Content/Source pairs and routes to that source |

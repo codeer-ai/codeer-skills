@@ -11,17 +11,18 @@ All working files go under **`.codeer/`** in the project root.
 ## `.codeer/` file lifecycle
 
 The server is the source of truth for all agent, eval case, and rubric data.
-Accepted Query Distribution and Behavior Contract files are persistent local
-design state, not server objects. Query examples are part of the accepted
-distribution model. Other local files are **caches** of server state,
+The accepted Behavior Contract is persistent local design state, not a server
+object. Query Distribution and query-example files are optional persistent
+design state created only when a demand or allocation decision requires them.
+Other local files are **caches** of server state,
 **drafts** staged for apply, or pinned evidence.
 
 ```
 .codeer/
 ├── design/                             # accepted, persistent local design state
-│   ├── query_distribution.csv         # descriptive demand and eval allocation
-│   ├── query_examples.csv              # concrete inputs linked to query types
-│   └── behavior_contract.md            # normative customer-guidance behavior
+│   ├── behavior_contract.md            # normative core scenario and behavior
+│   ├── query_distribution.csv         # optional demand and eval allocation
+│   └── query_examples.csv              # optional inputs linked to query types
 │
 ├── current/                            # working directory for active cycle
 │   ├── agent.json                      # cache:  codeer agent get

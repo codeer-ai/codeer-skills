@@ -25,19 +25,22 @@ KB, or Tools.
 
 ## Start from available evidence
 
-Read the completed Scope Alignment from [kb-and-agent.md](kb-and-agent.md) and
-the accepted `.codeer/design/query_distribution.csv` from
-[query-distribution.md](query-distribution.md), together with
-`.codeer/design/query_examples.csv`. Then inspect whatever product documents,
-KB content, current settings, tools, evals, and production-history findings are
-available. Use the concrete examples to test whether a proposed policy produces
-the intended experience. Do not ask the user to repeat decisions already
-supported by that evidence.
+Read the completed Scope Alignment from [kb-and-agent.md](kb-and-agent.md), then
+inspect whatever product documents, KB content, current settings, Tools, evals,
+and production-history findings are available. When accepted
+`.codeer/design/query_distribution.csv` or
+`.codeer/design/query_examples.csv` artifacts exist and are relevant, read them
+through [query-distribution.md](query-distribution.md); do not require or create
+them merely to begin the first Behavior Contract. Use concrete source examples
+to test whether a proposed policy produces the intended experience. Do not ask
+the user to repeat decisions already supported by that evidence.
 
 Ask only unresolved questions whose answers would materially change the
 contract. Typical decision gaps are:
 
-- the customer decisions and successful next steps for each in-scope scenario;
+- the one core scenario and core customer or task outcome for the first
+  version, including acceptable alternative or non-conversion outcomes,
+  observable success evidence, and material guardrails;
 - what can already be inferred or retrieved, what must be learned before a
   recommendation or action, and what the agent should not ask for;
 - the cost and reversibility of a wrong recommendation or premature action;
@@ -50,6 +53,62 @@ contract. Typical decision gaps are:
 Recommend a suitable approach and explain the decisive tradeoff. The user may
 choose another compatible method; do not present one sales framework as the
 only valid option.
+
+---
+
+## Start with one core scenario and outcome
+
+For the first contract, choose one **core scenario**: the smallest valuable
+end-to-end situation that expresses why the Agent exists. Define it with the
+observable user intention or task, starting state, material constraint, and
+supported Agent role. Select the central value path, not merely the easiest FAQ
+or the query most likely to pass an Eval.
+
+Pair it with one **core outcome**: the user-visible result the Agent should help
+produce in that scenario. An Agent action such as asking three questions or
+calling a Tool is not an outcome. Capture only what later behavior, Eval, or
+governance decisions will use:
+
+- the core customer or task outcome;
+- acceptable alternative, refusal, handoff, or non-conversion outcomes;
+- observable immediate evidence that the intended experience occurred;
+- a delayed or cross-conversation outcome only when it is material and there is
+  a plausible way to observe it;
+- safety, authority, quality, autonomy, cost, or other guardrails that must not
+  be sacrificed for the primary outcome; and
+- material attribution limits when the business or longitudinal result is not
+  fully under the Agent's control.
+
+Keep the core scenario and outcome at the opening of
+`.codeer/design/behavior_contract.md`; do not create a separate Scenario or
+Outcome Contract artifact. Reconcile Scope Alignment business and conversion
+goals with any descriptive demand evidence, but treat both as inputs for
+review. Only the user-accepted Behavior Contract establishes stable normative
+runtime outcomes and guardrails. A booking, purchase, containment, or retention
+proxy does not become an Agent objective merely because it appeared during
+Scope Alignment or a demand analysis.
+
+Use outcomes as the reason for the later information, initiative, discovery,
+recommendation, Tool, consent, risk, and handoff policies. Do not optimize a
+business proxy such as conversion, containment, satisfaction, or retention in
+isolation from the customer outcome and guardrails. Analysis-specific outcomes,
+time windows, and statistical definitions belong in the current analysis scope
+unless the user accepts them as a stable intended customer experience.
+
+Treat observable user entry conditions as policy-selection context. Add a
+second scenario only when a distinct intention, journey or work-object state,
+constraint, readiness, urgency, risk, or authority changes the core outcome,
+correct answer, next move, required evidence, Tool, handoff, consent, or risk
+policy. Do not infer a Persona, personality, sophistication, or motivation from
+wording when the available evidence does not establish it. If a distinction
+changes only a concrete example, presentation variation, sampling need, or
+outcome comparison, keep it in Eval or analysis rather than expanding the
+contract.
+
+Apply an outcome-relevance gate to proposed contract content. Keep it only when
+it helps the Agent select an appropriate decision, advances or protects an
+accepted outcome, resolves a fair-comparison or governance need, or has a named
+downstream Eval or implementation use. Otherwise omit it.
 
 ---
 
@@ -92,11 +151,12 @@ when selecting discovery and recommendation methods.
 
 ## Control the level of detail
 
-For the first contract, prefer high-level principles that cover behaviorally
-distinct journeys, material branch decisions, and rare but high-consequence
-boundaries. Coverage means that these decision classes are represented; it does
-not require a separate rule for every query, method, risk example, or eval case.
-One stable principle may govern many concrete cases.
+For the first contract, cover only the core scenario's end-to-end path,
+material branch decisions, and any high-consequence boundary that cannot safely
+be deferred. Coverage does not require a scenario inventory or a separate rule
+for every query, method, risk example, or eval case. One stable principle may
+govern many concrete cases. Simplicity narrows the initial journey; it does not
+relax evidence integrity, consent, authority, or handoff boundaries.
 
 Add a statement to the customer-reviewed contract only when all of these are
 true:
@@ -119,8 +179,8 @@ Keep these in their owning layer instead:
 - the canonical Evidence and autonomy boundaries below, unless a
   domain-specific choice changes observable behavior or governance requires an
   explicit acknowledgement;
-- the Query Distribution, query examples, and source inventory in their own
-  design or source artifacts instead of repeating them;
+- optional Query Distribution evidence, query examples, and source inventory
+  in their own design or source artifacts instead of repeating them;
 - product facts and complete procedures in the KB;
 - prompt, retrieval, tool-schema, and orchestration details in Agent Settings
   or Tool configuration; and
@@ -143,36 +203,33 @@ or boundary probe, not a case-specific contract clause.
 
 ## Draft the Behavior Contract
 
-Use the clearest format for the agent. Do not force a schema, script, or fixed
-number of questions. Use the following as a coverage lens, not as mandatory
-sections or a checklist to expand. Make a category explicit only when it
-contains a material decision under the admission rule above:
+Use this compact first-version structure by default. Omit a field that has no
+material downstream use, and adapt the presentation only when another format
+makes the same decisions easier to review:
 
-1. **Journey outcomes** — the customer decision or next step for each
-   behaviorally distinct journey class, including acceptable non-conversion
-   outcomes.
-2. **Information policy** — what the agent may infer, retrieve, or ask; what is
-   required before recommending or acting; and what information is unnecessary
-   or too sensitive to collect.
-3. **Initiative policy** — when to answer, ask, retrieve, compare, recommend,
-   use a tool, or hand off, including the main boundaries between those moves.
-4. **Discovery strategy** — the chosen method or composition and the signals
-   that should deepen, shorten, or switch it. SPIN may be used lightly as a
-   question-design tool, but never as a mandatory interrogation sequence.
-5. **Recommendation and refinement** — how many options to surface, how to
-   explain fit and tradeoffs, how to use feedback or critique to narrow, and
-   how to respond when evidence is insufficient.
-6. **Progression and consent** — what readiness signal permits a booking,
-   form, payment, or other consequential action; what must be confirmed first;
-   and how the user can decline or step back.
-7. **Handoff and limits** — human-transfer triggers, unsupported requests, and
-   the helpful context to provide without pretending the transfer succeeded.
-8. **Risk and boundary policies** — rare or high-consequence conditions that
-   require a stable, observable change in verification, uncertainty disclosure,
-   consent, recommendation, action, or handoff. State the general policy rather
-   than cataloging concrete edge cases.
-9. **Success and failure behavior** — observable outcomes the acceptance evals
-   must cover, including nearby boundaries and important non-conversion cases.
+1. **Core scenario** — observable user intention or task, starting state,
+   material constraint, supported Agent role, and explicit first-version
+   exclusions.
+2. **Core outcome** — the user-visible result, acceptable alternative or
+   non-conversion outcomes, immediate observable evidence, material attribution
+   limits, and guardrails.
+3. **Behavior path** — only the decision points that can change the next move.
+   For each, make the observable signal, expected move, required information or
+   evidence, and stop or handoff condition reviewable. Cover answer, ask,
+   retrieve, compare, recommend, Tool, consent, or handoff only when material.
+4. **Material boundaries** — domain-specific facts the Agent must not invent,
+   unsupported actions, sensitive-data or consent limits, and rare but high-
+   consequence conditions that change verification, uncertainty disclosure,
+   action, or handoff. State stable policies, not an edge-case catalog.
+5. **Acceptance behavior** — the smallest observable success and prohibited
+   behavior needed to turn the core scenario into acceptance Evals without
+   prescribing exact wording.
+
+The first version should not contain a backlog of speculative scenarios. Add
+one scenario at a time after evidence shows that correct handling materially
+differs. When the contract expands, keep shared decision policies once at the
+highest stable scope and add only the scenario-specific override; do not copy
+the full behavior path into every scenario.
 
 ### Compression example
 
@@ -226,9 +283,10 @@ Draft new or revised content in conversation or at
 `.codeer/current/local_draft_behavior_contract.md`. Present the complete
 decision record or before/after diff and confirm with the user that it captures
 the intended experience, any material discovery-strategy choice, and material
-risk policies. Complete means coverage of the important decision classes, not
-restatement of every applicable norm or guardrail. Do not replace the canonical
-file before the user accepts the design change.
+risk policies. For a first version, complete means one core scenario and
+outcome with its minimum end-to-end decisions and material boundaries—not a
+complete scenario inventory or restatement of every applicable norm. Do not
+replace the canonical file before the user accepts the design change.
 
 Before requesting acceptance, check the proposed contract against the
 Evidence and autonomy boundaries. The contract may choose how to use verified
@@ -237,12 +295,14 @@ results, but it cannot authorize fabrication, exaggeration, or unsupported
 claims. User acceptance does not override this boundary, and the contract does
 not need to repeat the canonical list for the boundary to apply.
 
-The accepted file should record material unresolved assumptions. Add status,
-contract version, dates, or applicable Agent/version metadata only when the
-current project workflow will use them; otherwise rely on file and revision
-history. The contract is ready when a reviewer can tell, for the important
-branches, which next move is appropriate, what evidence or user input is
-needed, what the Agent must not do, and what a successful outcome looks like.
+The accepted file should record material unresolved assumptions and explicit
+first-version exclusions. Add status, contract version, dates, or applicable
+Agent/version metadata only when the current project workflow will use them;
+otherwise rely on file and revision history. The contract is ready when a
+reviewer can tell, for the accepted core scenario, what outcome and guardrails
+govern the journey, which next move is appropriate for each material observable
+condition, what evidence or user input is needed, and what the Agent must not
+do.
 
 After acceptance, persist `.codeer/design/behavior_contract.md`. Then use
 [eval-cases.md](eval-cases.md) to design the acceptance cases and rubrics

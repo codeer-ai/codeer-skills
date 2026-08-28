@@ -4,16 +4,16 @@ Use this module whenever creating or changing an agent's system prompt, tools,
 KB configuration, retrieval routes, model, or handoff settings.
 
 For a query-led customer guidance Agent, first read the accepted
-`.codeer/design/query_distribution.csv` from
-[query-distribution.md](query-distribution.md), its accepted
-`.codeer/design/query_examples.csv`, the accepted
 `.codeer/design/behavior_contract.md` from
-[consultative-guidance.md](consultative-guidance.md), and the reviewed
-acceptance cases from [eval-cases.md](eval-cases.md). The distribution describes
-expected demand, risk, and eval allocation; the examples ground the customer
-inputs; the contract defines the intended experience; and the cases test it.
-None should be copied verbatim into the system prompt. Translate them into the
-simplest coherent ownership split across Agent Settings, KB, Tools, and handoff.
+[consultative-guidance.md](consultative-guidance.md) and the reviewed acceptance
+cases from [eval-cases.md](eval-cases.md). The contract defines the accepted
+core scenario, outcome, guardrails, and decision policies; the cases test them.
+When optional `.codeer/design/query_distribution.csv` or
+`.codeer/design/query_examples.csv` artifacts exist and are relevant, read them
+through [query-distribution.md](query-distribution.md) for supported demand,
+risk, allocation, or concrete-input evidence. None should be copied verbatim
+into the system prompt. Translate them into the simplest coherent ownership
+split across Agent Settings, KB, Tools, and handoff.
 
 When improving an existing Agent, do not use a settings repair to make an
 unapproved change to the Behavior Contract. If evidence indicates that the
@@ -21,12 +21,13 @@ intended experience itself should change, return to Consultative Customer
 Guidance, obtain user acceptance, and update eval cases before designing the
 runtime diff.
 
-Use supported distribution evidence when evaluating frequency and hot-path
-residency, but keep its limits visible. Do not put traffic shares, sampling
-claims, speculative frequency estimates, or the distribution artifact itself
-into the runtime prompt. A distribution change alone warrants settings work
-only when it changes the appropriate operational dependency, capacity, tool
-path, or accepted Behavior Contract.
+Use supported distribution evidence when it exists and frequency or hot-path
+residency is actually in question, but keep its limits visible. Do not put
+traffic shares, sampling claims, speculative frequency estimates, or the
+distribution artifact itself into the runtime prompt. The absence of a Query
+Distribution does not block a core-scenario build. A distribution change alone
+warrants settings work only when it changes the appropriate operational
+dependency, capacity, Tool path, or accepted Behavior Contract.
 
 When a change starts from Static Audit or Eval Debug findings, use
 [repair-planner.md](repair-planner.md) to establish the cross-component target
@@ -41,6 +42,8 @@ Treat an eval failure or production finding as evidence about the current
 configuration, not as a requirement to encode verbatim. Optimize for the state
 of the whole agent after the change:
 
+- The configuration implements the accepted customer or task outcomes and
+  guardrails through clear, observable Agent decision policies.
 - The agent satisfies its operating requirements and hard boundaries.
 - Each component has one clear responsibility.
 - Each behavior has one primary owner.
@@ -135,15 +138,18 @@ Examples:
 
 Before proposing a change:
 
-1. Trace the observed behavior through response reasoning, tool selection,
-   retrieval, source content, and evaluator judgment as applicable.
+1. Trace the observable entry condition, Agent decision point, chosen action
+   policy, and outcome evidence through response behavior, tool selection,
+   retrieval, source content, and evaluator judgment as applicable. Do not
+   require or invent hidden chain-of-thought.
 2. Read the complete relevant settings, not only the line that appears closest
    to the symptom. Find conflicts, overlaps, missing priorities, and misplaced
    responsibilities.
 3. State the behavioral mechanism at a level that explains the case without
-   naming its incidental wording or entities. Check whether the same decision
-   principle governs adjacent scenarios; retain category-specific detail only
-   when the requirements genuinely differ.
+   naming its incidental wording or entities. Identify the accepted outcome
+   and guardrails, the alternative action policy being considered, and whether
+   the same decision principle governs adjacent scenarios; retain
+   category-specific detail only when the requirements genuinely differ.
 4. Consider meaningful alternative causes and record the supporting and
    contradicting evidence. State uncertainty instead of inventing certainty.
 5. Describe the intended target state and component ownership before writing
@@ -181,10 +187,13 @@ move, reorder, or replace before adding instructions.
 
 Before showing a settings diff, present:
 
-- the accepted Query Distribution evidence used for frequency or hot-path
-  decisions, including material confidence limits and open gaps;
+- any accepted Query Distribution evidence actually used for frequency or hot-
+  path decisions, including material confidence limits and open gaps; otherwise
+  state that no such evidence is required for the proposed target state;
 - the accepted Behavior Contract and reviewed acceptance behavior this target
   state is meant to implement, including any material ambiguity still open;
+- the customer or task outcome, guardrails, observable entry condition, and
+  Agent decision policy the change is meant to affect;
 - the observed failure and strongest supported mechanism;
 - the current configuration defect and relevant evidence;
 - the proposed target state and why responsibility belongs in each component;

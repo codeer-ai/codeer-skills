@@ -22,30 +22,37 @@ evidence exists for a specific run.
 Run a full audit:
 
 - before the first baseline eval;
-- after Query Distribution, Behavior Contract, KB, FAQ/routing, agent settings,
-  cases, rubrics, evaluator templates, judge models, or assignments change, and
-  before the next eval;
+- after Behavior Contract, KB, FAQ/routing, agent settings, evaluator templates,
+  judge models, or assignments change—and after an optional Query Distribution
+  changes when the run uses it—and before the next full sweep;
 - before a full assigned-pair regression or publish decision; and
 - whenever local manifests and server state may have drifted.
 
 Before implementation, this module may also perform a local-only scoped review
-of Query Distribution against the draft case portfolio and Behavior Contract
-against the draft cases. Server target pinning and runtime checks are not
-applicable to that limited review. State the limited scope explicitly; it is
-not a full Static Audit clearance.
+of the Behavior Contract's core scenario and behavior path against the draft
+cases. When an accepted Query Distribution exists and informs the portfolio,
+include it as well. Server target pinning and runtime checks are not applicable
+to that limited review. State the limited scope explicitly; it is not a full
+Static Audit clearance.
 
 Run a scoped audit when the user asks about one rubric, evaluator, case,
-assignment, source relationship, or other bounded static concern. Read the
-smallest evidence set that can support the requested conclusion, but expand the
-scope when the local object cannot be interpreted without its evaluator,
-source truth, assignment, or version context.
+assignment, source relationship, or other bounded static concern. A scoped
+audit may also gate a focused exploratory probe after a bounded case or rubric
+change when it includes every affected source, evaluator, assignment, and
+version dependency and no whole-system clearance is claimed. Read the smallest
+evidence set that can support the requested conclusion, but expand the scope
+when the local object cannot be interpreted without its evaluator, source
+truth, assignment, or version context. Run the full audit before any later full
+regression or publish decision.
 
 For a maintained query-led customer guidance Agent, read the persistent
-`.codeer/design/query_distribution.csv` and
-`.codeer/design/behavior_contract.md`. Include distribution-to-eval-portfolio
-and contract-to-acceptance-eval alignment in a full audit. For a legacy Agent,
-do not fabricate either artifact; record missing design evidence and limit the
-conclusion accordingly.
+`.codeer/design/behavior_contract.md`. Include its scenario-to-acceptance-eval
+alignment in a full audit. When an accepted
+`.codeer/design/query_distribution.csv` exists and the portfolio claims to use
+it, also include distribution-to-eval-portfolio alignment. A missing optional
+distribution is not a design gap. For a legacy Agent without a Behavior
+Contract, do not fabricate one; record the missing normative design evidence
+and limit the conclusion accordingly.
 
 Do not run an eval or mutate server state as part of this module. Use registered
 `codeer` read commands only. If required state cannot be read, record the gap in
@@ -86,7 +93,8 @@ Record the exact target before comparing content:
 - evaluator IDs, templates, judge models, and intended case/evaluator
   assignments;
 - Query Distribution revision, evidence window, sampling scope, confidence,
-  open gaps, and intended eval allocation, when applicable; and
+  open gaps, and intended eval allocation only when that optional artifact is
+  applicable; and
 - Behavior Contract revision and applicable Agent/version, and whether the
   cases are intended to express that contract.
 
@@ -110,10 +118,10 @@ direct reads as needed.
 Build a compact dependency map:
 
 ```text
+accepted Behavior Contract (outcomes, guardrails, decision policies)
+  -> acceptance case -> assigned evaluator -> rubric -> observable evidence
 accepted Query Distribution -> eval portfolio allocation -> acceptance cases
   (when applicable)            -> assigned evaluator -> observable evidence
-accepted Behavior Contract -> acceptance case -> assigned evaluator -> rubric
-  (when applicable)          -> observable evidence
 case -> assigned evaluator -> rubric -> required source/tool behavior
      -> agent version -> settings/tools -> KB attachment -> FAQ target
 ```
@@ -174,10 +182,17 @@ copying the symptom into the system prompt.
 
 ## Step 5 — Audit cases, rubrics, and evaluators
 
-### Query Distribution and eval-portfolio alignment
+### Scenario coverage and optional distribution alignment
 
-When the accepted distribution is available, compare it with the designed case
-portfolio and intended run. Confirm that:
+Always confirm that the accepted core scenario and any accepted expansions have
+meaningful case coverage. For a first version, expect a representative end-to-
+end path plus only the missing-information, high-consequence, consent,
+authority, handoff, paraphrase, or nearby-boundary variants needed to make the
+accepted behavior judgeable. Do not require a MECE scenario inventory or treat
+an unmodeled future journey as a current-scope defect.
+
+When an accepted distribution is available and the portfolio claims to use it,
+compare it with the designed cases and intended run. Confirm that:
 
 - each material core/common query type and intentionally reserved
   high-consequence query type has meaningful coverage;
@@ -190,10 +205,12 @@ portfolio and intended run. Confirm that:
   they affect the audit conclusion.
 
 Treat omission of a material high-consequence query type required for the
-intended decision as a blocker. Treat an interpretable small-portfolio
-allocation difference as a warning unless it invalidates the intended gate.
-Static Audit assesses the accepted model and portfolio; it does not estimate a
-new distribution or choose the repair.
+accepted scope or intended decision as a blocker. Treat an interpretable small-
+portfolio allocation difference as a warning unless it invalidates the intended
+gate. Static Audit assesses the accepted model and portfolio; it does not
+estimate a new distribution or choose the repair. When no distribution exists,
+do not infer production representativeness from case counts or aggregate pass
+rates, and do not block the run merely because traffic weights are absent.
 
 ### Behavior Contract and acceptance-eval alignment
 
@@ -209,6 +226,10 @@ them; missing duplicated boundary prose is not a contract-coverage gap.
 Then compare the contract semantically with the cases, expected outputs, and
 rubrics. Use a simple judgment review. Confirm that:
 
+- each material journey's accepted customer or task outcome, acceptable
+  alternative outcome, and guardrails are represented by observable decision
+  coverage where the intended gate requires it; for a first version, this may
+  be one core scenario and one core outcome rather than a multi-journey map;
 - no case or mandatory criterion demands behavior absent from or contradictory
   to the contract;
 - answer-versus-question initiative, consent before consequential actions,
@@ -221,6 +242,14 @@ rubrics. Use a simple judgment review. Confirm that:
   observable coverage; and
 - expected outputs and rubrics test decisions and outcomes without
   over-specifying phrasing.
+
+Where the contract uses an entry condition or operational profile to select a
+different policy, confirm that the distinction is observable in the case and
+actually changes correct handling. Do not require a Persona taxonomy or a
+separate operational case for profile variation that leaves the decision
+policy unchanged. A fairness, outcome-comparison, or heterogeneous-effect
+stratum may still belong in production analysis or sampling metadata without
+becoming a Query Type, contract branch, or runtime Persona inference.
 
 Assess decision coverage, not document length or one-to-one rule/case mapping.
 One contract principle may govern several journeys and cases; concrete variants
