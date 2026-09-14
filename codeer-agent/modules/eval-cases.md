@@ -150,10 +150,12 @@ naturally asks for. Do not require prices, exhaustive lists, logistics
 details, or stock confirmation unless the user asked for that dimension or
 the product requirement depends on it.
 
-For every mandatory criterion, ask: if this detail were omitted, would the
-answer become wrong, produce a wrong next step, or hide a material risk? If
-not, make it optional or remove it. Correct, relevant, concise answers should
-not fail for omitting merely helpful detail.
+For every mandatory criterion, identify its
+[accepted or inherited basis](consultative-guidance.md#basis-for-acceptance-criteria)
+and ask: if this meaning or action were omitted, would the answer become wrong,
+fail the user's request, produce a wrong next step, or hide a material risk?
+If not, make it optional or remove it. Apply the semantic acceptance rules below
+when writing and reviewing rubrics and evaluator templates.
 
 **Rubric quality standard**: Good rubrics should be easy to maintain:
 
@@ -172,6 +174,43 @@ Common check patterns:
   usually a finite set, e.g. "must not call request_form".
 - **Style & Format Check**: Positive or negative framing can both work; choose
   whichever is clearer and easier to maintain.
+
+#### Semantic acceptance and material omissions
+
+Evaluate the required meaning and action in context, not keyword presence or
+similarity to a reference answer. Accept paraphrases, concise summaries, and
+natural references to information already supplied by the user. A fact being
+available to the evaluator does not by itself make repeating it a requirement.
+Reference facts and example answers are not a checklist of mandatory phrases.
+
+For an omission-based failure, identify the missing meaning or action and the
+consequence for correctness, the requested outcome, the next step, or a material
+boundary. Do not require extra disclaimers solely to repeat a distinction the
+answer already preserves. Optional improvements can remain feedback without
+changing a passing score. Binary scoring is compatible with this rule: only
+material, supported acceptance criteria should be mandatory.
+
+Semantic acceptance does not excuse a missing necessary warning, a wrong amount
+or condition, an unsupported promise, or a tool call that never happened. User
+context can disambiguate an acknowledgement; it cannot supply a warning the
+Agent was required to give or prove an action it was required to take. Require
+exact strings only for an explicit wording/format requirement or an operational
+need such as a Tool argument, identifier, or machine-readable field.
+
+For handoffs, distinguish acknowledging the request, invoking the Tool, and
+preserving information for the receiver. If the concern is lost handoff context,
+check the actual context or payload available to the receiver. A missing word in
+the customer-facing acknowledgement does not prove that a request was lost;
+unavailable receiver evidence is a visibility gap, not an observed handoff
+failure. Neither a good summary nor a correct call proves that a human acted.
+
+When designing or revising an evaluator, check that its instructions preserve
+these distinctions. Calibrate with a small set containing a correct concise
+answer, a meaning-preserving variation, and a genuinely missing requirement or
+wrong action. Use the same fixed responses and traces to compare judge behavior
+when the registered CLI supports that operation. Otherwise perform local review
+and state the judge-calibration capability gap; an Agent rerun produces new
+answers and is not a controlled rejudgment of the same evidence.
 
 ### 2c. Present for review
 
@@ -245,9 +284,12 @@ change, a scoped audit is sufficient before a focused probe when it checks all
 affected static dependencies and no whole-system claim is made. Run a full
 audit after any accepted KB, FAQ, settings, evaluator, assignment, Behavior
 Contract, or optional Query Distribution change before the next full sweep.
-Do not start a run while the applicable audit verdict is `BLOCKED`. Always
-include the Behavior Contract's semantic alignment with affected acceptance
-cases; include distribution-to-portfolio alignment only when applicable.
+By default, do not start a run while the applicable audit verdict is `BLOCKED`.
+The user may explicitly authorize an exploratory run after seeing the blockers
+and their consequences; follow [static-audit.md](static-audit.md#step-6--report-the-findings)
+and keep that run separate from clearance or publish evidence. Always include
+the Behavior Contract's semantic alignment with affected acceptance cases;
+include distribution-to-portfolio alignment only when applicable.
 
 For a new Agent, after the accepted first-version scope is covered, cases are
 applied, and the first full DRAFT Agent passes Static Audit, run every assigned
@@ -259,7 +301,7 @@ full-suite run with many cases, use `--out` to avoid flooding the context window
 
 ```bash
 codeer eval run \
-    --agent <agent_id> \
+    --agent <agent_id> --history <audited_agent_history_id> \
     --out .codeer/current/eval_results.json
 ```
 
@@ -272,12 +314,22 @@ For a full export (user review, spreadsheet analysis), run:
 
 ```bash
 codeer eval export \
-    --agent <agent_id> --out .codeer/current/eval_table/
+    --agent <agent_id> --version <evaluated_version_number> \
+    --out-dir .codeer/current/eval_table/
 ```
 
-After the first baseline completes, automatically copy the exported results
-plus exact Agent/version, evaluator-template, and judge-model context to
-`.codeer/pinned/<date>-first-baseline/` before any diagnosis or repair.
+Resolve the version number from the run's AgentHistory UUID, not from whichever
+version is now latest or published. Before pinning, verify the export's
+`history.id` equals the run's `history_id` and compare result IDs for the run's
+case/evaluator pairs. For a focused export, preserve the case and evaluator
+selection as well. An export can select newer results from a rerun even on the
+same version; retain the original run's `--out` artifact and do not replace it
+with mismatched results.
+
+After the first baseline completes, automatically copy the original run results
+and any verified export plus exact Agent/version, evaluator-template, and
+judge-model context to `.codeer/pinned/<date>-first-baseline/` before diagnosis
+or dynamic repair.
 
 Then use **regression-triage** for baseline result clustering without claiming a
 prior-version effect, and hand every non-perfect score to **eval-debug**.
@@ -438,7 +490,7 @@ stdout is fine — the non-perfect analysis fits in context:
 
 ```bash
 codeer eval run \
-    --agent <agent_id> \
+    --agent <agent_id> --history <audited_agent_history_id> \
     --cases <comma-separated-case-ids> \
     --evaluator <evaluator_id>
 ```

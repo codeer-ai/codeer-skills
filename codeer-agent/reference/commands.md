@@ -51,9 +51,9 @@ Other local files are **caches** of server state,
 2. **`current/` overwrites in place** — no date-stamping, no versioning.
    Refresh caches from the server at the start of each cycle.
 3. **`pinned/` is append-only** — automatically pin the first full baseline
-   and every required pre-change eval before a runtime change. Ask whether to
-   pin other temporary debug or batch results only when preserving them would
-   be useful.
+   and any pre-change eval used as a comparison before a runtime change. Ask
+   whether to pin other temporary debug or batch results only when preserving
+   them would be useful.
 4. **No files outside `design/`, `current/`, and `pinned/`** — nothing at
    `.codeer/` root.
 5. **No scripts** — `.py`, `.mjs`, `.html`, `.cjs` are prohibited under
@@ -77,8 +77,8 @@ persistence and pinning do not by themselves authorize sharing the files.
 | --- | --- |
 | Cycle start | Preserve `design/`; refresh caches in `current/`: `codeer agent get`, `codeer eval list`, `codeer eval rubrics` |
 | During cycle | Drafts created, diffs shown, applied. Eval exports overwrite `current/eval_table/`. Debug artifacts overwrite in place per batch. |
-| First baseline | Automatically copy the exported results plus exact Agent/version and evaluator/judge context to `pinned/<date>-first-baseline/` before diagnosis or repair. |
-| Pre-change eval | Automatically copy the focused pre-change results and context to `pinned/<date>-pre-change/` before a runtime change. |
+| First baseline | Automatically copy original run results, any matched export, and exact Agent/version and evaluator/judge context to `pinned/<date>-first-baseline/` before diagnosis or dynamic repair. |
+| Pre-change evidence | Run only when it adds decision value. Pin any run used as a comparison, plus context, to `pinned/<date>-pre-change/`; otherwise preserve prior configuration and sufficient existing evidence and explain why no new run is needed. |
 | Other pin (optional) | Ask before copying temporary debug or batch evidence to `pinned/<date>/`. |
 | Cycle end (publish) | `current/` stays as final state; next cycle start overwrites it |
 
@@ -198,6 +198,11 @@ codeer agent publish --agent <agent-id> --version <n> --dry-run
 ```
 
 Apply only after the user approves the dry-run summary.
+
+Approval follows server-state effects, not HTTP methods: registered CLI reads
+of eval results and rubrics use POST internally but remain read-only. An eval
+run, history send, or crawl sync creates server state and needs explicit
+approval. One approved bounded operation covers its internal requests.
 
 ## `codeer model list` and agent model selection
 
@@ -576,6 +581,15 @@ external rubric batches to find case/evaluator pairs with configured rubrics.
 Internally, runs should be triggered through the external eval runs endpoint
 and grouped by evaluator. Do not call legacy internal trigger endpoints from
 the public CLI.
+
+For an audited baseline or comparison, resolve discovery to an explicit
+`--history <agent_history_id>` before running. Export the same version with
+`codeer eval export --agent <agent_id> --version <evaluated_version_number>
+--out-dir .codeer/current/eval_table/`, preserving focused `--cases` and
+`--evaluators` selections when used. Verify the export's history ID and result
+IDs against the original `eval run --out` artifact before pinning. Neither
+default-latest nor `--published` identifies an immutable prior run; even the
+same version can have newer results after a rerun.
 
 ---
 

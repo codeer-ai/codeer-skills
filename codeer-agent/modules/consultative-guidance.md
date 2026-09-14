@@ -83,8 +83,9 @@ Keep the core scenario and outcome at the opening of
 `.codeer/design/behavior_contract.md`; do not create a separate Scenario or
 Outcome Contract artifact. Reconcile Scope Alignment business and conversion
 goals with any descriptive demand evidence, but treat both as inputs for
-review. Only the user-accepted Behavior Contract establishes stable normative
-runtime outcomes and guardrails. A booking, purchase, containment, or retention
+review. The user-accepted Behavior Contract establishes project-specific stable
+runtime outcomes and guardrails and inherits the canonical evidence and autonomy
+boundaries below. A booking, purchase, containment, or retention
 proxy does not become an Agent objective merely because it appeared during
 Scope Alignment or a demand analysis.
 
@@ -246,8 +247,9 @@ a high-consequence eligibility fact cannot be verified, disclose the uncertainty
 and hand off rather than infer it."
 
 The compressed version records the material initiative, evidence, progression,
-and risk decisions. Ordinary conversational quality remains expected, while
-concrete product, wording, and boundary variants belong in the KB and evals.
+and risk decisions. Ordinary conversational quality remains expected under the
+acceptance-criteria basis below, while concrete product, wording, and boundary
+variants belong in the KB and evals.
 Use this as an illustration of decision granularity, not as required contract
 language.
 
@@ -276,6 +278,33 @@ and autonomy boundaries regardless of the selected dialogue or sales method:
   or judgment is required.
 
 ---
+
+## Basis for acceptance criteria
+
+The user or authorized project owner decides project-specific experience
+requirements through the accepted Behavior Contract and explicit instructions.
+The builder and reviewer derive case-level criteria from those requirements,
+the canonical evidence and autonomy boundaries above, the actual user request,
+authoritative case facts, and applicable Tool schemas or operational contracts.
+The evaluator applies the resulting rubric to its visible evidence; it does
+not invent another standard of "basic quality."
+
+Clarity, relevance, and completeness justify a mandatory criterion only when
+its absence would materially obscure the answer, change the correct next move,
+or hide an important risk. State that consequence and its basis. For example,
+an ambiguous fee or missing condition may change a customer's decision;
+repeating already-understood context or adding a preferred greeting usually
+does not. Style, answer length, fixed acknowledgement wording, and a preferred
+question sequence are not universal pass requirements.
+
+A criterion need not quote a Contract sentence if it is a necessary implication
+of an accepted requirement or one of these inherited constraints. Conversely,
+calling a preference "basic quality" does not authorize it. When it introduces
+a new material product decision or tradeoff, return that decision to the user;
+otherwise make unnecessary detail optional. Keep this basis in case reasoning
+and rubric review rather than expanding the Contract into a quality checklist.
+Use [eval-cases.md](eval-cases.md#semantic-acceptance-and-material-omissions)
+for judging equivalent wording and omissions.
 
 ## Acceptance gate and handoff
 

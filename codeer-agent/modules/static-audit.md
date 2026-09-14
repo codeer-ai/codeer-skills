@@ -85,7 +85,8 @@ Record the exact target before comparing content:
 
 - agent ID and AgentHistory/version ID;
 - version number and status (`DRAFT`, `PUBLISHED`, or `ARCHIVED`);
-- intended eval selection (`--latest` or a pinned `--history`);
+- intended eval selection (an explicit `--history` UUID resolved from a version
+  read; do not leave `--latest` to choose the target when the run starts);
 - `response_mode`, model, system prompt, tools, handoff settings, and KB
   attachments on that version;
 - published version, when different from the audited version;
@@ -285,8 +286,11 @@ rubrics. Use a simple judgment review. Confirm that:
   alternative outcome, and guardrails are represented by observable decision
   coverage where the intended gate requires it; for a first version, this may
   be one core scenario and one core outcome rather than a multi-journey map;
-- no case or mandatory criterion demands behavior absent from or contradictory
-  to the contract;
+- every mandatory criterion has a traceable
+  [accepted or inherited basis](consultative-guidance.md#basis-for-acceptance-criteria)
+  and tests a necessary meaning or action; absence of a matching Contract
+  sentence is not itself a defect, and "basic quality" does not authorize
+  invented product or style requirements;
 - answer-versus-question initiative, consent before consequential actions,
   recommendation boundaries, and handoff expectations agree with the material
   decisions in the contract, while truthfulness and uncertainty also satisfy
@@ -388,6 +392,14 @@ question or product contract. Flag rubrics that demand exhaustive lists,
 prices, logistics, citations, handoff, or tool use without such a requirement.
 Leave the exact rewrite or evaluator reassignment to the Repair Planner.
 
+Apply [semantic acceptance](eval-cases.md#semantic-acceptance-and-material-omissions)
+to both rubrics and evaluator templates. Flag checklist-style repetition,
+keyword matching, and required extra disclaimers when the relevant meaning is
+already clear. Preserve genuine action, factual, consent, and safety boundaries.
+If the criterion concerns information delivered to a human receiver, verify
+that the evaluator can see that delivery rather than treating a missing word
+in an acknowledgement as proof of lost context.
+
 Also check:
 
 - expected output and rubric do not contradict the KB;
@@ -421,6 +433,14 @@ For a full pre-eval gate, use one verdict:
 
 Report the verdict first, followed by the evidence-backed findings, unresolved
 questions, and likely owners. State when a material category has no findings.
+
+The user may explicitly authorize a run despite known blockers after their
+impact is explained. Record the unresolved blockers, the user's run scope, and
+what the results can and cannot establish; keep the verdict and do not claim
+clearance or publish readiness from that run. Authorization does not make
+contradictory truth judgeable. When the defect is already sufficiently clear,
+the user may instead approve its repair before another eval; follow Repair
+Planner and verify afterward rather than requiring a redundant failing run.
 
 For a scoped audit, state the scope and report the findings without implying
 that the rest of the test system passed. A scoped verdict is optional; use it

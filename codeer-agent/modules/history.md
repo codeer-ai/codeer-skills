@@ -375,27 +375,37 @@ Transition to **eval-cases**:
 - Each uncertain mechanism → only the generalization, boundary, or contrast
   probes needed to distinguish the plausible causes
 
-Run Static Audit, then run a focused pre-change eval on the current published
-version (`--history` flag) before changing any settings:
+Run Static Audit. Run a focused pre-change eval on the current published
+version only when it reduces diagnostic uncertainty or provides a needed
+comparison. If existing evidence already establishes the defect and a new run
+adds no decision value, preserve the prior configuration and evidence, explain
+the omission, and proceed to Repair Planner and an approved repair. Verify the
+changed behavior afterward without claiming an unmeasured before/after effect.
+When a pre-change run is useful, pin its exact target and selection:
 
 ```bash
 codeer eval run \
     --agent <agent_id> --history <published_history_id> \
-    --evaluator <evaluator_id>
+    --cases <focused_case_ids> --evaluator <evaluator_id> \
+    --out .codeer/current/eval_results.json
 ```
 
 Export the pre-change results and pin them so they survive the improvement
 cycle:
 
 ```bash
-codeer eval export --agent <agent_id> --out .codeer/current/eval_table/
+codeer eval export --agent <agent_id> --version <evaluated_version_number> \
+    --cases <focused_case_ids> --evaluators <evaluator_id> \
+    --out-dir .codeer/current/eval_table/
 ```
 
-Automatically copy `.codeer/current/eval_table/` plus the exact Agent/version,
-evaluator-template, and judge-model context to
-`.codeer/pinned/<date>-pre-change/` before changing the Agent. This is a required
-comparison point, not an optional pin prompt. Ask about pinning only for other
-temporary debug or batch evidence.
+Resolve `<evaluated_version_number>` from the run's `published_history_id`,
+even if a newer DRAFT or published version now exists. Verify version, selection,
+and result IDs using [eval-cases.md](eval-cases.md#step-3--static-preflight-and-full-sweep).
+Automatically copy the original `.codeer/current/eval_results.json`, any matched
+export, and the exact Agent/version, evaluator-template, and judge-model context
+to `.codeer/pinned/<date>-pre-change/` before changing the Agent. If this run is
+used as a comparison, pinning is required and needs no optional pin prompt.
 
 The audit must verify the exact version, sources, settings, cases, rubrics,
 evaluators, and assignments. New reproduction cases should fail; protection
@@ -414,10 +424,13 @@ Before drafting a runtime repair:
 2. Persist the accepted `.codeer/design/behavior_contract.md`, then update or
    add acceptance cases and rubrics. They should express the revised behavior
    and protect still-valid successful patterns.
-3. Run Static Audit, then run the focused cases against the current published
-   Agent. Expected failures make the intended behavioral delta visible; they
-   are not proof that the current Agent was defective under the old contract.
-4. Hand the accepted contract and pre-change evidence to **repair-planner**,
+3. Run Static Audit. Test the focused cases against the current published Agent
+   when the result will inform the repair or comparison; otherwise preserve the
+   prior configuration and sufficient existing evidence and explain why the
+   known mismatch does not need another run. For a user-authorized run despite
+   blockers, keep the limitations visible. Expected failures under the new
+   contract do not prove the old Agent violated the old contract.
+4. Hand the accepted contract and available pre-change evidence to **repair-planner**,
    then use the owning modules for Agent Settings, KB, Tools, handoff, or other
    approved changes.
 5. Re-run Static Audit, the focused impact set, and the required full

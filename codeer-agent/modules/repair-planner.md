@@ -70,8 +70,10 @@ If the accepted finding is that the Behavior Contract itself is ambiguous or
 should change, stop runtime repair planning. Use
 [consultative-guidance.md](consultative-guidance.md) to obtain user acceptance
 of the revised behavior, then update acceptance eval cases first. Re-enter the
-planner with the accepted contract and pre-change eval evidence. Do not hide an
-unapproved contract change inside Agent Settings, KB, Tools, or a rubric.
+planner with the accepted contract and sufficient existing or new evidence.
+Use the parent skill's pre-change-run decision: a known mismatch need not be
+rerun solely to fail again. Do not hide an unapproved contract change inside
+Agent Settings, KB, Tools, or a rubric.
 
 If the accepted finding is a scenario-coverage gap, route it to
 [eval-cases.md](eval-cases.md) when the existing Behavior Contract already
@@ -145,6 +147,15 @@ changed lines or the pass rate of one case.
 For a rubric edit, show the before/after text, relevant source truth, evaluator
 visibility, and why each mandatory criterion is necessary. A correct, relevant,
 concise answer should not fail for omitting merely helpful detail.
+
+Use the [acceptance-criteria basis](consultative-guidance.md#basis-for-acceptance-criteria)
+and [semantic acceptance rules](eval-cases.md#semantic-acceptance-and-material-omissions).
+If the rubric itself demands unnecessary detail, repair that criterion. If the
+criterion is adequate but the judge rejects equivalent meaning, address the
+evaluator's interpretation and calibration. Do not turn either problem into a
+new Agent requirement to repeat fixed wording. When judging changes, compare
+fixed responses and traces where the CLI supports it, including concise passes
+and genuine failures; otherwise label local review and the capability gap.
 
 When several cases, pairs, or evaluator dimensions may change together, read
 [eval-portfolio.md](eval-portfolio.md) and preserve its accepted coverage
@@ -234,7 +245,8 @@ every changed owner:
 - nearby boundaries and previously passing impacted behavior to protect;
 - negative controls expected to remain stable; and
 - the pinned Agent/version, case, evaluator-template, judge-model, and run
-  context required for a comparable post-change result.
+  context required for a comparable post-change result, or the preserved static
+  evidence and reason a new pre-change run would add no decision value.
 
 This is a prediction, not a success claim. Do not rewrite it after seeing the
 results. If Agent and evaluator changes cannot be separated, state that Agent-

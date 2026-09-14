@@ -69,8 +69,13 @@ design anchor for diagnosis without treating it as hidden evaluator evidence.
 
 - If the response violates a clear contract behavior and the case accurately
   tests that behavior, continue diagnosing the implementation owner.
-- If the case, expected output, rubric, or evaluator demands behavior that the
-  contract does not require or contradicts, classify an eval-system defect.
+- Trace each required criterion through the
+  [acceptance-criteria basis](consultative-guidance.md#basis-for-acceptance-criteria).
+  A requirement need not be repeated in the Contract to follow from the user's
+  request, authoritative facts, Tool contract, or inherited boundaries. If a
+  criterion lacks that basis, is unnecessary, or contradicts accepted behavior,
+  classify an eval-system defect; absence of a matching Contract sentence alone
+  is not evidence of a defect.
 - If the contract is materially ambiguous, or faithfully implementing it would
   still produce a worse customer experience, identify a contract decision for
   [consultative-guidance.md](consultative-guidance.md) and human acceptance.
@@ -143,6 +148,12 @@ proportionate to the question.
   omission would not cause a wrong answer, wrong next step, or material risk,
   classify evaluator strictness rather than agent failure.
 
+Use [semantic acceptance](eval-cases.md#semantic-acceptance-and-material-omissions)
+to distinguish a genuinely missing requirement from equivalent meaning or
+optional detail. Separate an unnecessarily strict rubric from a judge that
+misreads or adds requirements to an adequate rubric. Do not label a missing
+acknowledgement word as lost handoff information without receiver evidence.
+
 If the evidence suggests suite-wide drift, route that broader check to
 [static-audit.md](static-audit.md); keep this diagnosis tied to the observed
 pair.
@@ -198,9 +209,15 @@ and stochastic judge noise separately.
 - A judge model or template change creates a new baseline; do not compare its
   scores directly with the prior baseline.
 
-Classify an imperfect score as evaluator strictness when the response is
-correct and the available evidence does not support an agent defect. Whether to
-accept or change it is a Repair Planner decision.
+Classify evaluator strictness only when evidence identifies an unnecessary
+mandatory criterion or an unjustified literal reading that caused the penalty.
+If an adequate rubric was applied incorrectly, identify the misjudgment; a
+single result does not establish a judge-model defect. If the response appears
+correct but the cause of the low score is unresolved, retain that uncertainty
+and name the smallest discriminating evidence. No evidence of an Agent defect
+is not positive evidence of strictness. Whether to accept or change a criterion
+is a Repair Planner decision; use fixed-response calibration where supported
+to avoid confusing Agent-generation variation with judge variation.
 
 ### 7. Platform defect
 

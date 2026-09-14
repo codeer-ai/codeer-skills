@@ -21,12 +21,16 @@ before creating or changing agent settings.
 
 ### Mutation guardrail
 
-**Before any call that changes server state** — creating, updating, or
-publishing an agent, KB, eval case, rubric, or version — state what you
-are about to do and wait for explicit user confirmation. This includes every
-POST, PUT, PATCH, and DELETE against the Codeer API.
+**Before a CLI operation that changes server state**, state the concrete target,
+scope, and effect and obtain explicit user confirmation. This includes creating,
+updating, deleting, or publishing resources, launching eval runs or crawl jobs,
+and creating or continuing persisted histories. A confirmed operation or bounded
+batch covers its internal requests; ask again if the target, scope, or effect
+materially changes. Publish remains a separately approved action.
 
-Read-only calls (GET, listing, exporting, diffing) do not need confirmation.
+Classify the operation by its actual effect, not its HTTP method. Registered
+CLI reads such as listing, exporting, diffing, and reading eval results or
+rubrics need no confirmation, even when the CLI implements a read using POST.
 
 ### Diff guardrail
 
@@ -146,7 +150,10 @@ analysis scope unless they represent a stable intended customer experience that
 the user accepts into the contract. Scope Alignment business or conversion
 goals and optional demand evidence are inputs to this decision, not parallel
 normative authorities. The accepted Behavior Contract is the sole normative
-design source for stable runtime customer outcomes and guardrails.
+design source for project-specific stable runtime customer outcomes and
+guardrails; it inherits the canonical evidence and autonomy boundaries. Use
+[the acceptance-criteria basis](modules/consultative-guidance.md#basis-for-acceptance-criteria)
+to derive case-level requirements without inventing additional quality rules.
 
 Admit a field, profile, category, finding, or rule only when it helps select an
 appropriate Agent decision, measure or explain an outcome, support a fair
@@ -228,11 +235,21 @@ inline prior-turn replay from Codeer.
 The **first baseline** is the first actual eval run against the complete first
 DRAFT Agent after the reviewed cases have been applied and Static Audit has
 passed. Local case design is not a baseline. Preserve this run as the
-pre-repair comparison point by automatically copying the exported results and
-their version/evaluator context to `.codeer/pinned/`. Do the same for a focused
-pre-change eval before a runtime change. Other debug or batch results remain
-optional to pin. If the evaluator template or judge model changes, establish a
-new baseline.
+pre-repair comparison point by automatically copying the results and their
+exact version/evaluator context to `.codeer/pinned/`. Pin any focused pre-change
+eval used as a comparison as well. Match exports to the run's version and
+result IDs; see [eval-cases.md](modules/eval-cases.md). Other debug or batch
+results remain optional to pin. If the evaluator template or judge model
+changes, establish a new baseline.
+
+For an existing Agent, a new pre-change run is useful when it reduces diagnostic
+uncertainty or supplies a needed comparison. Do not run merely to reconfirm a
+failure already established by sufficient evidence. A clear static defect may
+go directly through Repair Planner to an approved correction and post-change
+verification. Preserve the prior configuration and available evidence, explain
+why a pre-change run adds no decision value, and do not claim an unmeasured
+before/after effect. Before a new Agent's first baseline, resolve clear static
+defects through the same approved repair path.
 
 ### Phase 2: Improve (existing Agent)
 
@@ -281,14 +298,16 @@ entry paths.
    single clear reproduction or protection probe may go directly to
    **eval-cases**.
 4. For an implementation defect against the unchanged contract, add the
-   smallest reproduction and protection cases, run Static Audit, and run a
-   focused pre-change eval on the current Agent before **eval-debug →
-   repair-planner**.
+   smallest reproduction and protection cases and run Static Audit. If a
+   focused pre-change eval adds decision value, run it on the current Agent
+   before **eval-debug → repair-planner**; otherwise use the sufficient
+   existing evidence directly in **repair-planner**.
 5. For an intentional contract improvement, use **consultative-guidance** to
    compare current and proposed customer behavior and obtain user acceptance.
-   Update the persistent contract and acceptance cases first, then run a focused
-   pre-change eval on the current Agent so the behavioral delta is visible
-   before planning the runtime repair.
+   Update the persistent contract and acceptance cases first. Run a focused
+   pre-change eval when observing the old behavior will inform the repair or
+   comparison; an already established mismatch can proceed to **repair-planner**
+   without a redundant run.
 6. Apply approved changes through the owning module, run Static Audit, run the
    focused impact set and full assigned-pair regression as required, use
    **regression-triage** to compare the planned Agent diff with observed deltas,
