@@ -130,6 +130,14 @@ Map each candidate case/evaluator pair to the decision consequences it can
 observe. Then propose the smallest set that preserves the required universe and
 the evidence quality needed for the named decision.
 
+Before adding cases, consider whether existing coverage can serve the purpose
+unchanged or through clarification, extension, or reorganization. Follow the
+[core-first authoring rules](eval-cases.md#core-first-rubric-design): focused
+cases, few necessary rubric conditions, and evaluators with distinct observable
+responsibilities. Add coverage for an evidenced gap, not to enumerate every
+ideal answer. Fewer cases are not an improvement if reuse hides a distinct
+failure, loses a needed state, or makes a rubric carry unrelated obligations.
+
 Prefer to keep:
 
 - a stable core acceptance path;
