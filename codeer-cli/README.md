@@ -208,9 +208,9 @@ Flags:
   other data that can grow with cases, versions, or turns.
 
 `history conversations` reads `/api/v1/external/histories/{id}/messages`
-using a workspace API key with History visibility and follows all pages
-automatically. For member keys without workspace edit permission, payment
-`checkout_url` values are returned as `null`. This requires a server supporting
+using a workspace admin API key and follows all pages automatically. Member
+keys retain existing History visibility but are intentionally rejected by this
+complete tool-payload export. This requires a server supporting
 `history-parts-v1`; it never falls back to a
 different authorization contract. Stdout shows at most 20 part summaries (50
 with `--full`) and omits tool payload previews. `--out` retains native tool
