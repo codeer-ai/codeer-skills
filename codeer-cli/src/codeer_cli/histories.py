@@ -4,14 +4,15 @@ Use this after an agent has been published and running for a while, to pull
 recent traffic, filter by feedback, and feed the failing cases back into the
 evaluation loop.
 
-Pagination: ``/histories`` uses ``limit`` + ``offset`` (NOT ``page`` /
-``page_size``). Default ``limit=500`` here is a deliberate choice for analysis
-workflows — the backend caps responses anyway and returning everything in one
-call removes a common foot-gun where the caller silently truncates at 10.
+Pagination: ``/histories`` and the management parts export use ``limit`` +
+``offset`` (NOT ``page`` / ``page_size``). History metadata remains a bounded
+caller-selected page. The parts export follows every server page and rejects a
+cross-page revision change instead of returning a mixed snapshot.
 """
 
 from __future__ import annotations
 
+import builtins
 from typing import Any, Iterable, Optional
 
 from .client import CodeerClient
@@ -94,11 +95,9 @@ def list_negative_feedback_turns(
     the source channel — usually "system"). Pass the desired sentiment(s)
     in ``feedback_types``.
 
-    Cost: O(N histories) paginated Chat V2 reads. Filter aggressively via
+    Cost: O(N histories) paginated management parts reads. Filter aggressively via
     ``exclude_users`` and ``limit`` before invoking on a busy agent.
     """
-    from . import chats
-
     type_set = {t.lower() for t in feedback_types}
     histories = list(
         client,
@@ -113,10 +112,7 @@ def list_negative_feedback_turns(
         hid = h.get("id")
         if hid is None:
             continue
-        try:
-            parts = (chats.list_messages(client, hid).get("messages") or [])
-        except Exception:
-            continue
+        parts = (list_messages(client, hid).get("messages") or [])
 
         turn_indexes: dict[str, int] = {}
         user_messages: dict[str, str] = {}
@@ -156,6 +152,92 @@ def list_negative_feedback_turns(
 
 def get(client: CodeerClient, history_id: int) -> dict:
     return client.get(f"/external/histories/{history_id}")
+
+
+def list_messages(
+    client: CodeerClient,
+    history_id: int,
+    *,
+    limit: int = 100,
+) -> dict:
+    """Return every persisted diagnostic part through the management export.
+
+    This route is for workspace editors analyzing a History. It is distinct
+    from the external client-owner Chat V2 route and must return the explicit
+    ``history-parts-v1`` contract. Tool calls and returns are preserved in the
+    returned artifact. System prompts and provider raw traces are outside the
+    contract.
+    """
+    if limit <= 0:
+        raise ValueError("limit must be greater than zero")
+
+    offset = 0
+    pages_fetched = 0
+    total_records: int | None = None
+    part_revision: str | None = None
+    result: dict[str, Any] | None = None
+    messages: list[dict] = []
+
+    while True:
+        page = client.get(
+            f"/external/histories/{history_id}/messages",
+            params={"limit": limit, "offset": offset},
+        )
+        if not isinstance(page, dict):
+            raise ValueError("History parts response must be an object")
+        if page.get("export_contract") != "history-parts-v1":
+            raise ValueError("History parts response is missing export_contract=history-parts-v1")
+
+        page_messages = page.get("messages")
+        page_info = page.get("page")
+        revision = page.get("part_revision")
+        if not isinstance(page_messages, builtins.list):
+            raise ValueError("History parts response must contain a messages list")
+        if not isinstance(page_info, dict):
+            raise ValueError("History parts response must contain page metadata")
+        if not isinstance(revision, str) or not revision:
+            raise ValueError("History parts response must contain part_revision")
+
+        page_offset = page_info.get("offset")
+        page_total = page_info.get("total_records")
+        page_limit = page_info.get("limit")
+        if not all(isinstance(value, int) for value in (page_offset, page_total, page_limit)):
+            raise ValueError("History parts page metadata must contain integer limit/offset/total_records")
+        if page_offset != offset:
+            raise ValueError(f"History parts page offset mismatch: requested {offset}, received {page_offset}")
+        if page_total < 0 or page_limit <= 0:
+            raise ValueError("History parts page metadata is invalid")
+
+        if total_records is None:
+            total_records = page_total
+        elif page_total != total_records:
+            raise ValueError("History parts total_records changed while paging; retry the export")
+        if part_revision is None:
+            part_revision = revision
+        elif revision != part_revision:
+            raise ValueError("History parts changed while paging; retry the export")
+
+        if result is None:
+            result = dict(page)
+        messages.extend(page_messages)
+        pages_fetched += 1
+        offset += len(page_messages)
+
+        if offset >= total_records:
+            break
+        if not page_messages:
+            raise ValueError("History parts pagination stopped before total_records was reached")
+
+    assert result is not None
+    assert total_records is not None
+    result["messages"] = messages
+    result["page"] = {
+        "limit": result["page"]["limit"],
+        "offset": 0,
+        "total_records": total_records,
+    }
+    result["pages_fetched"] = pages_fetched
+    return result
 
 
 def get_conversations(client: CodeerClient, history_id: int) -> list[dict]:

@@ -129,7 +129,7 @@ def get_case_evaluator_infos(client: CodeerClient, *, case_ids: List[str]) -> li
     Returns rows shaped like ``{"case_id": str, "evaluators": [...]}``, where
     each evaluator entry is the assigned ``{"evaluator_id", "rubric"}`` pair.
     """
-    return client.post("/eval/case-evaluator-infos:batch", json={"case_ids": case_ids})
+    return client.post("/external/eval/case-evaluator-infos:batch", json={"case_ids": case_ids})
 
 
 def replace_case_evaluator_infos(
@@ -143,7 +143,10 @@ def replace_case_evaluator_infos(
     This is intentionally separate from rubric upsert: replacing removes
     evaluator assignments that are not included in ``evaluators``.
     """
-    return client.put(f"/eval/cases/{case_id}/case-evaluator-infos", json={"evaluators": evaluators})
+    return client.put(
+        f"/external/eval/cases/{case_id}/case-evaluator-infos",
+        json={"evaluators": evaluators},
+    )
 
 
 # --- case labels -----------------------------------------------------------

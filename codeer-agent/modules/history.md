@@ -93,19 +93,23 @@ creation without presenting their share as the production rate.
 
 ### Then browse conversations
 
-For channels without feedback signals, export the complete Chat V2 parts before
-analyzing them. Standard output is deliberately a bounded preview and must not
-be treated as the complete history:
+For channels without feedback signals, export the persisted management parts
+before analyzing them. Standard output is deliberately a bounded preview and
+must not be treated as the complete history:
 
 ```bash
 codeer history conversations <history_id> \
     --out .codeer/current/history-<history_id>.json
 ```
 
-Read the saved JSON selectively. It contains every client-visible part across
-all API pages, including tool calls/results, attachments, interactions,
-feedback, and passthrough metadata. Preserve the raw artifact when extracting
-eval cases; summaries are navigation aids, not evidence of absence.
+Read the saved JSON selectively. It follows every page of the
+`history-parts-v1` management contract and includes persisted tool
+calls/results, attachments, feedback, and metadata. It does not include system
+prompts or provider raw traces; missing parts do not prove non-execution.
+Preserve the raw artifact when extracting eval cases because summaries are
+navigation aids, not evidence of absence. Use
+`--client-visible --user <external_user_id>` only when the external
+client-owner Chat V2 view is the evidence actually needed.
 
 To continue an existing persisted history after the user approves the write:
 

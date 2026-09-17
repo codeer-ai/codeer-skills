@@ -9,7 +9,10 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import httpx
+
 from codeer_cli import histories
+from codeer_cli.client import CodeerClient
 from codeer_cli.commands import history as history_cmd
 
 
@@ -19,10 +22,12 @@ class FakeClient:
 
 
 class HistoryReadTests(unittest.TestCase):
-    def test_run_conversations_uses_v2_and_writes_unmodified_parts(self) -> None:
+    def test_run_conversations_uses_management_export_and_writes_unmodified_parts(self) -> None:
         client = FakeClient()
         response = {
             "chat_id": 18649,
+            "export_contract": "history-parts-v1",
+            "part_revision": "revision-1",
             "messages": [
                 {
                     "id": 10,
@@ -40,7 +45,12 @@ class HistoryReadTests(unittest.TestCase):
                     "conversation_group_id": "group-1",
                     "sequence": 2,
                     "part_kind": "tool-return",
-                    "content": {"content": {"owner": "Ada", "members": ["Grace"]}},
+                    "content": {
+                        "tool_name": "http_request",
+                        "tool_call_id": "call-1",
+                        "content": {"owner": "Ada", "members": ["Grace"]},
+                        "outcome": "success",
+                    },
                     "metadata": {"reasoning_step_type": "consultant_http_request"},
                     "source": "stack",
                     "attached_files": [],
@@ -48,14 +58,20 @@ class HistoryReadTests(unittest.TestCase):
                 },
             ],
         }
-        args = SimpleNamespace(history_id=18649, full=False, out=None)
+        args = SimpleNamespace(
+            history_id=18649,
+            full=False,
+            out=None,
+            client_visible=False,
+            user=None,
+        )
 
         with TemporaryDirectory() as tmpdir:
             out_path = Path(tmpdir) / "history.json"
             args.out = str(out_path)
             stdout = StringIO()
             with (
-                patch.object(history_cmd.chats_mod, "list_messages", return_value=response) as list_messages,
+                patch.object(history_cmd.hist_mod, "list_messages", return_value=response) as list_messages,
                 redirect_stdout(stdout),
             ):
                 result = history_cmd.run_conversations(args, client)
@@ -70,9 +86,152 @@ class HistoryReadTests(unittest.TestCase):
         self.assertEqual(summary["turn_count"], 1)
         self.assertEqual(summary["part_count"], 2)
         self.assertTrue(summary["stdout_is_summary"])
+        self.assertEqual(summary["export_mode"], "management")
+        self.assertEqual(summary["export_contract"], "history-parts-v1")
         self.assertEqual(summary["parts"][1]["part_kind"], "tool-return")
+        self.assertEqual(summary["parts"][1]["tool_name"], "http_request")
+        self.assertNotIn("Ada", stdout.getvalue())
 
-    def test_negative_feedback_uses_v2_part_feedback_and_grouped_user_prompt(self) -> None:
+    def test_run_conversations_client_visible_requires_user_and_uses_v2(self) -> None:
+        client = FakeClient()
+        args = SimpleNamespace(
+            history_id=18649,
+            full=False,
+            out=None,
+            client_visible=True,
+            user="user-1",
+        )
+        response = {"chat_id": 18649, "messages": []}
+
+        with (
+            patch.object(history_cmd.chats_mod, "list_messages", return_value=response) as list_messages,
+            redirect_stdout(StringIO()),
+        ):
+            result = history_cmd.run_conversations(args, client)
+
+        self.assertEqual(result, 0)
+        list_messages.assert_called_once_with(client, 18649, external_user_id="user-1")
+
+        args.user = None
+        with redirect_stdout(StringIO()):
+            result = history_cmd.run_conversations(args, client)
+        self.assertEqual(result, 2)
+
+    def test_run_conversations_bounds_stdout_part_summaries(self) -> None:
+        client = FakeClient()
+        args = SimpleNamespace(
+            history_id=18649,
+            full=False,
+            out=None,
+            client_visible=False,
+            user=None,
+        )
+        response = {
+            "chat_id": 18649,
+            "export_contract": "history-parts-v1",
+            "part_revision": "revision-1",
+            "messages": [
+                {
+                    "id": part_id,
+                    "conversation_group_id": f"group-{part_id}",
+                    "part_kind": "text",
+                    "content": {"content": f"Part {part_id}"},
+                }
+                for part_id in range(25)
+            ],
+        }
+
+        stdout = StringIO()
+        with (
+            patch.object(history_cmd.hist_mod, "list_messages", return_value=response),
+            redirect_stdout(stdout),
+        ):
+            result = history_cmd.run_conversations(args, client)
+
+        summary = json.loads(stdout.getvalue())
+        self.assertEqual(result, 0)
+        self.assertEqual(summary["part_count"], 25)
+        self.assertEqual(summary["part_summaries_shown"], 20)
+        self.assertTrue(summary["part_summaries_truncated"])
+
+    def test_management_export_follows_server_pages_and_preserves_parts(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            offset = int(request.url.params["offset"])
+            parts = [
+                {
+                    "id": part_id,
+                    "conversation_group_id": "group-1",
+                    "sequence": part_id,
+                    "part_kind": "tool-return" if part_id == 2 else "text",
+                    "content": {"content": {"part": part_id}},
+                }
+                for part_id in range(offset + 1, min(offset + 2, 3) + 1)
+            ]
+            payload = {
+                "chat_id": 18649,
+                "messages": parts,
+                "export_contract": "history-parts-v1",
+                "provider_raw_trace": "not_included",
+                "system_prompts": "not_included",
+                "missing_parts_do_not_prove_non_execution": True,
+                "legacy_tool_outcomes": "not_recorded",
+                "page": {"limit": 2, "offset": offset, "total_records": 3},
+                "part_revision": "revision-1",
+            }
+            return httpx.Response(200, json={"error_code": 0, "data": payload})
+
+        client = CodeerClient(base_url="https://api.codeer.ai", api_key="test-key")
+        client._client.close()
+        client._client = httpx.Client(
+            base_url=client.base_url,
+            transport=httpx.MockTransport(handler),
+        )
+        try:
+            result = histories.list_messages(client, 18649, limit=500)
+        finally:
+            client.close()
+
+        self.assertEqual([part["id"] for part in result["messages"]], [1, 2, 3])
+        self.assertEqual(result["pages_fetched"], 2)
+        self.assertEqual(result["page"]["total_records"], 3)
+        self.assertEqual(
+            [request.url.path for request in requests],
+            [
+                "/api/v1/external/histories/18649/messages",
+                "/api/v1/external/histories/18649/messages",
+            ],
+        )
+        self.assertEqual([request.url.params["offset"] for request in requests], ["0", "2"])
+
+    def test_management_export_rejects_cross_page_revision_change(self) -> None:
+        call_count = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            offset = int(request.url.params["offset"])
+            payload = {
+                "chat_id": 18649,
+                "messages": [{"id": offset + 1}],
+                "export_contract": "history-parts-v1",
+                "page": {"limit": 1, "offset": offset, "total_records": 2},
+                "part_revision": f"revision-{call_count}",
+            }
+            return httpx.Response(200, json={"error_code": 0, "data": payload})
+
+        client = CodeerClient(base_url="https://api.codeer.ai", api_key="test-key")
+        client._client.close()
+        client._client = httpx.Client(base_url=client.base_url, transport=httpx.MockTransport(handler))
+        try:
+            with self.assertRaisesRegex(ValueError, "changed while paging"):
+                histories.list_messages(client, 18649, limit=1)
+        finally:
+            client.close()
+
+    def test_negative_feedback_uses_management_parts_and_grouped_user_prompt(self) -> None:
         client = FakeClient()
         history_rows = [{
             "id": 18649,
@@ -107,7 +266,7 @@ class HistoryReadTests(unittest.TestCase):
 
         with (
             patch.object(histories, "list", return_value=history_rows),
-            patch("codeer_cli.chats.list_messages", return_value=parts) as list_messages,
+            patch.object(histories, "list_messages", return_value=parts) as list_messages,
         ):
             rows = histories.list_negative_feedback_turns(client, agent_id="agent-1")
 
@@ -126,6 +285,14 @@ class HistoryReadTests(unittest.TestCase):
             "user_message": "Why did this fail?",
             "assistant_excerpt": "The service is healthy.",
         }])
+
+    def test_negative_feedback_does_not_hide_management_read_failures(self) -> None:
+        with (
+            patch.object(histories, "list", return_value=[{"id": 18649}]),
+            patch.object(histories, "list_messages", side_effect=RuntimeError("read failed")),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "read failed"):
+                histories.list_negative_feedback_turns(FakeClient(), agent_id="agent-1")
 
 
 if __name__ == "__main__":
