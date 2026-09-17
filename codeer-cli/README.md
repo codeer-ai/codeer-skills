@@ -208,11 +208,14 @@ Flags:
   other data that can grow with cases, versions, or turns.
 
 `history conversations` reads `/api/v1/external/histories/{id}/messages`
-using workspace History visibility and follows all pages automatically. This
+using a workspace admin API key and follows all pages automatically. Member
+keys are intentionally rejected because this export includes raw tool payloads. This
 requires a server supporting `history-parts-v1`; it never falls back to a
 different authorization contract. Stdout shows at most 20 part summaries (50
 with `--full`) and omits tool payload previews. `--out` retains native tool
 args/results/outcomes, group/part IDs, attachments, feedback, and metadata.
+Attachment URLs remain permission-checked History download endpoints rather
+than direct storage/source URLs.
 Legacy projections have `source: legacy-adapter`; tool outcomes absent from
 the original records are omitted and marked `outcome_not_recorded`. System
 prompts and provider raw traces are not included. Missing parts do not prove a tool never ran. Keep export files private.
