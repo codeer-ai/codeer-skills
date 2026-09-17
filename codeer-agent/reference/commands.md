@@ -474,24 +474,29 @@ do not interpret a first-page miss as proof that no matching history exists.
 
 ## `codeer history conversations` flags
 
-Reads persisted content from `GET /api/v2/chats/{id}/messages` and follows all
-pages automatically. Standard output is a bounded part summary for coding-agent
-context safety; use `--out` whenever completeness matters.
+Reads persisted content from the workspace-editor management endpoint
+`GET /api/v1/external/histories/{id}/messages` and follows all pages
+automatically. Standard output is a bounded part summary that omits tool
+arguments and results; use `--out` whenever completeness matters.
 
 | Flag | Type | Default | Purpose |
 | --- | --- | --- | --- |
 | `history_id` | integer | **required** | Persisted history ID |
-| `--out` | path | — | Write every unmodified client-visible Chat V2 part |
+| `--out` | path | — | Write every persisted part allowed by the selected export contract |
 | `--full` | boolean | false | Require `--out` and include longer stdout previews |
+| `--client-visible` | boolean | false | Use the external client-owner Chat V2 contract instead of the management export |
+| `--user` | string | — | Required with `--client-visible`; the external user identity for that contract |
 
 ```bash
 codeer history conversations <history_id> \
     --out .codeer/current/history-<history_id>.json
 ```
 
-The artifact includes tool-call/tool-return payloads, metadata, attachments,
-interactions, and feedback. It intentionally does not include server-side
-`system-prompt` or `console_only` parts hidden from workspace API keys.
+The management artifact uses `history-parts-v1` and includes persisted
+tool-call/tool-return payloads, metadata, attachments, and feedback. It
+intentionally excludes system prompts and provider raw traces. A missing part
+does not prove that a tool was not executed. The management route requires a
+workspace-editor key and never silently falls back to the client-visible route.
 
 ---
 

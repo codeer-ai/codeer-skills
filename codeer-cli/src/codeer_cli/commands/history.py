@@ -48,13 +48,17 @@ def register(subparsers):
     # codeer history conversations <id>
     p = sub.add_parser(
         "conversations",
-        help="Summarize all Chat V2 parts in a history. Complete parts/tool payloads require --out.",
+        help="Summarize persisted History parts. Complete parts/tool payloads require --out.",
     )
     p.add_argument("history_id", type=int)
     p.add_argument("--full", action="store_true",
                    help="Require --out and include longer stdout previews; the artifact is always complete.")
     p.add_argument("--out", default=None,
-                   help="Write every unmodified client-visible Chat V2 part to this file.")
+                   help="Write every persisted part allowed by the selected export contract.")
+    p.add_argument("--client-visible", action="store_true",
+                   help="Use the external client-owner Chat V2 contract instead of the management export.")
+    p.add_argument("--user", default=None,
+                   help="external_user_id required with --client-visible.")
     p.set_defaults(func=run_conversations)
 
     # codeer history negative-feedback
@@ -158,10 +162,12 @@ def _history_summary(row: dict, *, full: bool = False) -> dict:
 
 def _part_summary(part: dict, idx: int, *, full: bool = False) -> dict:
     raw_content = part.get("content")
-    if isinstance(raw_content, dict):
+    part_kind = part.get("part_kind")
+    is_tool_part = part_kind in {"tool-call", "tool-return"}
+    if is_tool_part:
+        content_value = None
+    elif isinstance(raw_content, dict):
         content_value = raw_content.get("content")
-        if content_value is None and part.get("part_kind") == "tool-call":
-            content_value = raw_content.get("args")
     else:
         content_value = raw_content
     if isinstance(content_value, str):
@@ -176,7 +182,7 @@ def _part_summary(part: dict, idx: int, *, full: bool = False) -> dict:
         "conversation_id": part.get("conversation_id"),
         "conversation_group_id": part.get("conversation_group_id"),
         "sequence": part.get("sequence"),
-        "part_kind": part.get("part_kind"),
+        "part_kind": part_kind,
         "source": part.get("source"),
         "created_at": part.get("created_at"),
         "content_preview": truncate(content, 600 if full else 240),
@@ -184,6 +190,12 @@ def _part_summary(part: dict, idx: int, *, full: bool = False) -> dict:
         "attachment_count": len(part.get("attached_files") or []),
         "feedback_count": len(part.get("feedbacks") or []),
     }
+    if is_tool_part and isinstance(raw_content, dict):
+        row.update({
+            "tool_name": raw_content.get("tool_name"),
+            "tool_call_id": raw_content.get("tool_call_id"),
+            "outcome": raw_content.get("outcome"),
+        })
     if full:
         row["feedbacks"] = [
             {
@@ -247,24 +259,49 @@ def run_get(args, client) -> int:
 
 
 def run_conversations(args, client) -> int:
-    result = chats_mod.list_messages(client, args.history_id)
-    parts = result.get("messages") or []
     if args.full and not args.out:
         log("error: full conversation payloads are unbounded; pass --out <path>")
         return 2
+    client_visible = bool(getattr(args, "client_visible", False))
+    external_user_id = getattr(args, "user", None)
+    if client_visible and not external_user_id:
+        log("error: --client-visible requires --user <external_user_id>")
+        return 2
+    if external_user_id and not client_visible:
+        log("error: --user is only valid with --client-visible")
+        return 2
+
+    if client_visible:
+        result = chats_mod.list_messages(
+            client,
+            args.history_id,
+            external_user_id=external_user_id,
+        )
+        export_mode = "client-visible"
+    else:
+        result = hist_mod.list_messages(client, args.history_id)
+        export_mode = "management"
+    parts = result.get("messages") or []
     write_json(args.out, result)
     group_ids = {
         p.get("conversation_group_id")
         for p in parts
         if p.get("conversation_group_id")
     }
+    stdout_limit = 50 if args.full else 20
+    shown_parts = parts[:stdout_limit]
     print_json({
         "history_id": args.history_id,
+        "export_mode": export_mode,
+        "export_contract": result.get("export_contract"),
+        "part_revision": result.get("part_revision"),
         "turn_count": len(group_ids),
         "part_count": len(parts),
+        "part_summaries_shown": len(shown_parts),
+        "part_summaries_truncated": len(parts) > len(shown_parts),
         "wrote_full_detail": bool(args.out),
         "stdout_is_summary": True,
-        "parts": [_part_summary(p, i, full=args.full) for i, p in enumerate(parts)],
+        "parts": [_part_summary(p, i, full=args.full) for i, p in enumerate(shown_parts)],
     })
     return 0
 

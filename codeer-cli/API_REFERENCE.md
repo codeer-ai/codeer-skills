@@ -201,8 +201,8 @@ version; it does not currently replace this draft-pinning path.
 | `GET /eval/evaluators?wid=<ws>` | List evaluators |
 | `PUT /eval/evaluators/{id}` | Update |
 | `DELETE /eval/evaluators/{id}` | Delete |
-| `POST /eval/case-evaluator-infos:batch` | Read assigned evaluators/rubrics for cases |
-| `PUT /eval/cases/{case_id}/case-evaluator-infos` | Replace assigned evaluators/rubrics for one case |
+| `POST /external/eval/case-evaluator-infos:batch` | Read assigned evaluators/rubrics for cases through the API-key facade |
+| `PUT /external/eval/cases/{case_id}/case-evaluator-infos` | Replace assigned evaluators/rubrics for one case through the API-key facade |
 | `POST /eval/trigger` | Run explicit assigned `case_evaluator_pairs` pinned to `agent_history_id` |
 | `POST /eval/stop` | Cancel running case+evaluator combo |
 | `POST /eval/rubric` | Set/override the rubric for one (case, evaluator); also creates assignment |
@@ -289,12 +289,12 @@ the public CLI.
 | --- | --- |
 | `POST /api/v2/chats` | Create a persisted history using an agent's current published version |
 | `POST /api/v2/chats/{id}/messages` | Append a turn through structured SSE using the current published version |
-| `GET /api/v2/chats/{id}/messages` | Read persisted Chat V2 conversation parts |
-| `GET /histories?agent_id=X&feedback_filter=improve_feedback&external_user_id=…` | List conversations with filters |
-| `GET /histories/{id}` | Read one history's metadata |
-| `GET /histories/{id}/conversations` | Legacy compact conversation rows; not complete tool I/O |
-| `POST /histories/{hid}/conversations/{cid}/feedbacks` | Leave freeform improvement feedback |
-| `POST /histories/{hid}/conversations/{cid}/score` | Numeric score |
+| `GET /api/v1/external/histories/{id}/messages` | Export persisted diagnostic parts for workspace editors (`history-parts-v1`) |
+| `GET /api/v2/chats/{id}/messages` | Read client-visible parts under the external client-owner contract |
+| `GET /api/v1/external/histories?agent_id=X&feedback_filter=improve_feedback&external_user_id=…` | List conversations with filters |
+| `GET /api/v1/external/histories/{id}` | Read one history's metadata |
+| `GET /api/v1/external/histories/{id}/conversations` | Legacy compact conversation rows; not complete tool I/O |
+| `POST /api/v1/external/histories/{hid}/conversations/{cid}/feedbacks` | Leave freeform improvement feedback |
 
 The CLI exposes the first two operations as `codeer history create` and
 `codeer history send`. Messages explicitly set `stream: true`, consume Chat V2
@@ -302,6 +302,11 @@ SSE, and require `response.completed` before reporting success. Their
 per-message SSE read timeout defaults to 240 seconds. A timeout,
 `response.failed`, or disconnect before completion has an uncertain write
 outcome, so read the history before retrying to avoid duplicate turns.
+
+`codeer history conversations` uses the management export by default. Pass
+`--client-visible --user <external-user-id>` only to select the external Chat
+V2 read contract explicitly. The management export includes persisted tool
+calls/results but excludes system prompts and provider raw traces.
 
 `feedback_filter` accepts the `FeedbackFilterType` enum values:
 `no_feedback`, `with_feedback`, `helpful_feedback`, `improve_feedback`.
@@ -505,12 +510,13 @@ you can and can't recover from each assistant turn:
 | Tool **outputs** (raw JSON returned by the tool) | same — stored only as derived `primary_sources` for retrieval tools |
 | Reasoning steps mid-turn | `meta.reasoning_steps` is currently always `null` |
 
-Chat V2 improves this contract: structured SSE emits tool calls and returns as
-`response.part.created` / `response.part.completed`, and
-`GET /api/v2/chats/{id}/messages` reads the persisted conversation parts.
-Capture the SSE artifact with `--out` when exact event order matters; use the
-paginated V2 message read for persisted after-the-fact tool I/O. The legacy V1
-history read remains useful for compact turn-level compatibility only.
+Native parts improve this contract: structured SSE emits tool calls and returns
+as `response.part.created` / `response.part.completed`, and the management
+`GET /api/v1/external/histories/{id}/messages` export reads persisted
+after-the-fact tool I/O for workspace editors. The client-owner
+`GET /api/v2/chats/{id}/messages` route remains available for explicitly
+client-visible reads. The legacy V1 history read remains useful for compact
+turn-level compatibility only.
 
 ### 10. A KB has exactly ONE level of folders — no nesting
 

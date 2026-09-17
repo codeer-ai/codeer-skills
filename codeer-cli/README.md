@@ -80,7 +80,8 @@ CODEER_AGENT_ID=<agent-id>
 
 ## Development install
 
-Use an editable install while the CLI is changing quickly:
+Codeer contributors should use an editable install from this checkout, not the
+PyPI package, so the `codeer` command always executes the folder being edited:
 
 ```bash
 cd /path/to/codeer-skills/codeer-cli
@@ -207,10 +208,22 @@ Flags:
   for raw eval results, full conversation turns, full rubric matrices, and
   other data that can grow with cases, versions, or turns.
 
-`history conversations` reads Chat V2 parts and follows all pages
-automatically. Its stdout is still a bounded summary; the `--out` artifact is
-the complete client-visible history, including tool calls/results,
-attachments, interactions, feedback, and passthrough metadata.
+`history conversations` defaults to the workspace-editor management export and
+follows all pages automatically. Its stdout is a bounded summary that never
+prints tool arguments or results; the `--out` artifact preserves the complete
+`history-parts-v1` payload, including persisted tool calls/results,
+attachments, feedback, and metadata. System prompts and provider raw traces are
+not part of that export contract, and a missing part does not prove that a tool
+was not executed.
+
+Use the external client-owner contract only when that distinction is the point
+of the test:
+
+```bash
+codeer history conversations <history-id> \
+  --client-visible --user <external-user-id> \
+  --out .codeer/current/client-history-<history-id>.json
+```
 
 Avoid piping large raw JSON directly into agent chat. Prefer `--out`, then ask
 the coding agent to inspect targeted summaries, IDs, failing cases, or selected
