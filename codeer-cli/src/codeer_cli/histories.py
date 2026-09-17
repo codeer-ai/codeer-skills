@@ -12,9 +12,14 @@ call removes a common foot-gun where the caller silently truncates at 10.
 
 from __future__ import annotations
 
+import builtins
 from typing import Any, Iterable, Optional
 
-from .client import CodeerClient
+from .client import CodeerClient, CodeerError
+
+
+class HistoryExportError(ValueError):
+    """The server cannot provide a complete, consistent History parts export."""
 
 
 def list(
@@ -94,11 +99,9 @@ def list_negative_feedback_turns(
     the source channel — usually "system"). Pass the desired sentiment(s)
     in ``feedback_types``.
 
-    Cost: O(N histories) paginated Chat V2 reads. Filter aggressively via
+    Cost: O(N histories) paginated management History reads. Filter aggressively via
     ``exclude_users`` and ``limit`` before invoking on a busy agent.
     """
-    from . import chats
-
     type_set = {t.lower() for t in feedback_types}
     histories = list(
         client,
@@ -113,10 +116,7 @@ def list_negative_feedback_turns(
         hid = h.get("id")
         if hid is None:
             continue
-        try:
-            parts = (chats.list_messages(client, hid).get("messages") or [])
-        except Exception:
-            continue
+        parts = get_messages(client, hid).get("messages") or []
 
         turn_indexes: dict[str, int] = {}
         user_messages: dict[str, str] = {}
@@ -165,6 +165,59 @@ def get_conversations(client: CodeerClient, history_id: int) -> list[dict]:
     tool inputs/results, or event order matter.
     """
     return client.get(f"/external/histories/{history_id}/conversations")
+
+
+def get_messages(client: CodeerClient, history_id: int, *, limit: int = 100) -> dict:
+    """Export all management-visible persisted parts; never impersonate an external owner.
+
+    Requires the history-parts-v1 server contract. No Chat/legacy fallback can
+    guarantee the same visibility or completeness, so failures are propagated.
+    ``page`` survives the client's envelope unwrapping and exposes server caps.
+    """
+    if limit <= 0:
+        raise ValueError("limit must be greater than zero")
+    offset = 0
+    messages = []
+    result = None
+    while True:
+        try:
+            page = client.get(
+                f"/external/histories/{history_id}/messages",
+                params={"limit": limit, "offset": offset},
+            )
+        except CodeerError as exc:
+            if exc.status == 404:
+                raise CodeerError(404,
+                    "History or its parts export endpoint is unavailable. "
+                    "This command requires a server supporting history-parts-v1; no fallback was attempted.",
+                    exc.body) from exc
+            raise
+        if (not isinstance(page, dict) or page.get("export_contract") != "history-parts-v1"
+                or not isinstance(page.get("part_revision"), str)):
+            raise HistoryExportError("Server does not support the complete History parts export contract")
+        rows = page.get("messages")
+        info = page.get("page") or {}
+        if not isinstance(rows, builtins.list) or not isinstance(info, dict):
+            raise HistoryExportError("Invalid History messages page")
+        total = info.get("total_records")
+        page_limit = info.get("limit")
+        if (not isinstance(total, int) or total < 0
+                or not isinstance(page_limit, int) or page_limit <= 0
+                or info.get("offset") != offset):
+            raise HistoryExportError("Invalid History messages pagination")
+        if result is None:
+            result = dict(page)
+        elif total != result["page"]["total_records"] or page["part_revision"] != result["part_revision"]:
+            raise HistoryExportError("History changed during export; retry to obtain consistent parts")
+        messages.extend(rows)
+        offset += len(rows)
+        if offset == total:
+            break
+        if not rows or offset > total or len(rows) != page_limit:
+            raise HistoryExportError("Incomplete History messages page")
+    result.pop("page", None)
+    result["messages"] = messages
+    return result
 
 
 def _part_text(part: dict) -> str:

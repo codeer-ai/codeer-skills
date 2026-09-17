@@ -48,13 +48,17 @@ def register(subparsers):
     # codeer history conversations <id>
     p = sub.add_parser(
         "conversations",
-        help="Summarize all Chat V2 parts in a history. Complete parts/tool payloads require --out.",
+        help="Export management-visible History parts. Complete tool payloads require --out.",
     )
     p.add_argument("history_id", type=int)
     p.add_argument("--full", action="store_true",
                    help="Require --out and include longer stdout previews; the artifact is always complete.")
     p.add_argument("--out", default=None,
-                   help="Write every unmodified client-visible Chat V2 part to this file.")
+                   help="Write all History parts, including native tool args/results, to this file.")
+    p.add_argument("--client-visible", action="store_true",
+                   help="Use the existing external Chat V2 owner/allowlist read contract instead.")
+    p.add_argument("--user", default=None,
+                   help="Explicit external_user_id for --client-visible; never inferred from History.")
     p.set_defaults(func=run_conversations)
 
     # codeer history negative-feedback
@@ -184,6 +188,14 @@ def _part_summary(part: dict, idx: int, *, full: bool = False) -> dict:
         "attachment_count": len(part.get("attached_files") or []),
         "feedback_count": len(part.get("feedbacks") or []),
     }
+    if part.get("part_kind") in {"tool-call", "tool-return"}:
+        # Tool args/results can include HTTP credentials or private records.
+        # Keep exact payloads in the artifact, not terminal previews.
+        row.pop("content_preview", None)
+        payload = raw_content if isinstance(raw_content, dict) else {}
+        row["tool_name"] = payload.get("tool_name")
+        row["tool_call_id"] = payload.get("tool_call_id")
+        row["outcome"] = payload.get("outcome")
     if full:
         row["feedbacks"] = [
             {
@@ -247,11 +259,17 @@ def run_get(args, client) -> int:
 
 
 def run_conversations(args, client) -> int:
-    result = chats_mod.list_messages(client, args.history_id)
-    parts = result.get("messages") or []
     if args.full and not args.out:
         log("error: full conversation payloads are unbounded; pass --out <path>")
         return 2
+    if getattr(args, "user", None) is not None and not getattr(args, "client_visible", False):
+        log("error: --user requires --client-visible")
+        return 2
+    if getattr(args, "client_visible", False):
+        result = chats_mod.list_messages(client, args.history_id, external_user_id=args.user)
+    else:
+        result = hist_mod.get_messages(client, args.history_id)
+    parts = result.get("messages") or []
     write_json(args.out, result)
     group_ids = {
         p.get("conversation_group_id")
@@ -264,7 +282,11 @@ def run_conversations(args, client) -> int:
         "part_count": len(parts),
         "wrote_full_detail": bool(args.out),
         "stdout_is_summary": True,
-        "parts": [_part_summary(p, i, full=args.full) for i, p in enumerate(parts)],
+        "read_contract": result.get("export_contract") or "client-visible-chat-v2",
+        "provider_raw_trace": result.get("provider_raw_trace", "not_included"),
+        "missing_parts_do_not_prove_non_execution": True,
+        "omitted_part_summaries": max(0, len(parts) - (50 if args.full else 20)),
+        "parts": [_part_summary(p, i, full=args.full) for i, p in enumerate(parts[:50 if args.full else 20])],
     })
     return 0
 
