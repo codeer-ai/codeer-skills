@@ -41,6 +41,22 @@ class ClientTransportTests(unittest.TestCase):
         self.assertEqual(result, {"id": 1})
         self.assertEqual(requests[0].url.path, "/api/v2/chats")
 
+    def test_request_can_preserve_success_envelope_for_pagination(self) -> None:
+        envelope = {
+            "error_code": 0,
+            "message": "",
+            "pagination": {"limit": 2, "offset": 0, "total_records": 3},
+            "data": [{"id": 1}, {"id": 2}],
+        }
+
+        client = self._client(lambda request: httpx.Response(200, json=envelope))
+        try:
+            result = client.get("/external/histories/1/ai-drafts", unwrap=False)
+        finally:
+            client.close()
+
+        self.assertEqual(result, envelope)
+
     def test_stream_can_target_v2_and_forward_read_timeout(self) -> None:
         requests: list[httpx.Request] = []
 

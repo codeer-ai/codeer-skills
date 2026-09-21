@@ -23,6 +23,8 @@ def register(subparsers):
     p.add_argument("--agent", default=None)
     p.add_argument("--user", default=None, help="Filter by external_user_id")
     p.add_argument("--feedback", default=None, help="positive / negative / any")
+    p.add_argument("--has-ai-drafts", action="store_true",
+                   help="Only list histories with at least one AI Draft.")
     p.add_argument("--exclude-users", default=None,
                    help="Comma-separated external_user_ids to exclude")
     p.add_argument("--version", type=int, default=None,
@@ -60,6 +62,18 @@ def register(subparsers):
     p.add_argument("--user", default=None,
                    help="external_user_id required with --client-visible.")
     p.set_defaults(func=run_conversations)
+
+    # codeer history ai-drafts <id>
+    p = sub.add_parser(
+        "ai-drafts",
+        help="Export every paginated AI Draft lifecycle record returned for one History.",
+    )
+    p.add_argument("history_id", type=int)
+    p.add_argument("--full", action="store_true",
+                   help="Require --out and opt into sensitive content previews on stdout.")
+    p.add_argument("--out", default=None,
+                   help="Write every AI Draft record, refinement signal, outcome, tool activity, and delivery.")
+    p.set_defaults(func=run_ai_drafts)
 
     # codeer history negative-feedback
     p = sub.add_parser("negative-feedback", help="Surface assistant turns with negative feedback")
@@ -148,6 +162,15 @@ def _history_summary(row: dict, *, full: bool = False) -> dict:
         "feedback_counts": _feedback_counts(row),
         "snippet_preview": truncate(row.get("snippet") or "", 240),
     }
+    for key in (
+        "ai_draft_count",
+        "dismissed_draft_count",
+        "regenerated_draft_count",
+        "applied_draft_count",
+        "sent_from_ai_draft_count",
+    ):
+        if key in row:
+            out[key] = row.get(key)
     if full:
         out["share_type"] = row.get("share_type")
         meta = row.get("meta") or {}
@@ -224,6 +247,7 @@ def run_list(args, client) -> int:
         organization_id=organization_id,
         external_user_id=args.user,
         feedback_filter=args.feedback,
+        has_ai_drafts=True if getattr(args, "has_ai_drafts", False) else None,
         exclude_users=exclude,
         limit=args.limit,
         offset=args.offset,
@@ -302,6 +326,71 @@ def run_conversations(args, client) -> int:
         "wrote_full_detail": bool(args.out),
         "stdout_is_summary": True,
         "parts": [_part_summary(p, i, full=args.full) for i, p in enumerate(shown_parts)],
+    })
+    return 0
+
+
+def _ai_draft_summary(draft: dict, *, full: bool = False) -> dict:
+    delivery = draft.get("delivery") or {}
+    row = {
+        "id": draft.get("id"),
+        "history_id": draft.get("history_id"),
+        "thread_key": draft.get("thread_key"),
+        "context_through_sequence": draft.get("context_through_sequence"),
+        "outcome": draft.get("outcome"),
+        "result_type": draft.get("result_type"),
+        "refinement_source_draft_id": draft.get("refinement_source_draft_id"),
+        "has_generation_instruction": bool(draft.get("generation_instruction")),
+        "dismiss_reason": draft.get("dismiss_reason"),
+        "has_dismiss_feedback": bool(draft.get("dismiss_feedback")),
+        "has_generated_content": bool(draft.get("content")),
+        "has_actual_content": bool(delivery.get("actual_content")),
+        "delivery_status": delivery.get("status"),
+        "tool_activity_count": len(draft.get("tool_activities") or []),
+        "has_proposed_actions": draft.get("proposed_actions") is not None,
+        "created_at": draft.get("created_at"),
+    }
+    if full:
+        row.update({
+            "generation_instruction_preview": truncate(draft.get("generation_instruction") or "", 600),
+            "dismiss_feedback_preview": truncate(draft.get("dismiss_feedback") or "", 600),
+            "content_preview": truncate(draft.get("content") or "", 600),
+            "actual_content_preview": truncate(delivery.get("actual_content") or "", 600),
+        })
+    return row
+
+
+def run_ai_drafts(args, client) -> int:
+    if args.full and not args.out:
+        log("error: AI Draft content previews require --out <path>")
+        return 2
+
+    result = hist_mod.list_ai_drafts(client, args.history_id)
+    drafts = result["drafts"]
+    write_json(args.out, result)
+    stdout_limit = 50 if args.full else 20
+    shown_drafts = drafts[:stdout_limit]
+    outcome_counts: dict[str, int] = {}
+    for draft in drafts:
+        outcome = str(draft.get("outcome") or "unknown")
+        outcome_counts[outcome] = outcome_counts.get(outcome, 0) + 1
+    print_json({
+        "history_id": args.history_id,
+        "draft_count": len(drafts),
+        "outcome_counts": outcome_counts,
+        "regenerated_draft_count": sum(
+            1 for draft in drafts if draft.get("refinement_source_draft_id") is not None
+        ),
+        "sent_from_ai_draft_count": sum(
+            1 for draft in drafts if (draft.get("delivery") or {}).get("status") == "sent"
+        ),
+        "draft_summaries_shown": len(shown_drafts),
+        "draft_summaries_truncated": len(drafts) > len(shown_drafts),
+        "pages_fetched": result["pages_fetched"],
+        "snapshot_consistency": result.get("snapshot_consistency", "best-effort"),
+        "wrote_full_detail": bool(args.out),
+        "stdout_is_summary": True,
+        "drafts": [_ai_draft_summary(draft, full=args.full) for draft in shown_drafts],
     })
     return 0
 

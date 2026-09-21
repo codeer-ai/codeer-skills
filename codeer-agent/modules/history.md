@@ -58,6 +58,13 @@ history is the primary source of truth.
 codeer history list --agent <agent_id> --limit 50 --offset 0
 ```
 
+When the decision specifically concerns AI-assisted operator replies, narrow
+the page and retain the returned lifecycle counts:
+
+```bash
+codeer history list --agent <agent_id> --has-ai-drafts --limit 50 --offset 0
+```
+
 Treat this as the first page, not automatically as the complete result set. Do
 not fetch every page by default. Continue only when the task needs broader
 coverage—for example, a complete audit, a frequency/distribution estimate, a
@@ -90,6 +97,29 @@ frequency, ordinary success, or association with an outcome, also define a
 representative or explicitly stratified sample and state its selection frame.
 Use failure and protection cases in parallel for mechanism discovery and Eval
 creation without presenting their share as the production rate.
+
+### Export AI Draft improvement evidence
+
+For each selected History, export every paginated AI Draft lifecycle record
+returned separately from the conversation parts:
+
+```bash
+codeer history ai-drafts <history_id> \
+    --out .codeer/current/ai-drafts-<history_id>.json
+```
+
+The saved artifact follows every page and preserves generated content,
+refinement ancestry, generation instructions, dismiss reasons and feedback,
+outcomes, tool activities, proposed actions, and correlated actual delivery.
+It is marked `snapshot_consistency: best-effort` because the server does not
+provide a revision token; rerun if a consistent point-in-time read matters.
+Default stdout contains structural flags and counts only. Use `--full --out`
+only when bounded sensitive text previews are intentionally needed.
+Use these as observations: identify what the operator requested, rejected,
+accepted, edited, and actually sent. A field being absent means that signal was
+not recorded; it is not evidence that no improvement was needed. Do not turn a
+single edit or dismissal into a global Agent rule without a plausible decision
+mechanism and protection evidence.
 
 ### Then browse conversations
 

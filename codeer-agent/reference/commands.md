@@ -33,6 +33,7 @@ Other local files are **caches** of server state,
 │   │   ├── eval_table_summary.md
 │   │   └── eval_table.csv
 │   ├── eval_results.json               # cache:  codeer eval run --out (full-suite runs)
+│   ├── ai-drafts-<history-id>.json      # cache:  codeer history ai-drafts --out
 │   ├── local_draft_agent.json          # draft:  codeer agent apply
 │   ├── local_draft_eval_cases.md       # reviewed behavior draft; may contain unresolved pairs
 │   ├── local_draft_eval_cases.json     # draft:  codeer eval cases-apply
@@ -164,6 +165,7 @@ completes, record the summary in `progress.json` and move to the next batch.
 | `codeer history send` | Append one or more turns to an existing persisted history |
 | `codeer history negative-feedback` | Surface turns with negative feedback |
 | `codeer history conversations` | Read a specific conversation history |
+| `codeer history ai-drafts` | Export every paginated AI Draft lifecycle record returned for a History |
 
 ---
 
@@ -459,6 +461,7 @@ update, supplied ranges replace the FAQ's existing ranges.
 | `--agent` | string | — | Filter by agent ID. |
 | `--user` | string | — | Filter by external user ID. |
 | `--feedback` | string | — | Filter by feedback state (`positive`, `negative`, or `any`). |
+| `--has-ai-drafts` | flag | false | Only return histories with at least one AI Draft. |
 | `--exclude-users` | string | — | Comma-separated external user IDs to exclude. |
 | `--version` | integer | — | Filter by agent version. |
 | `--limit` | integer | `50` | Maximum histories returned in this page. |
@@ -471,6 +474,39 @@ page contains 50 histories and the task needs broader coverage, continue with
 `--offset 50`, then `100`, and so on. Stop on a page shorter than `limit` or
 when the evidence scope is sufficient. Do not fetch all pages by default, and
 do not interpret a first-page miss as proof that no matching history exists.
+
+When supported by the server, each compact History row also reports
+`ai_draft_count`, `dismissed_draft_count`, `regenerated_draft_count`,
+`applied_draft_count`, and `sent_from_ai_draft_count`.
+
+## `codeer history ai-drafts` flags
+
+Reads `GET /api/v1/external/histories/{id}/ai-drafts` and follows every server
+page. Standard output is a bounded structural lifecycle summary without
+generated, operator, customer, or tool text; use `--out` whenever full evidence
+matters.
+
+| Flag | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `history_id` | integer | **required** | Persisted History ID |
+| `--out` | path | — | Write all draft records, refinement signals, outcomes, tool activities, proposed actions, and correlated delivery |
+| `--full` | boolean | false | Require `--out` and opt into bounded sensitive text previews on stdout |
+
+```bash
+codeer history ai-drafts <history_id> \
+    --out .codeer/current/ai-drafts-<history_id>.json
+```
+
+The artifact preserves generated content, `generation_instruction`,
+`dismiss_reason`, `dismiss_feedback`, `refinement_source_draft_id`, lifecycle
+outcomes, tool activities, proposed actions, operator attribution, and the
+actual correlated delivery when present. These fields are observed improvement
+signals. They do not by themselves establish the correct Agent change; compare
+them with the customer context, History parts, successful behavior to protect,
+and the accepted Behavior Contract. The artifact is marked
+`snapshot_consistency: best-effort`: duplicate IDs and count changes fail the
+export, but the server provides no revision token, so field mutations during
+pagination cannot be detected.
 
 ## `codeer history conversations` flags
 

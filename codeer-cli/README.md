@@ -182,8 +182,9 @@ Use this pattern during agent lifecycle work:
 
 ```bash
 codeer agent list
-codeer history list --agent <agent-id> --limit 50
+codeer history list --agent <agent-id> --has-ai-drafts --limit 50
 codeer history conversations <history-id> --out .codeer/current/history-<history-id>.json
+codeer history ai-drafts <history-id> --out .codeer/current/ai-drafts-<history-id>.json
 codeer history create --agent <agent-id> --message "Review this plan" --timeout 240
 codeer history send <history-id> --message "Use the recommended options" --timeout 240
 codeer eval run --agent <agent-id> --cases <case-ids> --evaluator <evaluator-id> --out .codeer/eval_run.json
@@ -202,8 +203,9 @@ workspace.
 
 Flags:
 
-- `--full` prints bounded extra detail for human inspection. It is still
-  intended to be safe for LLM context.
+- `--full` prints bounded extra detail for human inspection. Some commands,
+  including `history ai-drafts`, can expose sensitive text and require `--out`;
+  use each command's flag description as the output contract.
 - `--out <path>` writes complete diagnostic artifacts to a local file. Use it
   for raw eval results, full conversation turns, full rubric matrices, and
   other data that can grow with cases, versions, or turns.
@@ -215,6 +217,21 @@ prints tool arguments or results; the `--out` artifact preserves the complete
 attachments, feedback, and metadata. System prompts and provider raw traces are
 not part of that export contract, and a missing part does not prove that a tool
 was not executed.
+
+`history list --has-ai-drafts` narrows the history page to conversations with
+at least one AI Draft and includes lifecycle counts in compact output.
+`history ai-drafts` follows every server page and writes every returned draft
+lifecycle record to `--out`: generated content, refinement lineage,
+`generation_instruction`, `dismiss_reason`, `dismiss_feedback`, outcomes, tool
+activities, proposed actions, operator attribution, and the correlated actual
+delivery when one exists. Default stdout shows structural flags and counts but
+no generated, operator, customer, or tool text. `--full --out <path>` explicitly
+opts into bounded content previews. The endpoint has no revision token, so a
+multi-page artifact is marked `snapshot_consistency: best-effort`: count changes
+and duplicate IDs fail the export, but lifecycle fields can still change during
+paging. Re-run when point-in-time consistency matters. These fields are evidence
+for an improvement analysis; the CLI does not invent a recommended Agent change
+from them.
 
 Use the external client-owner contract only when that distinction is the point
 of the test:
