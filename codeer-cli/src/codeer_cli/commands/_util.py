@@ -34,7 +34,12 @@ NOISY_KEYS = {
 
 
 def strip_noisy_fields(value: Any) -> Any:
-    """Remove server/account metadata that is not useful for agent lifecycle work."""
+    """Simplify metadata on one API resource (or a list of resources).
+
+    Callers pass unwrapped resource records, not response envelopes. Nested
+    dictionaries are opaque content: templates, schemas, tool results and other
+    user data can legally contain any of the metadata names. Do not recurse.
+    """
     if isinstance(value, list):
         return [strip_noisy_fields(item) for item in value]
     if not isinstance(value, dict):
@@ -51,7 +56,7 @@ def strip_noisy_fields(value: Any) -> Any:
                 if item.get(k) is not None
             }
             continue
-        out[key] = strip_noisy_fields(item)
+        out[key] = item
     return out
 
 
