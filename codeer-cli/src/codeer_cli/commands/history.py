@@ -213,6 +213,9 @@ def _part_summary(part: dict, idx: int, *, full: bool = False) -> dict:
         "attachment_count": len(part.get("attached_files") or []),
         "feedback_count": len(part.get("feedbacks") or []),
     }
+    if is_tool_part:
+        # Exact tool payloads belong in the artifact, never terminal previews.
+        row.pop("content_preview", None)
     if is_tool_part and isinstance(raw_content, dict):
         row.update({
             "tool_name": raw_content.get("tool_name"),
@@ -325,6 +328,10 @@ def run_conversations(args, client) -> int:
         "part_summaries_truncated": len(parts) > len(shown_parts),
         "wrote_full_detail": bool(args.out),
         "stdout_is_summary": True,
+        "read_contract": result.get("export_contract") or "client-visible-chat-v2",
+        "provider_raw_trace": result.get("provider_raw_trace", "not_included"),
+        "missing_parts_do_not_prove_non_execution": True,
+        "omitted_part_summaries": len(parts) - len(shown_parts),
         "parts": [_part_summary(p, i, full=args.full) for i, p in enumerate(shown_parts)],
     })
     return 0

@@ -16,6 +16,7 @@ import sys
 
 from .client import AuthError, CodeerClient, CodeerError
 from .commands import check
+from .histories import HistoryExportError
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -127,6 +128,9 @@ Use --out <path> for large raw artifacts; stdout defaults to compact summaries.
 
     try:
         return args.func(args, client)
+    except HistoryExportError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
     except AuthError as e:
         print(f"auth: {e}", file=sys.stderr)
         return 3

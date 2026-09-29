@@ -17,7 +17,11 @@ from __future__ import annotations
 import builtins
 from typing import Any, Iterable, Optional
 
-from .client import CodeerClient
+from .client import CodeerClient, CodeerError
+
+
+class HistoryExportError(ValueError):
+    """The server cannot provide a complete, consistent History parts export."""
 
 
 def list(
@@ -246,14 +250,14 @@ def list_messages(
 ) -> dict:
     """Return every persisted diagnostic part through the management export.
 
-    This route is for workspace editors analyzing a History. It is distinct
+    This route requires a workspace admin API key to analyze a History. It is distinct
     from the external client-owner Chat V2 route and must return the explicit
     ``history-parts-v1`` contract. Tool calls and returns are preserved in the
     returned artifact. System prompts and provider raw traces are outside the
     contract.
     """
     if limit <= 0:
-        raise ValueError("limit must be greater than zero")
+        raise HistoryExportError("limit must be greater than zero")
 
     offset = 0
     pages_fetched = 0
@@ -263,43 +267,54 @@ def list_messages(
     messages: list[dict] = []
 
     while True:
-        page = client.get(
-            f"/external/histories/{history_id}/messages",
-            params={"limit": limit, "offset": offset},
-        )
+        try:
+            page = client.get(
+                f"/external/histories/{history_id}/messages",
+                params={"limit": limit, "offset": offset},
+            )
+        except CodeerError as exc:
+            if exc.status == 404:
+                raise CodeerError(404,
+                    "History or its parts export endpoint is unavailable. "
+                    "This command requires a server supporting history-parts-v1; no fallback was attempted.",
+                    exc.body) from exc
+            raise
         if not isinstance(page, dict):
-            raise ValueError("History parts response must be an object")
+            raise HistoryExportError("History parts response must be an object")
         if page.get("export_contract") != "history-parts-v1":
-            raise ValueError("History parts response is missing export_contract=history-parts-v1")
+            raise HistoryExportError("History parts response is missing export_contract=history-parts-v1")
 
         page_messages = page.get("messages")
         page_info = page.get("page")
         revision = page.get("part_revision")
         if not isinstance(page_messages, builtins.list):
-            raise ValueError("History parts response must contain a messages list")
+            raise HistoryExportError("History parts response must contain a messages list")
         if not isinstance(page_info, dict):
-            raise ValueError("History parts response must contain page metadata")
+            raise HistoryExportError("History parts response must contain page metadata")
         if not isinstance(revision, str) or not revision:
-            raise ValueError("History parts response must contain part_revision")
+            raise HistoryExportError("History parts response must contain part_revision")
 
         page_offset = page_info.get("offset")
         page_total = page_info.get("total_records")
         page_limit = page_info.get("limit")
         if not all(isinstance(value, int) for value in (page_offset, page_total, page_limit)):
-            raise ValueError("History parts page metadata must contain integer limit/offset/total_records")
+            raise HistoryExportError("History parts page metadata must contain integer limit/offset/total_records")
         if page_offset != offset:
-            raise ValueError(f"History parts page offset mismatch: requested {offset}, received {page_offset}")
+            raise HistoryExportError(f"History parts page offset mismatch: requested {offset}, received {page_offset}")
         if page_total < 0 or page_limit <= 0:
-            raise ValueError("History parts page metadata is invalid")
+            raise HistoryExportError("History parts page metadata is invalid")
 
         if total_records is None:
             total_records = page_total
         elif page_total != total_records:
-            raise ValueError("History parts total_records changed while paging; retry the export")
+            raise HistoryExportError("History parts total_records changed while paging; retry the export")
         if part_revision is None:
             part_revision = revision
         elif revision != part_revision:
-            raise ValueError("History parts changed while paging; retry the export")
+            raise HistoryExportError("History parts changed while paging; retry the export")
+
+        if len(page_messages) > page_limit or offset + len(page_messages) > total_records:
+            raise HistoryExportError("History parts page contains more rows than its pagination metadata allows")
 
         if result is None:
             result = dict(page)
@@ -307,10 +322,10 @@ def list_messages(
         pages_fetched += 1
         offset += len(page_messages)
 
-        if offset >= total_records:
+        if offset == total_records:
             break
-        if not page_messages:
-            raise ValueError("History parts pagination stopped before total_records was reached")
+        if len(page_messages) != page_limit:
+            raise HistoryExportError("Incomplete History messages page")
 
     assert result is not None
     assert total_records is not None

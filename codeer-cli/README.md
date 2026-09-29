@@ -310,13 +310,31 @@ Flags:
   for raw eval results, full conversation turns, full rubric matrices, and
   other data that can grow with cases, versions, or turns.
 
-`history conversations` defaults to the workspace-editor management export and
-follows all pages automatically. Its stdout is a bounded summary that never
-prints tool arguments or results; the `--out` artifact preserves the complete
-`history-parts-v1` payload, including persisted tool calls/results,
-attachments, feedback, and metadata. System prompts and provider raw traces are
-not part of that export contract, and a missing part does not prove that a tool
-was not executed.
+`history conversations` reads `/api/v1/external/histories/{id}/messages`
+using a workspace admin API key and follows all pages automatically. Member
+keys retain existing History visibility but are intentionally rejected by this
+complete tool-payload export. This requires a server supporting
+`history-parts-v1`; it never falls back to a
+different authorization contract. Stdout shows at most 20 part summaries (50
+with `--full`) and omits tool payload previews. `--out` retains native tool
+args/results/outcomes, group/part IDs, attachments, feedback, and metadata.
+Attachment URLs remain permission-checked History download endpoints rather
+than direct storage/source URLs.
+Legacy projections have `source: legacy-adapter`; tool outcomes absent from
+the original records are omitted and marked `outcome_not_recorded`. System
+prompts and provider raw traces are not included. Missing parts do not prove a tool never ran. Keep export files private.
+
+`--client-visible --user <external-user-id>` explicitly selects the existing
+Chat V2 owner/allowlist contract. No external identity is inferred from History
+metadata. `history get` and the low-level legacy `get_conversations` reader
+remain compatible. Management exports do not hydrate display-only tool payloads.
+
+Release order: deploy the backend supporting `history-parts-v1` first, verify
+an authorized management export across multiple pages, then release/install
+this CLI. Existing CLI versions retain their previous behavior until upgraded.
+If the backend endpoint is unavailable, the new CLI fails explicitly with no
+fallback; keep the previous CLI installed until backend verification passes.
+The management endpoint can remain available if the CLI release is rolled back.
 
 `history list --has-ai-drafts` narrows the history page to conversations with
 at least one AI Draft and includes lifecycle counts in compact output.
