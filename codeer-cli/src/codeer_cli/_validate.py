@@ -3,13 +3,15 @@
 These checks exist because the backend's form-schema validator is lenient
 (``extra="allow"``) and silently accepts unknown ``type`` strings, which then
 render as blank fields in the web builder. Catching the common mistakes here
-gives actionable errors before the PUT/POST round-trip.
+gives actionable errors before the PATCH/POST round-trip. HTTP input contracts
+also need strict configuration checks before a draft is saved.
 """
 
 from __future__ import annotations
 
 from typing import Any, Iterable
 
+from ._http_contracts import validate_http_input_contracts
 from .constants import (
     FORM_FIELD_TYPES,
     MAX_CALL_AGENT_TOOLS,
@@ -121,10 +123,14 @@ def _validate_single_tool(tool: dict[str, Any], index: int) -> None:
             raise ToolValidationError(f"{prefix}: call_agent tool requires agent_id.")
     elif tool_type == "http_request":
         cfg = tool.get("http_request")
-        if not cfg or not cfg.get("method") or not cfg.get("url_template"):
+        if not isinstance(cfg, dict) or not cfg.get("method") or not cfg.get("url_template"):
             raise ToolValidationError(
                 f"{prefix}: http_request tool requires http_request.method and http_request.url_template."
             )
+        try:
+            validate_http_input_contracts(cfg.get("body", {}))
+        except ValueError as exc:
+            raise ToolValidationError(f"{prefix}.http_request.body: {exc}") from None
 
 
 def _validate_form_schema(schema: Any, prefix: str) -> None:
