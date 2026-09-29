@@ -122,10 +122,10 @@ completes, record the summary in `progress.json` and move to the next batch.
 | `codeer check` | Validate auth, workspace, and agent config |
 | `codeer model list` | List active cloud LLM models; use `--type text` for agent models |
 | `codeer agent list` | List agents in workspace |
-| `codeer agent get` | Get agent details |
+| `codeer agent get` | Get editable agent details; `--history <UUID>` reads an exact version snapshot |
 | `codeer agent apply` | Create or update agent (always creates a new DRAFT version) |
 | `codeer agent diff` | Show diff between versions |
-| `codeer agent versions` | List agent version history |
+| `codeer agent versions` | List version metadata; use `get --history` for snapshot content |
 | `codeer agent impact` | Check downstream agents affected by this agent |
 | `codeer agent publish` | Publish an approved agent version |
 | `codeer kb list` | List knowledge bases in workspace |

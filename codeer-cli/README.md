@@ -157,6 +157,104 @@ becomes available in live published-agent conversations with a non-empty
 `external_user_id`; editor Live Test conversations are internal and cannot
 activate human mode.
 
+## HTTP input contracts
+
+`codeer agent apply --payload` and SDK `agents.create` / `agents.update` accept
+`unified_tools[].http_request.body.input_contracts`. No separate HTTP command is
+needed. The target backend must have the HTTP input-contract feature deployed
+(codeer-copilot #1495); installing this CLI alone does not enable runtime support.
+A local dry-run cannot establish server deployment or API business-rule success.
+
+Example payload:
+
+```json
+{
+  "name": "Order helper",
+  "system_prompt": "Use the configured API for approved order changes.",
+  "use_search": false,
+  "unified_tools": [{
+    "id": "submit",
+    "type": "http_request",
+    "http_request": {
+      "method": "POST",
+      "url_template": "https://example.com/orders",
+      "body": {
+        "template": {
+          "quantity": "{{agent[Requested quantity]}}",
+          "payload": "{{agent[Order details]}}",
+          "changes": "{{agent[Changes as JSON text]}}"
+        },
+        "input_contracts": {
+          "quantity": {"type": "integer"},
+          "payload": {"type": "object"},
+          "changes": {"type": "string", "format": "json", "json_type": "array"}
+        }
+      }
+    }
+  }]
+}
+```
+
+- `type`: `string` (default), `number`, `integer`, `boolean`, `object`, `array`.
+- `format`: `text` (default) or `json`; `json` requires `type: string`.
+- `json_type`: `any` (default), `object`, `array`; outside JSON format, only
+  `any` is valid. API names are snake_case; the CLI rejects `inputContracts`,
+  `jsonType`, and unknown fields inside individual contracts.
+
+`type: object` / `array` sends a native JSON value. `type: string, format: json`
+sends a string containing JSON. Existing valid JSON text is sent unchanged;
+empty strings also pass unchanged, while non-empty text must parse and match
+`json_type`. Plain strings retain existing behavior, including malformed JSON.
+The backend converts supported representations before checking runtime values;
+the CLI only validates configuration and never executes the configured HTTP
+request. Contracts do not configure nested JSON Schema constraints or defaults.
+
+Keys come from template paths, not instructions: `order.count` → `order_count`,
+`items[0].id` → `items_0_id`, root string → `body`. Non-ASCII-alphanumeric runs
+become `_`, edge underscores are removed, and keys are lowercased. Multiple
+placeholders in one string add `_1`, `_2`; traversal collisions add `_2`, `_3`.
+Object insertion order matters: preserve it when editing/exporting. Typed and
+JSON-text placeholders must occupy the entire template value. Stale contract
+keys fail validation; omitted entries remain ordinary strings.
+
+For an existing Agent:
+
+```bash
+codeer agent get <agent-id> --out .codeer/current/agent.json
+# Prepare local_draft_agent.json from current writable settings; review its diff.
+codeer agent apply --agent-id <agent-id> --payload .codeer/current/local_draft_agent.json --dry-run
+# After approval:
+codeer agent apply --agent-id <agent-id> --payload .codeer/current/local_draft_agent.json
+codeer agent get <agent-id> --out .codeer/current/agent.json
+codeer agent get <agent-id> --history <history-id-from-apply> --out .codeer/current/agent-version.json
+```
+
+The external update uses PATCH, but it is **not a nested partial update**.
+Preserve `name`, `system_prompt`, `use_search`, the complete `unified_tools` list
+(including other tools, templates, auth and `draft_policy`), and the full desired
+contract map. Also preserve description, attachments, suggested questions,
+model settings, handoff and other writable settings. Sending one changed tool
+replaces the list; omitting a contract entry resets that input to ordinary string.
+GET responses and writable payloads have different shapes; reconstruct attachment
+IDs and other absent writable fields from current version evidence as needed.
+Do not apply an update if a current setting cannot be preserved by the CLI. See
+[the skill workflow](../codeer-agent/reference/http-input-contracts.md) for details.
+
+Dry-run's `http_inputs` lists tool indexes and each generated key's effective
+`type` / `format` / `json_type`, with `configured: false` for defaults. It excludes
+HTTP URLs, auth, headers, query values, instructions and template content.
+`body_inputs_used` is false for GET/HEAD, whose body inputs are unused at runtime.
+`--full` and `--out` deliberately retain complete nested content, including
+credentials; metadata cleanup is limited to resource-level account fields and
+workspace identity. These exports are not redacted artifacts.
+
+Compare the fresh GET and exact version snapshot with the intended tools and
+contracts; the server may materialize omitted defaults. `agent versions --out`
+exports version metadata, not snapshots; use `agent get --history` for a snapshot.
+Apply saves a draft. Publish the verified version separately, after approval,
+using `codeer agent publish --agent <agent-id> --history <history-id>` (preview
+with `--dry-run` first).
+
 ## Upgrade and uninstall
 
 Upgrade the CLI:
@@ -204,8 +302,10 @@ workspace.
 Flags:
 
 - `--full` prints bounded extra detail for human inspection. Some commands,
-  including `history ai-drafts`, can expose sensitive text and require `--out`;
-  use each command's flag description as the output contract.
+  including `agent get`, can expose configuration credentials; `history
+  ai-drafts` can expose sensitive conversation text and therefore requires
+  `--out`. Use each command's flag description as the output contract, and
+  inspect complete artifacts locally without flooding LLM context.
 - `--out <path>` writes complete diagnostic artifacts to a local file. Use it
   for raw eval results, full conversation turns, full rubric matrices, and
   other data that can grow with cases, versions, or turns.

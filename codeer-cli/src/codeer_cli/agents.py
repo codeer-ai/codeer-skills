@@ -66,7 +66,7 @@ def update(
     attachment_ids: Optional[List[str]] = None,
     human_handoff: Optional[dict[str, Any]] = None,
 ) -> dict:
-    """PUT creates a new AgentHistory snapshot (draft)."""
+    """PATCH replaces settings and creates a draft; unified_tools is the full list."""
     validated_tools = validate_unified_tools(unified_tools)
     validated_handoff = validate_human_handoff(human_handoff)
     body: dict[str, Any] = {
