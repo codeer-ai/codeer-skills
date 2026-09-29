@@ -4,10 +4,12 @@ Use this after an agent has been published and running for a while, to pull
 recent traffic, filter by feedback, and feed the failing cases back into the
 evaluation loop.
 
-Pagination: ``/histories`` and the management parts export use ``limit`` +
-``offset`` (NOT ``page`` / ``page_size``). History metadata remains a bounded
-caller-selected page. The parts export follows every server page and rejects a
-cross-page revision change instead of returning a mixed snapshot.
+Pagination: ``/histories``, AI Draft lifecycle export, and the management parts
+export use ``limit`` + ``offset`` (NOT ``page`` / ``page_size``). History
+metadata remains a bounded caller-selected page. Draft and parts exports follow
+every server page. The parts export additionally rejects a cross-page revision
+change instead of returning a mixed snapshot. The AI Draft endpoint does not
+provide a revision token, so its multi-page export is explicitly best-effort.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ def list(
     organization_id: Optional[str] = None,
     external_user_id: Optional[str] = None,
     feedback_filter: Optional[str] = None,
+    has_ai_drafts: Optional[bool] = None,
     exclude_users: Iterable[str] = (),
     limit: int = 500,
     offset: int = 0,
@@ -48,11 +51,92 @@ def list(
         params["external_user_id"] = external_user_id
     if feedback_filter:
         params["feedback_filter"] = feedback_filter
+    if has_ai_drafts is not None:
+        params["has_ai_drafts"] = has_ai_drafts
     rows = client.get("/external/histories", params=params)
     drop = {e.lower() for e in exclude_users}
     if drop:
         rows = [h for h in rows if (h.get("external_user_id") or "").lower() not in drop]
     return rows
+
+
+def list_ai_drafts(client: CodeerClient, history_id: int, *, limit: int = 500) -> dict[str, Any]:
+    """Export every AI Draft lifecycle record returned while paging one History.
+
+    The endpoint returns pagination beside ``data`` in the standard response
+    envelope, so this read explicitly preserves the envelope and follows the
+    server-reported page size. Draft rows are returned unmodified. Count changes
+    and duplicate IDs are rejected, but without a server revision token this is
+    not a transactionally consistent point-in-time snapshot.
+    """
+    if limit <= 0:
+        raise ValueError("limit must be greater than zero")
+
+    offset = 0
+    pages_fetched = 0
+    total_records: int | None = None
+    drafts: list[dict] = []
+    seen_ids: set[Any] = set()
+
+    while True:
+        envelope = client.get(
+            f"/external/histories/{history_id}/ai-drafts",
+            params={"limit": limit, "offset": offset},
+            unwrap=False,
+        )
+        if not isinstance(envelope, dict):
+            raise ValueError("AI Draft response must be an envelope object")
+        page_drafts = envelope.get("data")
+        page_info = envelope.get("pagination")
+        if not isinstance(page_drafts, builtins.list):
+            raise ValueError("AI Draft response must contain a data list")
+        if not isinstance(page_info, dict):
+            raise ValueError("AI Draft response must contain pagination metadata")
+
+        page_offset = page_info.get("offset")
+        page_total = page_info.get("total_records")
+        page_limit = page_info.get("limit")
+        if not all(isinstance(value, int) for value in (page_offset, page_total, page_limit)):
+            raise ValueError("AI Draft pagination must contain integer limit/offset/total_records")
+        if page_offset != offset:
+            raise ValueError(f"AI Draft page offset mismatch: requested {offset}, received {page_offset}")
+        if page_total < 0 or page_limit <= 0:
+            raise ValueError("AI Draft pagination metadata is invalid")
+
+        if total_records is None:
+            total_records = page_total
+        elif page_total != total_records:
+            raise ValueError("AI Draft total_records changed while paging; retry the export")
+        if len(page_drafts) > page_limit or offset + len(page_drafts) > total_records:
+            raise ValueError("AI Draft page contains more rows than its pagination metadata allows")
+
+        for draft in page_drafts:
+            if not isinstance(draft, dict):
+                raise ValueError("AI Draft data rows must be objects")
+            draft_id = draft.get("id")
+            if not isinstance(draft_id, int):
+                raise ValueError("AI Draft data rows must contain an integer id")
+            if draft_id in seen_ids:
+                raise ValueError("AI Draft pagination returned a duplicate draft id")
+            seen_ids.add(draft_id)
+            drafts.append(draft)
+
+        pages_fetched += 1
+        offset += len(page_drafts)
+        if offset >= total_records:
+            break
+        if not page_drafts:
+            raise ValueError("AI Draft pagination stopped before total_records was reached")
+
+    assert total_records is not None
+    return {
+        "history_id": history_id,
+        "source_endpoint": f"/api/v1/external/histories/{history_id}/ai-drafts",
+        "snapshot_consistency": "best-effort",
+        "total_records": total_records,
+        "pages_fetched": pages_fetched,
+        "drafts": drafts,
+    }
 
 
 def list_negative_feedback_turns(
