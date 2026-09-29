@@ -161,6 +161,7 @@ class CodeerClient:
         files: Any = None,
         data: Any = None,
         timeout: Optional[float] = None,
+        unwrap: bool = True,
     ) -> Any:
         url = _api_url(path, api_version=api_version)
         request_kwargs: dict[str, Any] = {}
@@ -186,7 +187,7 @@ class CodeerClient:
             ) from exc
         except httpx.RequestError as exc:
             raise self._transport_error(method_upper, path, exc) from exc
-        return self._parse(r)
+        return self._parse(r, unwrap=unwrap)
 
     def get(self, path: str, **kwargs: Any) -> Any:
         return self.request("GET", path, **kwargs)
@@ -290,7 +291,7 @@ class CodeerClient:
             },
         )
 
-    def _parse(self, r: httpx.Response) -> Any:
+    def _parse(self, r: httpx.Response, *, unwrap: bool = True) -> Any:
         text = r.text
         try:
             payload = r.json() if text else None
@@ -306,7 +307,7 @@ class CodeerClient:
         if isinstance(payload, dict) and "error_code" in payload and "data" in payload:
             if payload.get("error_code") not in (0, None):
                 raise CodeerError(r.status_code, payload.get("message") or "error", payload)
-            return payload["data"]
+            return payload["data"] if unwrap else payload
         return payload
 
     def _raise_for_error(self, status: int, payload: Any) -> None:

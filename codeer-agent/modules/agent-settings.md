@@ -3,6 +3,10 @@
 Use this module whenever creating or changing an agent's system prompt, tools,
 KB configuration, retrieval routes, model, or handoff settings.
 
+For HTTP body input types or JSON-text fields, read
+[HTTP input contracts](../reference/http-input-contracts.md) before editing.
+It covers wire types, generated keys and preserving complete settings on update.
+
 For a query-led customer guidance Agent, first read the accepted
 `.codeer/design/behavior_contract.md` from
 [consultative-guidance.md](consultative-guidance.md) and the reviewed acceptance

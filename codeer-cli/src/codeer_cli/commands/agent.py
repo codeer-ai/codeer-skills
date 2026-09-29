@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from .. import agents as agents_mod
+from .._http_contracts import validate_http_input_contracts
 from .._validate import validate_human_handoff, validate_unified_tools
 from ..client import CodeerClient
 from ._util import log, print_json, strip_noisy_fields, truncate, write_json
@@ -32,6 +33,7 @@ def register(subparsers):
         help="Read one agent. Defaults to summary; use --full for prompt/tool detail or --out for an artifact.",
     )
     p.add_argument("agent_id")
+    p.add_argument("--history", default=None, help="Read this exact AgentHistory UUID instead of the editable agent.")
     p.add_argument("--full", action="store_true",
                    help="Print stripped full agent config, including system_prompt and tools.")
     p.add_argument("--out", default=None,
@@ -41,8 +43,8 @@ def register(subparsers):
     # codeer agent apply --payload agent.json
     p = sub.add_parser("apply", help="Create or update agent from JSON payload; run --dry-run first")
     p.add_argument("--payload", required=True, help="Path to agent payload JSON")
-    p.add_argument("--agent-id", default=None, help="If set, PUT (update). Else POST (create).")
-    p.add_argument("--note", default="", help="version_note for PUT")
+    p.add_argument("--agent-id", default=None, help="If set, PATCH (update). Else POST (create).")
+    p.add_argument("--note", default="", help="version_note for PATCH")
     p.add_argument("--dry-run", action="store_true",
                    help="Validate payload and print intended mutation without writing server state.")
     p.add_argument("--out", default=None, help="Write result JSON to this file too")
@@ -61,13 +63,13 @@ def register(subparsers):
     # codeer agent versions --agent <id>
     p = sub.add_parser(
         "versions",
-        help="List version history. Defaults to version metadata only; use --out for full snapshots.",
+        help="List version metadata; use agent get --history <id> for a stored snapshot.",
     )
     p.add_argument("--agent", required=True)
     p.add_argument("--full", action="store_true",
-                   help="Add bounded prompt/tool size metadata; full snapshots still require --out.")
+                   help="Add prompt/tool size metadata when included by the server.")
     p.add_argument("--out", default=None,
-                   help="Write stripped full version snapshots to this file; stdout stays compact.")
+                   help="Write the full version listing (metadata, not snapshots); stdout stays compact.")
     p.set_defaults(func=run_versions)
 
     p = sub.add_parser("impact", help="Check downstream agents affected by this agent")
@@ -130,6 +132,8 @@ def _agent_summary(agent: dict, *, full: bool = False) -> dict:
         "human_handoff_enabled": bool(human_handoff.get("enabled")),
         "system_prompt_chars": len(agent.get("system_prompt") or ""),
     }
+    if "version_number" in agent:
+        row.update({key: agent.get(key) for key in ("agent_id", "version_number", "status")})
     if full:
         row["description"] = agent.get("description") or ""
         row["use_search"] = agent.get("use_search")
@@ -150,7 +154,11 @@ def run_list(args, client) -> int:
 
 
 def run_get(args, client) -> int:
-    result = agents_mod.get(client, args.agent_id)
+    history_id = getattr(args, "history", None)
+    result = (
+        agents_mod.get_version(client, args.agent_id, history_id)
+        if history_id else agents_mod.get(client, args.agent_id)
+    )
     full_result = strip_noisy_fields(result)
     write_json(args.out, full_result)
     print_json(full_result if args.full else _agent_summary(result))
@@ -183,6 +191,15 @@ def run_apply(args, client) -> int:
             "name": body.get("name"),
             "system_prompt_chars": len(body.get("system_prompt") or ""),
             "tool_count": len(validated_tools),
+            "http_inputs": [
+                {
+                    "tool_index": index,
+                    "body_inputs_used": tool["http_request"]["method"] not in ("GET", "HEAD"),
+                    "inputs": validate_http_input_contracts(tool["http_request"].get("body", {})),
+                }
+                for index, tool in enumerate(validated_tools)
+                if tool.get("type") == "http_request"
+            ],
             "use_search": body.get("use_search", False),
             "llm_model": body.get("llm_model"),
             "llm_model_settings_provided": llm_model_settings_provided,
@@ -223,7 +240,7 @@ def run_apply(args, client) -> int:
             **model_settings_kwargs,
         )
         agent_id = args.agent_id
-        log(f"PUT /agents/{agent_id} ok")
+        log(f"PATCH /agents/{agent_id} ok")
     else:
         if not body.get("workspace_id"):
             body["workspace_id"] = client.resolve_scope()[0]
@@ -274,8 +291,10 @@ def run_versions(args, client) -> int:
             "created_at": v.get("created_at"),
         }
         if args.full:
-            row["system_prompt_chars"] = len(v.get("system_prompt") or "")
-            row["tool_count"] = len(v.get("unified_tools") or v.get("tools") or [])
+            if "system_prompt" in v:
+                row["system_prompt_chars"] = len(v.get("system_prompt") or "")
+            if "unified_tools" in v or "tools" in v:
+                row["tool_count"] = len(v.get("unified_tools") or v.get("tools") or [])
         rows.append(row)
     print_json(rows)
     return 0
@@ -371,7 +390,9 @@ def _summarize_tool(t: dict) -> str:
                  "knowledge_node_ids", "domain", "agent_id",
                  "custom_form_schema", "http_request")
     safe = {k: t.get(k) for k in keep_keys if t.get(k) is not None}
-    return json.dumps(safe, ensure_ascii=False, indent=2, sort_keys=True)
+    # HTTP placeholder keys depend on template insertion order. Sorting would
+    # hide a reordering that changes which input receives a collision suffix.
+    return json.dumps(safe, ensure_ascii=False, indent=2, sort_keys=t.get("type") != "http_request")
 
 
 def run_diff(args, client) -> int:

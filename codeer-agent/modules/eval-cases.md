@@ -46,6 +46,15 @@ When an accepted Eval Portfolio proposal exists, use its coverage universe,
 portfolio layers, unique-value findings, and keep/merge/retire/add boundaries as
 design input without treating the proposal as approval to mutate cases.
 
+Before proposing a new case, inspect related existing cases and evaluator
+pairs. Reuse coverage that already serves the purpose; otherwise prefer to
+clarify, extend, or reorganize existing cases when that achieves the same
+purpose without losing a distinct boundary or historical failure. Add a case
+only when those choices cannot supply the needed evidence. Do not force reuse
+by packing unrelated requirements into one rubric or overwriting a still-needed
+input or state. This is part of ordinary authoring, not a requirement for a
+separate portfolio review on every small change.
+
 For the first version, keep one core scenario and select only the variants
 needed to make its end-to-end behavior judgeable:
 
@@ -93,10 +102,11 @@ inputs, not automatically approved Eval cases.
 
 For the core scenario, and later for each accepted scenario or portfolio group:
 
-### 2a. Decide case count
+### 2a. Decide case changes
 
-Judge the appropriate number based on complexity, boundary conditions, and
-hallucination risk. State the count and rationale — the user can adjust.
+Choose the needed reuse, revision, and additions from the coverage review above.
+State what each addition detects that the existing set cannot, and the resulting
+count and rationale — the user can adjust.
 
 ### 2b. Generate cases + rubrics
 
@@ -113,12 +123,42 @@ easier. Put reusable server labels in the manifest's `labels` array or
 the user explicitly cares about style. Style/Tone judges _how_; Content
 Compliance judges _what_.
 
+#### Core-first rubric design
+
+Start with the case's original core purpose and the few basic conditions needed
+to distinguish success from failure. Preserve known necessary facts, actions,
+and material boundaries from the start; do not begin with an exhaustive ideal
+answer and prune it only after false failures. Accept any way of meeting the
+core requirements, including reasonable approaches the author did not foresee.
+Minimal means sufficient for this purpose, not a fixed limit on criterion count.
+
+**Scope matching**: Require only what the question naturally asks for or the
+accepted product requirement depends on. Do not add prices, exhaustive lists,
+logistics details, or stock confirmation merely to make an answer more complete.
+For every mandatory criterion, identify its
+[accepted or inherited basis](consultative-guidance.md#basis-for-acceptance-criteria)
+and ask: if this meaning or action were omitted, would the answer become wrong,
+fail the user's request, produce a wrong next step, or hide a material risk?
+If not, make it optional or remove it.
+
+Expand or reorganize the design when concrete evidence exposes a material gap
+in that purpose: a historical failure, an observed false pass, or a specific
+counterexample that the current criteria cannot distinguish. A possible
+improvement in completeness is not such evidence. First check whether an
+existing criterion already rejects the behavior and was misapplied, or another
+case or pair should cover it. Prefer clarifying or replacing the relevant rule
+to appending another one. An unrelated defect is not automatically a new
+requirement for this case; use the coverage review above for a distinct purpose.
+
 **Evaluator-aware self-sufficiency rule**: Check the related evaluator's
 system prompt/template before writing the rubric. Do not assume the evaluator
 can see the agent prompt, KB files, retrieved chunks, tool traces, expected
 output, or diagnosis notes unless that information is explicitly included by
 the evaluator template. After accounting for the evaluator's actual inputs,
-make the rubric as self-sufficient as practical.
+include the facts needed to judge the core criteria. Keep that judging context
+distinct from what the answer must contain: reference facts, complete methods,
+and example answers are not a checklist of mandatory output. A fact being
+available to the evaluator does not by itself require the Agent to repeat it.
 
 Evaluator templates can be inspected before an Agent exists. If the required
 evaluator or its evidence contract is unavailable, do not invent an ID or
@@ -145,18 +185,6 @@ accept. Reject a pair when no plausible compliant live trace can satisfy its
 rubric, when the evaluator cannot observe the required evidence, or when the
 pair has no distinct material failure to catch.
 
-**Scope matching**: For broad user questions, require only what the question
-naturally asks for. Do not require prices, exhaustive lists, logistics
-details, or stock confirmation unless the user asked for that dimension or
-the product requirement depends on it.
-
-For every mandatory criterion, identify its
-[accepted or inherited basis](consultative-guidance.md#basis-for-acceptance-criteria)
-and ask: if this meaning or action were omitted, would the answer become wrong,
-fail the user's request, produce a wrong next step, or hide a material risk?
-If not, make it optional or remove it. Apply the semantic acceptance rules below
-when writing and reviewing rubrics and evaluator templates.
-
 **Rubric quality standard**: Good rubrics should be easy to maintain:
 
 - Use short bullet points instead of dense prose.
@@ -179,9 +207,8 @@ Common check patterns:
 
 Evaluate the required meaning and action in context, not keyword presence or
 similarity to a reference answer. Accept paraphrases, concise summaries, and
-natural references to information already supplied by the user. A fact being
-available to the evaluator does not by itself make repeating it a requirement.
-Reference facts and example answers are not a checklist of mandatory phrases.
+natural references to information already supplied by the user. Apply these
+rules when writing and reviewing both rubrics and evaluator templates.
 
 For an omission-based failure, identify the missing meaning or action and the
 consequence for correctness, the requested outcome, the next step, or a material
@@ -204,13 +231,21 @@ the customer-facing acknowledgement does not prove that a request was lost;
 unavailable receiver evidence is a visibility gap, not an observed handoff
 failure. Neither a good summary nor a correct call proves that a human acted.
 
-When designing or revising an evaluator, check that its instructions preserve
-these distinctions. Calibrate with a small set containing a correct concise
-answer, a meaning-preserving variation, and a genuinely missing requirement or
-wrong action. Use the same fixed responses and traces to compare judge behavior
-when the registered CLI supports that operation. Otherwise perform local review
-and state the judge-calibration capability gap; an Agent rerun produces new
-answers and is not a controlled rejudgment of the same evidence.
+When authoring or materially revising a case rubric or evaluator, check these
+distinctions with a small set of contrasting responses or traces: a correct
+answer deliberately omitting nonessential reference details, a different valid
+expression or approach, and a genuinely missing requirement or wrong action.
+Derive their expected judgments from the request, accepted requirements, and
+source facts, not from the rubric being tested. These examples challenge the
+design; they neither enumerate all reasonable answers nor form an acceptance
+whitelist. Reuse contrasts across shared decision rules and add them where a
+new boundary needs testing, rather than imposing a fixed quota per case. Do
+this within the existing local review, without a separate user-review ritual.
+
+Use the same fixed responses and traces to compare judge behavior when the
+registered CLI supports that operation. Otherwise perform local review and
+state the judge-calibration capability gap; an Agent rerun produces new answers
+and is not a controlled rejudgment of the same evidence.
 
 ### 2c. Present for review
 

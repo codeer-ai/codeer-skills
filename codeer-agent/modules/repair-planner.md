@@ -144,6 +144,18 @@ changed lines or the pass rate of one case.
 
 ### Rubric, expected output, case, or evaluator
 
+First describe the simplest coherent target design for the affected cases,
+rubrics, and evaluators: the core purpose each case serves, the few necessary
+conditions that distinguish its success from failure, and the visible evidence
+each evaluator owns. Apply the intervention order above to that target, rather
+than preserving the current design and appending a rule for each finding. Check
+whether existing cases or pairs can be reused or reorganized before adding
+coverage, without losing distinct boundaries or historical failure protection.
+Use [core-first rubric design](eval-cases.md#core-first-rubric-design) to decide
+whether an observed gap warrants a changed condition, a different assignment,
+or separate coverage; do not grow a rubric for unrelated defects or merely
+helpful detail.
+
 For a rubric edit, show the before/after text, relevant source truth, evaluator
 visibility, and why each mandatory criterion is necessary. A correct, relevant,
 concise answer should not fail for omitting merely helpful detail.
@@ -157,11 +169,13 @@ new Agent requirement to repeat fixed wording. When judging changes, compare
 fixed responses and traces where the CLI supports it, including concise passes
 and genuine failures; otherwise label local review and the capability gap.
 
-When several cases, pairs, or evaluator dimensions may change together, read
+When the decision involves broader coverage or evaluator architecture, read
 [eval-portfolio.md](eval-portfolio.md) and preserve its accepted coverage
-universe, unique-value findings, and comparison constraints. Do not optimize
-one pair in isolation when the actual decision is whether the suite should
-keep, merge, retire, add, or recalibrate a broader set.
+universe, unique-value findings, and comparison constraints. Several local
+edits sharing one clear mechanism do not by themselves require a separate
+portfolio review. Do not optimize one pair in isolation when the actual
+decision is whether the suite should keep, merge, retire, add, or recalibrate
+a broader set.
 
 If the evaluator cannot see the evidence required by a criterion, compare at
 least the plausible choices: make the rubric self-sufficient, assign an

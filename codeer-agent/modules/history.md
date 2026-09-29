@@ -58,6 +58,13 @@ history is the primary source of truth.
 codeer history list --agent <agent_id> --limit 50 --offset 0
 ```
 
+When the decision specifically concerns AI-assisted operator replies, narrow
+the page and retain the returned lifecycle counts:
+
+```bash
+codeer history list --agent <agent_id> --has-ai-drafts --limit 50 --offset 0
+```
+
 Treat this as the first page, not automatically as the complete result set. Do
 not fetch every page by default. Continue only when the task needs broader
 coverage—for example, a complete audit, a frequency/distribution estimate, a
@@ -91,21 +98,48 @@ representative or explicitly stratified sample and state its selection frame.
 Use failure and protection cases in parallel for mechanism discovery and Eval
 creation without presenting their share as the production rate.
 
+### Export AI Draft improvement evidence
+
+For each selected History, export every paginated AI Draft lifecycle record
+returned separately from the conversation parts:
+
+```bash
+codeer history ai-drafts <history_id> \
+    --out .codeer/current/ai-drafts-<history_id>.json
+```
+
+The saved artifact follows every page and preserves generated content,
+refinement ancestry, generation instructions, dismiss reasons and feedback,
+outcomes, tool activities, proposed actions, and correlated actual delivery.
+It is marked `snapshot_consistency: best-effort` because the server does not
+provide a revision token; rerun if a consistent point-in-time read matters.
+Default stdout contains structural flags and counts only. Use `--full --out`
+only when bounded sensitive text previews are intentionally needed.
+Use these as observations: identify what the operator requested, rejected,
+accepted, edited, and actually sent. A field being absent means that signal was
+not recorded; it is not evidence that no improvement was needed. Do not turn a
+single edit or dismissal into a global Agent rule without a plausible decision
+mechanism and protection evidence.
+
 ### Then browse conversations
 
-For channels without feedback signals, export the complete Chat V2 parts before
-analyzing them. Standard output is deliberately a bounded preview and must not
-be treated as the complete history:
+For channels without feedback signals, export the persisted management parts
+before analyzing them. Standard output is deliberately a bounded preview and
+must not be treated as the complete history:
 
 ```bash
 codeer history conversations <history_id> \
     --out .codeer/current/history-<history_id>.json
 ```
 
-Read the saved JSON selectively. It contains every client-visible part across
-all API pages, including tool calls/results, attachments, interactions,
-feedback, and passthrough metadata. Preserve the raw artifact when extracting
-eval cases; summaries are navigation aids, not evidence of absence.
+Read the saved JSON selectively. It follows every page of the
+`history-parts-v1` management contract and includes persisted tool
+calls/results, attachments, feedback, and metadata. It does not include system
+prompts or provider raw traces; missing parts do not prove non-execution.
+Preserve the raw artifact when extracting eval cases because summaries are
+navigation aids, not evidence of absence. Use
+`--client-visible --user <external_user_id>` only when the external
+client-owner Chat V2 view is the evidence actually needed.
 
 To continue an existing persisted history after the user approves the write:
 

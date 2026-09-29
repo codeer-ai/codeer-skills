@@ -33,6 +33,7 @@ Other local files are **caches** of server state,
 │   │   ├── eval_table_summary.md
 │   │   └── eval_table.csv
 │   ├── eval_results.json               # cache:  codeer eval run --out (full-suite runs)
+│   ├── ai-drafts-<history-id>.json      # cache:  codeer history ai-drafts --out
 │   ├── local_draft_agent.json          # draft:  codeer agent apply
 │   ├── local_draft_eval_cases.md       # reviewed behavior draft; may contain unresolved pairs
 │   ├── local_draft_eval_cases.json     # draft:  codeer eval cases-apply
@@ -121,10 +122,10 @@ completes, record the summary in `progress.json` and move to the next batch.
 | `codeer check` | Validate auth, workspace, and agent config |
 | `codeer model list` | List active cloud LLM models; use `--type text` for agent models |
 | `codeer agent list` | List agents in workspace |
-| `codeer agent get` | Get agent details |
+| `codeer agent get` | Get editable agent details; `--history <UUID>` reads an exact version snapshot |
 | `codeer agent apply` | Create or update agent (always creates a new DRAFT version) |
 | `codeer agent diff` | Show diff between versions |
-| `codeer agent versions` | List agent version history |
+| `codeer agent versions` | List version metadata; use `get --history` for snapshot content |
 | `codeer agent impact` | Check downstream agents affected by this agent |
 | `codeer agent publish` | Publish an approved agent version |
 | `codeer kb list` | List knowledge bases in workspace |
@@ -164,6 +165,7 @@ completes, record the summary in `progress.json` and move to the next batch.
 | `codeer history send` | Append one or more turns to an existing persisted history |
 | `codeer history negative-feedback` | Surface turns with negative feedback |
 | `codeer history conversations` | Read a specific conversation history |
+| `codeer history ai-drafts` | Export every paginated AI Draft lifecycle record returned for a History |
 
 ---
 
@@ -459,6 +461,7 @@ update, supplied ranges replace the FAQ's existing ranges.
 | `--agent` | string | — | Filter by agent ID. |
 | `--user` | string | — | Filter by external user ID. |
 | `--feedback` | string | — | Filter by feedback state (`positive`, `negative`, or `any`). |
+| `--has-ai-drafts` | flag | false | Only return histories with at least one AI Draft. |
 | `--exclude-users` | string | — | Comma-separated external user IDs to exclude. |
 | `--version` | integer | — | Filter by agent version. |
 | `--limit` | integer | `50` | Maximum histories returned in this page. |
@@ -472,26 +475,64 @@ page contains 50 histories and the task needs broader coverage, continue with
 when the evidence scope is sufficient. Do not fetch all pages by default, and
 do not interpret a first-page miss as proof that no matching history exists.
 
+When supported by the server, each compact History row also reports
+`ai_draft_count`, `dismissed_draft_count`, `regenerated_draft_count`,
+`applied_draft_count`, and `sent_from_ai_draft_count`.
+
+## `codeer history ai-drafts` flags
+
+Reads `GET /api/v1/external/histories/{id}/ai-drafts` and follows every server
+page. Standard output is a bounded structural lifecycle summary without
+generated, operator, customer, or tool text; use `--out` whenever full evidence
+matters.
+
+| Flag | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `history_id` | integer | **required** | Persisted History ID |
+| `--out` | path | — | Write all draft records, refinement signals, outcomes, tool activities, proposed actions, and correlated delivery |
+| `--full` | boolean | false | Require `--out` and opt into bounded sensitive text previews on stdout |
+
+```bash
+codeer history ai-drafts <history_id> \
+    --out .codeer/current/ai-drafts-<history_id>.json
+```
+
+The artifact preserves generated content, `generation_instruction`,
+`dismiss_reason`, `dismiss_feedback`, `refinement_source_draft_id`, lifecycle
+outcomes, tool activities, proposed actions, operator attribution, and the
+actual correlated delivery when present. These fields are observed improvement
+signals. They do not by themselves establish the correct Agent change; compare
+them with the customer context, History parts, successful behavior to protect,
+and the accepted Behavior Contract. The artifact is marked
+`snapshot_consistency: best-effort`: duplicate IDs and count changes fail the
+export, but the server provides no revision token, so field mutations during
+pagination cannot be detected.
+
 ## `codeer history conversations` flags
 
-Reads persisted content from `GET /api/v2/chats/{id}/messages` and follows all
-pages automatically. Standard output is a bounded part summary for coding-agent
-context safety; use `--out` whenever completeness matters.
+Reads persisted content from the workspace-editor management endpoint
+`GET /api/v1/external/histories/{id}/messages` and follows all pages
+automatically. Standard output is a bounded part summary that omits tool
+arguments and results; use `--out` whenever completeness matters.
 
 | Flag | Type | Default | Purpose |
 | --- | --- | --- | --- |
 | `history_id` | integer | **required** | Persisted history ID |
-| `--out` | path | — | Write every unmodified client-visible Chat V2 part |
+| `--out` | path | — | Write every persisted part allowed by the selected export contract |
 | `--full` | boolean | false | Require `--out` and include longer stdout previews |
+| `--client-visible` | boolean | false | Use the external client-owner Chat V2 contract instead of the management export |
+| `--user` | string | — | Required with `--client-visible`; the external user identity for that contract |
 
 ```bash
 codeer history conversations <history_id> \
     --out .codeer/current/history-<history_id>.json
 ```
 
-The artifact includes tool-call/tool-return payloads, metadata, attachments,
-interactions, and feedback. It intentionally does not include server-side
-`system-prompt` or `console_only` parts hidden from workspace API keys.
+The management artifact uses `history-parts-v1` and includes persisted
+tool-call/tool-return payloads, metadata, attachments, and feedback. It
+intentionally excludes system prompts and provider raw traces. A missing part
+does not prove that a tool was not executed. The management route requires a
+workspace-editor key and never silently falls back to the client-visible route.
 
 ---
 

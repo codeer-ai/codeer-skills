@@ -80,7 +80,8 @@ CODEER_AGENT_ID=<agent-id>
 
 ## Development install
 
-Use an editable install while the CLI is changing quickly:
+Codeer contributors should use an editable install from this checkout, not the
+PyPI package, so the `codeer` command always executes the folder being edited:
 
 ```bash
 cd /path/to/codeer-skills/codeer-cli
@@ -156,6 +157,104 @@ becomes available in live published-agent conversations with a non-empty
 `external_user_id`; editor Live Test conversations are internal and cannot
 activate human mode.
 
+## HTTP input contracts
+
+`codeer agent apply --payload` and SDK `agents.create` / `agents.update` accept
+`unified_tools[].http_request.body.input_contracts`. No separate HTTP command is
+needed. The target backend must have the HTTP input-contract feature deployed
+(codeer-copilot #1495); installing this CLI alone does not enable runtime support.
+A local dry-run cannot establish server deployment or API business-rule success.
+
+Example payload:
+
+```json
+{
+  "name": "Order helper",
+  "system_prompt": "Use the configured API for approved order changes.",
+  "use_search": false,
+  "unified_tools": [{
+    "id": "submit",
+    "type": "http_request",
+    "http_request": {
+      "method": "POST",
+      "url_template": "https://example.com/orders",
+      "body": {
+        "template": {
+          "quantity": "{{agent[Requested quantity]}}",
+          "payload": "{{agent[Order details]}}",
+          "changes": "{{agent[Changes as JSON text]}}"
+        },
+        "input_contracts": {
+          "quantity": {"type": "integer"},
+          "payload": {"type": "object"},
+          "changes": {"type": "string", "format": "json", "json_type": "array"}
+        }
+      }
+    }
+  }]
+}
+```
+
+- `type`: `string` (default), `number`, `integer`, `boolean`, `object`, `array`.
+- `format`: `text` (default) or `json`; `json` requires `type: string`.
+- `json_type`: `any` (default), `object`, `array`; outside JSON format, only
+  `any` is valid. API names are snake_case; the CLI rejects `inputContracts`,
+  `jsonType`, and unknown fields inside individual contracts.
+
+`type: object` / `array` sends a native JSON value. `type: string, format: json`
+sends a string containing JSON. Existing valid JSON text is sent unchanged;
+empty strings also pass unchanged, while non-empty text must parse and match
+`json_type`. Plain strings retain existing behavior, including malformed JSON.
+The backend converts supported representations before checking runtime values;
+the CLI only validates configuration and never executes the configured HTTP
+request. Contracts do not configure nested JSON Schema constraints or defaults.
+
+Keys come from template paths, not instructions: `order.count` → `order_count`,
+`items[0].id` → `items_0_id`, root string → `body`. Non-ASCII-alphanumeric runs
+become `_`, edge underscores are removed, and keys are lowercased. Multiple
+placeholders in one string add `_1`, `_2`; traversal collisions add `_2`, `_3`.
+Object insertion order matters: preserve it when editing/exporting. Typed and
+JSON-text placeholders must occupy the entire template value. Stale contract
+keys fail validation; omitted entries remain ordinary strings.
+
+For an existing Agent:
+
+```bash
+codeer agent get <agent-id> --out .codeer/current/agent.json
+# Prepare local_draft_agent.json from current writable settings; review its diff.
+codeer agent apply --agent-id <agent-id> --payload .codeer/current/local_draft_agent.json --dry-run
+# After approval:
+codeer agent apply --agent-id <agent-id> --payload .codeer/current/local_draft_agent.json
+codeer agent get <agent-id> --out .codeer/current/agent.json
+codeer agent get <agent-id> --history <history-id-from-apply> --out .codeer/current/agent-version.json
+```
+
+The external update uses PATCH, but it is **not a nested partial update**.
+Preserve `name`, `system_prompt`, `use_search`, the complete `unified_tools` list
+(including other tools, templates, auth and `draft_policy`), and the full desired
+contract map. Also preserve description, attachments, suggested questions,
+model settings, handoff and other writable settings. Sending one changed tool
+replaces the list; omitting a contract entry resets that input to ordinary string.
+GET responses and writable payloads have different shapes; reconstruct attachment
+IDs and other absent writable fields from current version evidence as needed.
+Do not apply an update if a current setting cannot be preserved by the CLI. See
+[the skill workflow](../codeer-agent/reference/http-input-contracts.md) for details.
+
+Dry-run's `http_inputs` lists tool indexes and each generated key's effective
+`type` / `format` / `json_type`, with `configured: false` for defaults. It excludes
+HTTP URLs, auth, headers, query values, instructions and template content.
+`body_inputs_used` is false for GET/HEAD, whose body inputs are unused at runtime.
+`--full` and `--out` deliberately retain complete nested content, including
+credentials; metadata cleanup is limited to resource-level account fields and
+workspace identity. These exports are not redacted artifacts.
+
+Compare the fresh GET and exact version snapshot with the intended tools and
+contracts; the server may materialize omitted defaults. `agent versions --out`
+exports version metadata, not snapshots; use `agent get --history` for a snapshot.
+Apply saves a draft. Publish the verified version separately, after approval,
+using `codeer agent publish --agent <agent-id> --history <history-id>` (preview
+with `--dry-run` first).
+
 ## Upgrade and uninstall
 
 Upgrade the CLI:
@@ -181,8 +280,9 @@ Use this pattern during agent lifecycle work:
 
 ```bash
 codeer agent list
-codeer history list --agent <agent-id> --limit 50
+codeer history list --agent <agent-id> --has-ai-drafts --limit 50
 codeer history conversations <history-id> --out .codeer/current/history-<history-id>.json
+codeer history ai-drafts <history-id> --out .codeer/current/ai-drafts-<history-id>.json
 codeer history create --agent <agent-id> --message "Review this plan" --timeout 240
 codeer history send <history-id> --message "Use the recommended options" --timeout 240
 codeer eval run --agent <agent-id> --cases <case-ids> --evaluator <evaluator-id> --out .codeer/eval_run.json
@@ -201,8 +301,11 @@ workspace.
 
 Flags:
 
-- `--full` prints bounded extra detail for human inspection. It is still
-  intended to be safe for LLM context.
+- `--full` prints bounded extra detail for human inspection. Some commands,
+  including `agent get`, can expose configuration credentials; `history
+  ai-drafts` can expose sensitive conversation text and therefore requires
+  `--out`. Use each command's flag description as the output contract, and
+  inspect complete artifacts locally without flooding LLM context.
 - `--out <path>` writes complete diagnostic artifacts to a local file. Use it
   for raw eval results, full conversation turns, full rubric matrices, and
   other data that can grow with cases, versions, or turns.
@@ -232,6 +335,30 @@ this CLI. Existing CLI versions retain their previous behavior until upgraded.
 If the backend endpoint is unavailable, the new CLI fails explicitly with no
 fallback; keep the previous CLI installed until backend verification passes.
 The management endpoint can remain available if the CLI release is rolled back.
+
+`history list --has-ai-drafts` narrows the history page to conversations with
+at least one AI Draft and includes lifecycle counts in compact output.
+`history ai-drafts` follows every server page and writes every returned draft
+lifecycle record to `--out`: generated content, refinement lineage,
+`generation_instruction`, `dismiss_reason`, `dismiss_feedback`, outcomes, tool
+activities, proposed actions, operator attribution, and the correlated actual
+delivery when one exists. Default stdout shows structural flags and counts but
+no generated, operator, customer, or tool text. `--full --out <path>` explicitly
+opts into bounded content previews. The endpoint has no revision token, so a
+multi-page artifact is marked `snapshot_consistency: best-effort`: count changes
+and duplicate IDs fail the export, but lifecycle fields can still change during
+paging. Re-run when point-in-time consistency matters. These fields are evidence
+for an improvement analysis; the CLI does not invent a recommended Agent change
+from them.
+
+Use the external client-owner contract only when that distinction is the point
+of the test:
+
+```bash
+codeer history conversations <history-id> \
+  --client-visible --user <external-user-id> \
+  --out .codeer/current/client-history-<history-id>.json
+```
 
 Avoid piping large raw JSON directly into agent chat. Prefer `--out`, then ask
 the coding agent to inspect targeted summaries, IDs, failing cases, or selected

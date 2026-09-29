@@ -94,9 +94,12 @@ class EvalPairClientTests(unittest.TestCase):
             agent_history_id="hist-1",
         )
 
-        self.assertEqual(client.calls[0][0:2], ("POST", "/eval/case-evaluator-infos:batch"))
+        self.assertEqual(client.calls[0][0:2], ("POST", "/external/eval/case-evaluator-infos:batch"))
         self.assertEqual(client.calls[0][2]["json"], {"case_ids": ["case-1"]})
-        self.assertEqual(client.calls[1][0:2], ("PUT", "/eval/cases/case-1/case-evaluator-infos"))
+        self.assertEqual(
+            client.calls[1][0:2],
+            ("PUT", "/external/eval/cases/case-1/case-evaluator-infos"),
+        )
         self.assertEqual(
             client.calls[1][2]["json"],
             {"evaluators": [{"evaluator_id": "eval-1", "rubric": "Must pass"}]},

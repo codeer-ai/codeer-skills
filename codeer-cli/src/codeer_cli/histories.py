@@ -4,10 +4,12 @@ Use this after an agent has been published and running for a while, to pull
 recent traffic, filter by feedback, and feed the failing cases back into the
 evaluation loop.
 
-Pagination: ``/histories`` uses ``limit`` + ``offset`` (NOT ``page`` /
-``page_size``). Default ``limit=500`` here is a deliberate choice for analysis
-workflows — the backend caps responses anyway and returning everything in one
-call removes a common foot-gun where the caller silently truncates at 10.
+Pagination: ``/histories``, AI Draft lifecycle export, and the management parts
+export use ``limit`` + ``offset`` (NOT ``page`` / ``page_size``). History
+metadata remains a bounded caller-selected page. Draft and parts exports follow
+every server page. The parts export additionally rejects a cross-page revision
+change instead of returning a mixed snapshot. The AI Draft endpoint does not
+provide a revision token, so its multi-page export is explicitly best-effort.
 """
 
 from __future__ import annotations
@@ -30,6 +32,7 @@ def list(
     organization_id: Optional[str] = None,
     external_user_id: Optional[str] = None,
     feedback_filter: Optional[str] = None,
+    has_ai_drafts: Optional[bool] = None,
     exclude_users: Iterable[str] = (),
     limit: int = 500,
     offset: int = 0,
@@ -52,11 +55,92 @@ def list(
         params["external_user_id"] = external_user_id
     if feedback_filter:
         params["feedback_filter"] = feedback_filter
+    if has_ai_drafts is not None:
+        params["has_ai_drafts"] = has_ai_drafts
     rows = client.get("/external/histories", params=params)
     drop = {e.lower() for e in exclude_users}
     if drop:
         rows = [h for h in rows if (h.get("external_user_id") or "").lower() not in drop]
     return rows
+
+
+def list_ai_drafts(client: CodeerClient, history_id: int, *, limit: int = 500) -> dict[str, Any]:
+    """Export every AI Draft lifecycle record returned while paging one History.
+
+    The endpoint returns pagination beside ``data`` in the standard response
+    envelope, so this read explicitly preserves the envelope and follows the
+    server-reported page size. Draft rows are returned unmodified. Count changes
+    and duplicate IDs are rejected, but without a server revision token this is
+    not a transactionally consistent point-in-time snapshot.
+    """
+    if limit <= 0:
+        raise ValueError("limit must be greater than zero")
+
+    offset = 0
+    pages_fetched = 0
+    total_records: int | None = None
+    drafts: list[dict] = []
+    seen_ids: set[Any] = set()
+
+    while True:
+        envelope = client.get(
+            f"/external/histories/{history_id}/ai-drafts",
+            params={"limit": limit, "offset": offset},
+            unwrap=False,
+        )
+        if not isinstance(envelope, dict):
+            raise ValueError("AI Draft response must be an envelope object")
+        page_drafts = envelope.get("data")
+        page_info = envelope.get("pagination")
+        if not isinstance(page_drafts, builtins.list):
+            raise ValueError("AI Draft response must contain a data list")
+        if not isinstance(page_info, dict):
+            raise ValueError("AI Draft response must contain pagination metadata")
+
+        page_offset = page_info.get("offset")
+        page_total = page_info.get("total_records")
+        page_limit = page_info.get("limit")
+        if not all(isinstance(value, int) for value in (page_offset, page_total, page_limit)):
+            raise ValueError("AI Draft pagination must contain integer limit/offset/total_records")
+        if page_offset != offset:
+            raise ValueError(f"AI Draft page offset mismatch: requested {offset}, received {page_offset}")
+        if page_total < 0 or page_limit <= 0:
+            raise ValueError("AI Draft pagination metadata is invalid")
+
+        if total_records is None:
+            total_records = page_total
+        elif page_total != total_records:
+            raise ValueError("AI Draft total_records changed while paging; retry the export")
+        if len(page_drafts) > page_limit or offset + len(page_drafts) > total_records:
+            raise ValueError("AI Draft page contains more rows than its pagination metadata allows")
+
+        for draft in page_drafts:
+            if not isinstance(draft, dict):
+                raise ValueError("AI Draft data rows must be objects")
+            draft_id = draft.get("id")
+            if not isinstance(draft_id, int):
+                raise ValueError("AI Draft data rows must contain an integer id")
+            if draft_id in seen_ids:
+                raise ValueError("AI Draft pagination returned a duplicate draft id")
+            seen_ids.add(draft_id)
+            drafts.append(draft)
+
+        pages_fetched += 1
+        offset += len(page_drafts)
+        if offset >= total_records:
+            break
+        if not page_drafts:
+            raise ValueError("AI Draft pagination stopped before total_records was reached")
+
+    assert total_records is not None
+    return {
+        "history_id": history_id,
+        "source_endpoint": f"/api/v1/external/histories/{history_id}/ai-drafts",
+        "snapshot_consistency": "best-effort",
+        "total_records": total_records,
+        "pages_fetched": pages_fetched,
+        "drafts": drafts,
+    }
 
 
 def list_negative_feedback_turns(
@@ -99,7 +183,7 @@ def list_negative_feedback_turns(
     the source channel — usually "system"). Pass the desired sentiment(s)
     in ``feedback_types``.
 
-    Cost: O(N histories) paginated management History reads. Filter aggressively via
+    Cost: O(N histories) paginated management parts reads. Filter aggressively via
     ``exclude_users`` and ``limit`` before invoking on a busy agent.
     """
     type_set = {t.lower() for t in feedback_types}
@@ -116,7 +200,7 @@ def list_negative_feedback_turns(
         hid = h.get("id")
         if hid is None:
             continue
-        parts = get_messages(client, hid).get("messages") or []
+        parts = (list_messages(client, hid).get("messages") or [])
 
         turn_indexes: dict[str, int] = {}
         user_messages: dict[str, str] = {}
@@ -158,27 +242,30 @@ def get(client: CodeerClient, history_id: int) -> dict:
     return client.get(f"/external/histories/{history_id}")
 
 
-def get_conversations(client: CodeerClient, history_id: int) -> list[dict]:
-    """Return legacy V1 conversation rows.
+def list_messages(
+    client: CodeerClient,
+    history_id: int,
+    *,
+    limit: int = 100,
+) -> dict:
+    """Return every persisted diagnostic part through the management export.
 
-    Prefer ``codeer_cli.chats.list_messages`` whenever exact Chat V2 parts,
-    tool inputs/results, or event order matter.
-    """
-    return client.get(f"/external/histories/{history_id}/conversations")
-
-
-def get_messages(client: CodeerClient, history_id: int, *, limit: int = 100) -> dict:
-    """Export all management-visible persisted parts; never impersonate an external owner.
-
-    Requires the history-parts-v1 server contract. No Chat/legacy fallback can
-    guarantee the same visibility or completeness, so failures are propagated.
-    ``page`` survives the client's envelope unwrapping and exposes server caps.
+    This route requires a workspace admin API key to analyze a History. It is distinct
+    from the external client-owner Chat V2 route and must return the explicit
+    ``history-parts-v1`` contract. Tool calls and returns are preserved in the
+    returned artifact. System prompts and provider raw traces are outside the
+    contract.
     """
     if limit <= 0:
-        raise ValueError("limit must be greater than zero")
+        raise HistoryExportError("limit must be greater than zero")
+
     offset = 0
-    messages = []
-    result = None
+    pages_fetched = 0
+    total_records: int | None = None
+    part_revision: str | None = None
+    result: dict[str, Any] | None = None
+    messages: list[dict] = []
+
     while True:
         try:
             page = client.get(
@@ -192,32 +279,73 @@ def get_messages(client: CodeerClient, history_id: int, *, limit: int = 100) -> 
                     "This command requires a server supporting history-parts-v1; no fallback was attempted.",
                     exc.body) from exc
             raise
-        if (not isinstance(page, dict) or page.get("export_contract") != "history-parts-v1"
-                or not isinstance(page.get("part_revision"), str)):
-            raise HistoryExportError("Server does not support the complete History parts export contract")
-        rows = page.get("messages")
-        info = page.get("page") or {}
-        if not isinstance(rows, builtins.list) or not isinstance(info, dict):
-            raise HistoryExportError("Invalid History messages page")
-        total = info.get("total_records")
-        page_limit = info.get("limit")
-        if (not isinstance(total, int) or total < 0
-                or not isinstance(page_limit, int) or page_limit <= 0
-                or info.get("offset") != offset):
-            raise HistoryExportError("Invalid History messages pagination")
+        if not isinstance(page, dict):
+            raise HistoryExportError("History parts response must be an object")
+        if page.get("export_contract") != "history-parts-v1":
+            raise HistoryExportError("History parts response is missing export_contract=history-parts-v1")
+
+        page_messages = page.get("messages")
+        page_info = page.get("page")
+        revision = page.get("part_revision")
+        if not isinstance(page_messages, builtins.list):
+            raise HistoryExportError("History parts response must contain a messages list")
+        if not isinstance(page_info, dict):
+            raise HistoryExportError("History parts response must contain page metadata")
+        if not isinstance(revision, str) or not revision:
+            raise HistoryExportError("History parts response must contain part_revision")
+
+        page_offset = page_info.get("offset")
+        page_total = page_info.get("total_records")
+        page_limit = page_info.get("limit")
+        if not all(isinstance(value, int) for value in (page_offset, page_total, page_limit)):
+            raise HistoryExportError("History parts page metadata must contain integer limit/offset/total_records")
+        if page_offset != offset:
+            raise HistoryExportError(f"History parts page offset mismatch: requested {offset}, received {page_offset}")
+        if page_total < 0 or page_limit <= 0:
+            raise HistoryExportError("History parts page metadata is invalid")
+
+        if total_records is None:
+            total_records = page_total
+        elif page_total != total_records:
+            raise HistoryExportError("History parts total_records changed while paging; retry the export")
+        if part_revision is None:
+            part_revision = revision
+        elif revision != part_revision:
+            raise HistoryExportError("History parts changed while paging; retry the export")
+
+        if len(page_messages) > page_limit or offset + len(page_messages) > total_records:
+            raise HistoryExportError("History parts page contains more rows than its pagination metadata allows")
+
         if result is None:
             result = dict(page)
-        elif total != result["page"]["total_records"] or page["part_revision"] != result["part_revision"]:
-            raise HistoryExportError("History changed during export; retry to obtain consistent parts")
-        messages.extend(rows)
-        offset += len(rows)
-        if offset == total:
+        messages.extend(page_messages)
+        pages_fetched += 1
+        offset += len(page_messages)
+
+        if offset == total_records:
             break
-        if not rows or offset > total or len(rows) != page_limit:
+        if len(page_messages) != page_limit:
             raise HistoryExportError("Incomplete History messages page")
-    result.pop("page", None)
+
+    assert result is not None
+    assert total_records is not None
     result["messages"] = messages
+    result["page"] = {
+        "limit": result["page"]["limit"],
+        "offset": 0,
+        "total_records": total_records,
+    }
+    result["pages_fetched"] = pages_fetched
     return result
+
+
+def get_conversations(client: CodeerClient, history_id: int) -> list[dict]:
+    """Return legacy V1 conversation rows.
+
+    Prefer ``codeer_cli.chats.list_messages`` whenever exact Chat V2 parts,
+    tool inputs/results, or event order matter.
+    """
+    return client.get(f"/external/histories/{history_id}/conversations")
 
 
 def _part_text(part: dict) -> str:
