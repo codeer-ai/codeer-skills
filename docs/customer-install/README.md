@@ -14,7 +14,8 @@ There are two separate pieces:
 
 1. **Codeer CLI**: the local `codeer` command-line tool. It signs in to Codeer,
    calls the Codeer API, and runs commands such as `codeer agent`,
-   `codeer eval`, `codeer history`, and `codeer kb`.
+   `codeer eval`, `codeer history`, and `codeer kb`. CLI 0.1.17 or newer also
+   installs and removes Codeer Skills locally without an API key.
 2. **Codeer Agent Skill**: the workflow instructions Claude Code or Codex uses
    to understand the Codeer Agent lifecycle: how to plan an agent, prepare KB,
    design behavior cases, analyze production histories, and ask before making
@@ -141,23 +142,39 @@ Git commits, or agent chat messages.
 
 ### Claude Code
 
-Install the Skill from the public GitHub `codeer-agent` folder URL:
+Install with Codeer CLI 0.1.17 or newer:
 
 ```bash
-claude install-skill https://github.com/codeer-ai/codeer-skills/tree/main/codeer-agent
+codeer skill install codeer-agent --target claude
 ```
 
-Use the `codeer-agent` folder URL, not the repository root.
+The default installation is `~/.claude/skills/codeer-agent`.
 
 ### Codex
 
-Install the Skill through Codex's built-in skill installer:
+Install into Codex's user skill directory:
 
-```text
-$skill-installer install https://github.com/codeer-ai/codeer-skills/tree/main/codeer-agent
+```bash
+codeer skill install codeer-agent --target codex
 ```
 
-Restart Codex if the skill does not appear after installation.
+The default installation is `~/.agents/skills/codeer-agent`. Add
+`--scope project` to either command to install under the current directory
+instead. Skill installation does not need a Codeer API key. `--dry-run`
+previews the selected source and destination without changing files;
+`--ref <tag-or-commit>` selects a revision instead of the default `main`.
+The source revision must contain `skills/codeer-agent`.
+
+Check installation status with `codeer skill list`. Restart Codex if the skill
+does not appear; in Claude Code, use `/reload-skills` when needed.
+
+Codex's built-in installer remains an alternative:
+
+```text
+$skill-installer install https://github.com/codeer-ai/codeer-skills/tree/main/skills/codeer-agent
+```
+
+That installation is managed by its original installer, not `codeer skill`.
 
 ## 5. Verify the CLI and API Setup
 
@@ -268,17 +285,31 @@ pipx upgrade codeer-cli
 codeer check
 ```
 
-Reinstall the Claude Code Skill if Codeer publishes Skill changes you need:
+Run install again to update an unchanged CLI-managed Skill. Preview with
+`--dry-run`, then install the default `main` revision or choose `--ref`.
+Use `--target claude` for Claude Code or `--target codex` for Codex, and keep
+the same `--scope` used during installation:
 
 ```bash
-claude install-skill https://github.com/codeer-ai/codeer-skills/tree/main/codeer-agent
+codeer skill install codeer-agent --target claude --dry-run
+codeer skill install codeer-agent --target claude
+codeer skill install codeer-agent --target claude --ref <tag-or-commit>
 ```
 
-For Codex, rerun:
+Identical contents are left unchanged. Updates validate the full new package
+before replacing the old copy, remove obsolete files, and restore the old copy
+if publication fails. If restoration also fails, the error reports the retained
+backup's location. Modified, manually installed, or symlinked directories are
+never overwritten or removed; preserve custom files and resolve them manually.
 
-```text
-$skill-installer install https://github.com/codeer-ai/codeer-skills/tree/main/codeer-agent
+Remove an unchanged CLI-managed Skill separately:
+
+```bash
+codeer skill uninstall codeer-agent --target claude --dry-run
+codeer skill uninstall codeer-agent --target claude
 ```
+
+Removing the CLI does not remove Skills.
 
 Remove the CLI:
 

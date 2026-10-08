@@ -18,6 +18,7 @@ Codeer CLI 是安裝在本機的 `codeer` 指令工具。
 - 連接 Codeer API
 - 執行 `codeer agent`、`codeer eval`、`codeer history`、`codeer kb` 等指令
 - 驗證 API key、workspace、agent 權限是否正常
+- 使用 `codeer skill` 安裝、列出或移除 Codeer Skills（CLI 0.1.17 起）
 
 ### Codeer Agent Skill
 
@@ -157,22 +158,67 @@ export CODEER_AGENT_ID=<agent-id>
 
 ## Step 4：安裝 Codeer Agent Skill
 
-現在 Skill 已放在公開 GitHub repo。安裝時請使用 `codeer-agent` 資料夾
-URL，不要使用 repository root。
+使用 Codeer CLI 0.1.17 或更新版本安裝。安裝 Skill 不需要 Codeer API key；
+操作 Codeer 伺服器時才需要前面設定的 profile。
 
 ### Claude Code
 
 ```bash
-claude install-skill https://github.com/codeer-ai/codeer-skills/tree/main/codeer-agent
+codeer skill install codeer-agent --target claude
 ```
 
 ### Codex
 
-```text
-$skill-installer install https://github.com/codeer-ai/codeer-skills/tree/main/codeer-agent
+```bash
+codeer skill install codeer-agent --target codex
 ```
 
-如果安裝後沒有看到 skill，請重新啟動 Codex。
+預設安裝到使用者層級：Codex 使用 `~/.agents/skills/codeer-agent`，
+Claude Code 使用 `~/.claude/skills/codeer-agent`。加上 `--scope project`
+會改成目前目錄下的 `.agents/skills/` 或 `.claude/skills/`。
+
+使用 `codeer skill list` 查看安裝狀態。`--dry-run` 會下載並驗證來源、顯示
+安裝目的地，但不寫入安裝檔案；`--ref <tag-or-commit>` 可固定來源版本，
+省略時使用 `main`。來源版本必須包含 `skills/codeer-agent` 資料夾。
+
+如果安裝後沒有看到 Skill，請重新啟動 Codex；Claude Code 可執行
+`/reload-skills`。
+
+也可以使用 Codex 內建的 installer：
+
+```text
+$skill-installer install https://github.com/codeer-ai/codeer-skills/tree/main/skills/codeer-agent
+```
+
+這種安裝由原本的 installer 管理，`codeer skill` 不會接管或移除。
+
+### 更新與移除 Skill
+
+再次執行 `install` 就會更新未修改的 CLI 管理套件，不必先移除。
+先用 `--dry-run` 預覽，再安裝 `main` 的版本；也可用 `--ref` 選擇指定版本。
+Claude Code 請將 `--target codex` 換成
+`--target claude`；若原本使用 `--scope project`，以下指令也要加上同一選項。
+
+```bash
+codeer skill install codeer-agent --target codex --dry-run
+codeer skill install codeer-agent --target codex
+codeer skill install codeer-agent --target codex --ref <tag-or-commit>
+```
+
+相同內容會回傳 `already_installed`，不改動檔案；更新成功會回傳 `updated`。
+預覽會回傳 `would_install`、`would_update` 或 `already_installed`。
+更新會先下載並驗證完整新版，再替換舊目錄並清除過期檔案；替換失敗時還原
+舊版。若還原也失敗，錯誤訊息會提供保留備份的位置，供手動復原。
+
+內容已修改、手動安裝或透過符號連結管理的目錄會被保留；請先保存自訂內容，
+再手動處理。若要移除未修改的 CLI 管理套件：
+
+```bash
+codeer skill uninstall codeer-agent --target codex --dry-run
+codeer skill uninstall codeer-agent --target codex
+```
+
+移除 CLI 不會一併移除 Skill。
 
 ## Step 5：驗證 Skill 是否被載入
 

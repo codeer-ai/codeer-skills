@@ -1,6 +1,7 @@
 """Codeer CLI — unified interface for agent lifecycle operations.
 
     codeer check
+    codeer skill list|install|uninstall
     codeer agent list|get|apply|diff|versions
     codeer model list
     codeer kb list|files|export|upload|node-rename|node-delete|faq-list|faq-get|faq-create|faq-update|faq-delete
@@ -15,7 +16,7 @@ import json
 import sys
 
 from .client import AuthError, CodeerClient, CodeerError
-from .commands import check
+from .commands import check, skill
 from .histories import HistoryExportError
 
 
@@ -26,6 +27,8 @@ def main(argv: list[str] | None = None) -> int:
         description="Codeer CLI — self-describing agent lifecycle tools.",
         epilog="""\
 Safe workflow for coding agents:
+  codeer skill list
+  codeer skill install codeer-agent --target codex --dry-run
   codeer check --json
   codeer model list --type text
   codeer agent list
@@ -59,6 +62,7 @@ Use --out <path> for large raw artifacts; stdout defaults to compact summaries.
     sub = parser.add_subparsers(dest="group")
 
     check.register(sub)
+    skill.register(sub)
 
     try:
         from .commands import model as model_cmd

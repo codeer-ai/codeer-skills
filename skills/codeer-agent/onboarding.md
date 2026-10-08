@@ -58,28 +58,30 @@ to create the key with the admin workspace role.
 
 ## Install the skill
 
-Install this skill from the public GitHub folder URL, not the repository root.
+Use Codeer CLI 0.1.17 or newer to install the complete Skill from this public
+repository. Local Skill management does not need an API key.
 
 ## Codex
 
-Use Codex's built-in skill installer:
-
-```text
-$skill-installer install https://github.com/codeer-ai/codeer-skills/tree/main/codeer-agent
-```
-
-Then verify the selected CLI profile:
+Install into the user skill directory:
 
 ```bash
-codeer check
+codeer skill install codeer-agent --target codex
+```
+
+This uses `~/.agents/skills/codeer-agent`. Codex's built-in installer is also
+available, using the source folder URL:
+
+```text
+$skill-installer install https://github.com/codeer-ai/codeer-skills/tree/main/skills/codeer-agent
 ```
 
 ## Claude Code
 
-Install from the same public GitHub folder URL:
+Install into `~/.claude/skills/codeer-agent`:
 
 ```bash
-claude install-skill https://github.com/codeer-ai/codeer-skills/tree/main/codeer-agent
+codeer skill install codeer-agent --target claude
 ```
 
 If a project has one default agent, you may set only `CODEER_AGENT_ID` in the
@@ -96,6 +98,35 @@ project `.claude/settings.json` `env` block:
 Keep the API key in the Codeer CLI profile or another secret mechanism outside
 the project. Avoid putting the API key in `.claude/settings.json` if that file
 is visible to agents or committed.
+
+## Installation scope and maintenance
+
+Both CLI targets default to `--scope user`. Add `--scope project` to install
+under the current directory's `.agents/skills/` or `.claude/skills/`. Use
+`codeer skill list` to inspect status. Install defaults to `--ref main`; select
+`--ref <tag-or-commit>` when a fixed revision is needed. The revision must use
+the repository's `skills/codeer-agent` layout. `--dry-run` validates the remote
+source without changing installation files.
+
+Install again to update an unchanged CLI-managed copy; no uninstall is needed.
+Preview with `codeer skill install codeer-agent --target codex --dry-run`, then
+run without `--dry-run`. Identical contents return `already_installed`; changed
+contents return `updated` after full-package replacement, removing obsolete
+files. Previews return `would_install`, `would_update`, or `already_installed`.
+The new package is downloaded and validated before replacement, with a backup
+retained until publication succeeds. Failed publication restores the old copy;
+if restoration also fails, the error gives the retained backup's recovery path.
+Modified, unmanaged, or symlinked installations are not overwritten.
+Keep the same target and scope throughout. Preserve local customizations and
+resolve modified or unmanaged directories manually. Installs made with the
+native Codex installer remain managed by that installer.
+
+To remove an unchanged CLI-managed copy, preview `codeer skill uninstall
+codeer-agent --target codex --dry-run`, then run without `--dry-run`.
+
+Restart Codex if discovery does not refresh; use `/reload-skills` in Claude
+Code when necessary. These local filesystem installs do not configure Cowork
+account-level Skills.
 
 ## Verify the CLI and API
 

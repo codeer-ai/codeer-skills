@@ -35,6 +35,61 @@ As a fallback, you can install into your user Python environment:
 python -m pip install --user codeer-cli
 ```
 
+## Local skill management
+
+CLI 0.1.17 adds local installation management for the three skills in this
+repository. No Codeer API key or profile is needed for these commands:
+
+```bash
+codeer skill list
+codeer skill list --target codex --scope project
+codeer skill install codeer-agent --target codex --dry-run
+codeer skill install codeer-agent --target codex
+codeer skill install codeer-agent --target claude --scope project
+codeer skill install codeer-presentations --target codex --ref <tag-or-commit>
+codeer skill uninstall codeer-agent --target codex --dry-run
+codeer skill uninstall codeer-agent --target codex
+```
+
+Supported names are `codeer-agent`, `codeer-audience-value-narrative`, and
+`codeer-presentations`. Install/uninstall require `--target codex|claude`;
+list shows both targets unless filtered. `--scope user` is the default:
+
+| Target | User scope | Project scope (current directory) |
+| --- | --- | --- |
+| Codex | `~/.agents/skills/<name>` | `.agents/skills/<name>` |
+| Claude Code | `~/.claude/skills/<name>` | `.claude/skills/<name>` |
+
+List and uninstall are offline. Install resolves `--ref` (default `main`) to an
+immutable GitHub commit, validates and copies the complete selected folder from
+`skills/<name>`, and records provenance and SHA-256 hashes in
+`.codeer-skill-install.json` inside the installation. The CLI package does not
+bundle skill content. The selected GitHub revision must contain the `skills/`
+layout; unpublished local moves and older revisions are not installable through
+this command. Public GitHub access is required, and anonymous API rate limits
+may apply. Install `--dry-run` reads GitHub but writes no installation files.
+
+Install handles both first installation (`installed`) and replacement of an
+unchanged managed copy (`updated`). Identical contents return `already_installed`
+without writing, even if the source commit differs. Changed content is replaced
+as a complete package so obsolete files do not remain. `--dry-run` reports
+`would_install`, `would_update`, or `already_installed` without changing files.
+Updates download and validate the new package first, recheck the old installation,
+then retain a backup while replacing it. Publication failures restore the old
+copy. If restoration also fails, the error gives the retained backup's path for
+manual recovery. `--ref` can select an older revision as well as a newer one.
+
+Modified, unmanaged, or symlinked directories are refused; preserve custom work
+and resolve those installations manually. Uninstall checks hashes and removes
+only the selected unchanged managed directory; it leaves
+other skills and Codeer profiles intact. Other installers' locations and
+receipts are not adopted automatically. `skill list` reports `installed`,
+`modified`, `unmanaged`, or `not_installed` for each selected location; it does
+not check GitHub for updates.
+
+If discovery does not refresh, restart Codex or use `/reload-skills` in Claude
+Code. These filesystem commands do not install account-level Cowork skills.
+
 ## Credentials
 
 The CLI expects credentials to be configured outside any skill workspace. Add a
@@ -238,7 +293,7 @@ replaces the list; omitting a contract entry resets that input to ordinary strin
 GET responses and writable payloads have different shapes; reconstruct attachment
 IDs and other absent writable fields from current version evidence as needed.
 Do not apply an update if a current setting cannot be preserved by the CLI. See
-[the skill workflow](../codeer-agent/reference/http-input-contracts.md) for details.
+[the skill workflow](../skills/codeer-agent/reference/http-input-contracts.md) for details.
 
 Dry-run's `http_inputs` lists tool indexes and each generated key's effective
 `type` / `format` / `json_type`, with `configured: false` for defaults. It excludes
