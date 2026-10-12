@@ -210,6 +210,21 @@ confirmed scope carries forward; publication is separately authorized.
 
 ## Local Project Workflow
 
+Describe the Agent you want and provide files or links. For example: “Use these
+SOPs to build a support Agent. It can look up orders; staff decide refunds.”
+The coding agent reads first, explains what it understands and recommends how
+to resolve material gaps. It asks about unclear intent, source conflicts and
+new tradeoffs, without asking you to repeat clear instructions. It saves the
+design and pending decisions as work proceeds so another conversation can resume.
+You do not need to learn internal mode names, fill an Agent design template
+or approve a document merely to record an explicit instruction.
+
+The workflow is: understand requirements → design behavior and tests → preview
+and apply the authorized Draft changes → read back and audit → evaluate the
+specified version → diagnose and repair when needed → publish only with explicit
+authorization. The coding agent can operate the commands below for you. An
+established design decision does not by itself authorize a remote write.
+
 These commands are implemented in the development source checkout. This change
 does not release a new PyPI package. Check `codeer init --help`; until released,
 use the [development install](../../codeer-cli/README.md#development-install).
@@ -232,14 +247,23 @@ codeer agent diff --local
 
 The project targets one main Agent; it is not a new remote Project. Original
 SOPs/PDFs belong in `sources/documents/`, indexed in `sources/index.md`; curated
-KB content belongs in `kb/`. Keep accepted behavior in
-`design/behavior-contract.md`, pending proposals in
-`design/behavior-contract.draft.md`, and milestone reasons/evidence links in
+KB content belongs in `kb/`. The coding agent keeps established design decisions in
+`design/agent-design.md`, pending proposals in
+`design/agent-design.draft.md`, and milestone reasons/evidence links in
 `log.md`. Keep the prompt in `agent/instructions.md`, other settings in
 `agent/settings.json`, and stable Tester/Case/Rubric pairs in `evals/design.json`.
 
-Use natural language to select **build, cases, audit, apply, eval, improve,
-publish or observe**. These are Skill modes. For example: “Audit only this failed
+These are new-project defaults. Existing projects keep the file selected by
+`[paths].design` or legacy `[paths].contract`. Without either setting, an existing
+`design/behavior-contract.md` or its draft keeps the old location. If both naming
+pairs exist, select the intended source with `[paths].design`. Pending proposals
+use the selected file's sibling `<stem>.draft.md`; do not create a second design.
+Updating the CLI never moves existing files. Naming changes alone do not stale
+evidence; changed design content or other dependencies still need validation.
+
+Use ordinary language; the coding agent selects **build, cases, audit, apply,
+eval, improve, publish or observe**. These Skill modes can also be named
+explicitly. For example: “Diagnose only this failed
 handoff case,” “Apply the already confirmed batch and test it; do not publish,”
 or “Use last week's AI Draft feedback to propose test candidates.” Existing
 Agents can start with a bounded diagnosis; an imported configuration does not
@@ -275,9 +299,9 @@ Rubric.
 If the agent is already in production, ask it to analyze production histories
 and negative feedback to find patterns and coverage gaps.
 
-If you are preparing the next version, ask it to propose changes, show a
-preview of what will change, and wait for approval before applying or
-publishing.
+If you are preparing the next version, ask it to propose changes and show a
+preview. Authorization for the same reviewed batch carries forward; material new
+decisions require confirmation, and publication requires separate authorization.
 
 ## Common Issues
 

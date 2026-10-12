@@ -20,7 +20,7 @@ PATHS = {
     "instructions": "agent/instructions.md",
     "evals": "evals/design.json",
     "sources": "sources/index.md",
-    "contract": "design/behavior-contract.md",
+    "design": "design/agent-design.md",
     "acceptance": "design/acceptance.json",
 }
 
@@ -94,11 +94,32 @@ class Project:
         return result
 
     def path(self, key):
+        # Keep the previous Python lookup and project.toml setting as aliases.
+        if key == "contract":
+            key = "design"
+        if key == "design":
+            return self.design_path()
         value = self.config.get("paths", {}).get(key, PATHS[key])
+        return self.resolve_path(key, value)
+
+    def resolve_path(self, key, value):
         path = (self.root / value).resolve()
         if not path.is_relative_to(self.root):
             raise ProjectError(f"Project path escapes root: {key}={value}")
         return path
+
+    def design_path(self):
+        paths = self.config.get("paths", {})
+        explicit = [self.resolve_path(key, paths[key]) for key in ("design", "contract") if key in paths]
+        if explicit:
+            if len(set(explicit)) > 1:
+                raise ProjectError("Conflicting [paths].design and [paths].contract; select one Agent design path")
+            return explicit[0]
+        candidates = [self.root / PATHS["design"], self.root / "design/behavior-contract.md"]
+        present = [p for p in candidates if p.exists() or p.with_name(f"{p.stem}.draft.md").exists()]
+        if len(present) > 1:
+            raise ProjectError("Both Agent design file families exist; set [paths].design to select the intended source")
+        return self.resolve_path("design", present[0] if present else candidates[0])
 
     @property
     def target(self):
@@ -166,7 +187,10 @@ class Project:
         files = {}
         for key in PATHS:
             path = self.path(key)
-            files[key] = fingerprint(path.read_text(encoding="utf-8")) if path.is_file() else None
+            # Retain the persisted pre-rename identity and ordering: a naming
+            # change alone must not invalidate existing audit/run/release hashes.
+            identity = "contract" if key == "design" else key
+            files[identity] = fingerprint(path.read_text(encoding="utf-8")) if path.is_file() else None
         from .project_eval import references
         design = read_json(self.path("evals"), {})
         if isinstance(design, dict):

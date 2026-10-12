@@ -321,7 +321,7 @@ and follows every page. The artifact preserves `generation_instruction`,
 `dismiss_feedback`, refinement ancestry, lifecycle outcome, tool activities,
 proposed actions, and correlated delivery. Those are recorded improvement
 signals, not a server-generated recommendation. Compare them with the History
-parts and accepted Behavior Contract before proposing an Agent change. Default
+parts and accepted Agent design before proposing an Agent change. Default
 stdout exposes only structural flags and counts; `--full --out <path>` opts into
 bounded sensitive text previews. Because this endpoint has no revision token,
 the artifact is marked `snapshot_consistency: best-effort`; total-count changes

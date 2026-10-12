@@ -9,10 +9,19 @@ Use the installed `codeer` CLI for Codeer server operations. Skill modes are
 conversation entry points, not CLI commands. Read only the modules relevant to
 the current outcome. Preserve a requested local scope and existing decisions.
 
+Users can start with sources and an ordinary description of the Agent they
+want; they need not know mode names or “Agent design.” You own discovery
+and the design record. Follow the shared [design discovery and source rules](reference/agent-design.md#discover-and-ground-the-design):
+read first, summarize established intent, recommend useful choices and ask only
+material unresolved questions. Save important understanding and proposals as
+work proceeds; clear instructions do not need approval again to be recorded.
+
 ## Start and resume
 
-Find `project.toml` from the current directory upward. Read its configured paths,
-`sources/index.md`, applicable accepted design, pending proposals and recent
+Find `project.toml` from the current directory upward. Resolve Agent design through
+the [new/legacy path rules](reference/project.md#agent-design-paths-and-existing-projects)
+before saving; module paths are defaults, not instructions to move existing files.
+Read the configured sources index, applicable accepted design, pending proposals and recent
 `log.md` entries; inspect actual receipts/runs behind status claims. Use
 `codeer status` and `codeer validate` offline. The log explains reasons and past
 milestones; structured evidence determines current machine state.
@@ -20,7 +29,7 @@ milestones; structured evidence determines current machine state.
 For a new development directory use `codeer init <directory>` without credentials.
 An existing Agent starts with read-only `agent pull --agent <id>`, then relevant
 KB exports and `eval pull`. Import preserves IDs and local work; it does not
-approve behavior or recreate shared resources. Missing historical Contract does
+approve behavior or recreate shared resources. Missing historical Agent design does
 not block scoped diagnosis or a confirmed repair. Read
 [project mechanics](reference/project.md) for paths, adoption and evidence.
 
@@ -37,9 +46,9 @@ mutation scope.
 
 | Mode / equivalent request | Read | Inputs → output / completion | Server effect |
 | --- | --- | --- | --- |
-| `build` / design an Agent from this SOP | [Contract](reference/behavior-contract.md), [settings](modules/agent-settings.md), [KB/Agent](modules/kb-and-agent.md) | Sources and outcome → Contract draft/accepted decisions, local Instructions/settings/KB and acceptance design; list unresolved decisions | Local drafts; apply separately |
+| `build` / design an Agent from this SOP | [design discovery](reference/agent-design.md), [settings](modules/agent-settings.md), [KB/Agent](modules/kb-and-agent.md) | Sources and goals → grounded design basis and open decisions, local Instructions/settings/KB and acceptance design | Local drafts; apply separately |
 | `cases` / turn this failure into a test | [cases](modules/eval-cases.md); [portfolio](modules/eval-portfolio.md) for architecture/coverage review | Source/behavior → choose/design Tester, evidence producer/delivery, Case, Rubric, pairs, review; save `evals/design.json` and report | Local design; apply separately |
-| `audit` / check only this case | [static audit](modules/static-audit.md), [Contract](reference/behavior-contract.md) | Scoped configuration → findings in `reviews/`; full pre-eval clearance binds snapshot, revision, history, covered pairs | Read-only diagnosis |
+| `audit` / check only this case | [static audit](modules/static-audit.md), [Agent design](reference/agent-design.md) | Scoped configuration → findings in `reviews/`; full pre-eval clearance binds snapshot, revision, history, covered pairs | Read-only diagnosis |
 | `apply` / apply these confirmed changes | [project](reference/project.md), owning module | Reviewed diff and existing confirmation → receipts, readback, remaining gaps; report partial outcomes | Only confirmed KB/Agent/Tester/case/pair batch |
 | `eval` / test this exact draft | [cases execution](modules/eval-cases.md), [project evidence](reference/project.md) | Valid audit, exact history, selected pairs → `runs/<run-id>/` inputs/results; completed differs from passed | Authorized trigger only; no repairs |
 | `improve` / explain and fix these failures | [debug](modules/eval-debug.md), [repair](modules/repair-planner.md); [triage](modules/regression-triage.md) for comparable runs | Dynamic evidence or sufficient static findings → cause/uncertainty, local repair diff, affected regression plan | Diagnose/design; confirmed apply separately |
@@ -72,14 +81,14 @@ precede Eval. Audit diagnoses, eval measures, improve proposes; none silently
 applies or publishes. Preserve unknown outcomes and reconcile before retry.
 Resolve scope mismatches explicitly; never silently switch customer targets.
 
-Save important pending proposals. Accepted behavior belongs in Contract;
+Save important pending proposals. Accepted behavior belongs in Agent design;
 implementation in settings/KB; Tester/Rubric decisions in Eval design. Preserve
 confirmation source, exact reviewed content and scope in `reviews/`; append
 short reasons, status and evidence links to `log.md` without copying full
 settings/results. Imported behavior is not accepted business policy. Revise the
-Contract only when intended behavior changes or is materially ambiguous.
+Agent design only when intended behavior changes or is materially ambiguous.
 
-Apply [evidence and autonomy boundaries](reference/behavior-contract.md#evidence-and-autonomy-boundaries).
+Apply [evidence and autonomy boundaries](reference/agent-design.md#evidence-and-autonomy-boundaries).
 Use [commands](reference/commands.md), [concepts](reference/concepts.md),
 [HTTP input contracts](reference/http-input-contracts.md) and
 [errors](reference/errors.md) as needed. Unsupported capabilities remain explicit

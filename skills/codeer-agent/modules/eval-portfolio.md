@@ -43,7 +43,12 @@ authorize unattended changes.
 
 Use the smallest evidence set that supports the portfolio decision:
 
-- accepted Behavior Contract outcomes, decision policies, alternative
+Recover intended behavior through the shared
+[source rules](../reference/agent-design.md#discover-and-ground-the-design).
+Do not require a complete historical Agent design for a bounded portfolio question
+whose intent is explicit, or reduce requested coverage to improve scores.
+
+- accepted Agent design outcomes, decision policies, alternative
   outcomes, guardrails, and material boundaries;
 - optional accepted Query Distribution, concrete examples, evidence window,
   and allocation when representativeness or drift is in scope;
@@ -109,7 +114,7 @@ calibration when those solve the problem without a new evaluator.
 Review evidence of:
 
 - false passes and false failures confirmed against source truth and the
-  Behavior Contract;
+  Agent design;
 - repeated score instability under a stable response and harness;
 - criteria that cannot see their required evidence;
 - saturation where an evaluator no longer distinguishes meaningful behavior;
@@ -189,7 +194,7 @@ evidence.
 The parent Agent may delegate the whole bounded review to one read-only
 Eval-portfolio worker. For a larger suite, independent workers may inspect:
 
-- Behavior Contract and optional distribution coverage;
+- Agent design and optional distribution coverage;
 - evaluator signal, observability, and calibration evidence; and
 - case/pair redundancy, historical sentinel value, and maintenance cost.
 

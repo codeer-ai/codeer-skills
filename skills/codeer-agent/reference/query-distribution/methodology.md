@@ -11,8 +11,7 @@ the smallest distribution that can answer:
 4. how many acceptance cases should cover each query type; and
 5. what concrete customer inputs make each type recognizable.
 
-The Query Distribution is optional and describes expected work. The Behavior
-Contract defines how the Agent should handle its accepted scenarios and does
+The Query Distribution is optional and describes expected work. The Agent design defines how the Agent should handle its accepted scenarios and does
 not require a distribution to exist. When both artifacts exist, the Eval
 portfolio tests the accepted pair.
 

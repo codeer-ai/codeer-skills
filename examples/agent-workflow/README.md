@@ -1,5 +1,10 @@
 # Synthetic Agent project journeys
 
+For source-to-design interaction and interrupted discovery, use the separate
+[discovery and resume scenarios](discovery.md). They exercise the skill with
+raw material and natural-language requests; the CLI journeys below start with
+synthetic design/confirmation artifacts and do not measure discovery quality.
+
 Run from the development checkout with a fresh output directory:
 
 ```bash
@@ -14,7 +19,7 @@ network requests or real customer resources. It retains two inspectable projects
   two Case/Rubric pairs, synthetic acceptance/audit, failed run, reviewed repair,
   new h2 Draft, focused check, covering regression, publication and exact readback.
 - `existing-agent/`: separate h1 Draft/h0 Published import without accepted
-  Contract, local/web prompt conflict, preserved local proposal, History parts
+  Agent design, local/web prompt conflict, preserved local proposal, History parts
   and AI Draft exports, de-identified candidate provenance/protection variants,
   pending behavior proposal and unchanged Published state.
 

@@ -18,7 +18,7 @@ The parent Agent remains the decision owner. It must:
 
 Workers are read-only investigators. They must not mutate Codeer server state,
 edit canonical project artifacts, broaden the accepted scope, rewrite the
-Behavior Contract, or apply a repair. Give each worker only the shared anchors,
+Agent design, or apply a repair. Give each worker only the shared anchors,
 its bounded assignment, and any common coding or judgment guide. For an
 independent audit or challenge, do not preload the parent's suspected diagnosis
 or proposed repair. Workers should return findings through their handoff rather

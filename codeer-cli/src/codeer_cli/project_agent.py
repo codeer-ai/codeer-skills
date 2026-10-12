@@ -131,7 +131,7 @@ def pull(project, client, agent_id, *, reconcile=False):
     project.save_state(state)
     return {"agent_id": agent_id, "snapshot": str(directory), "local_preserved": True,
             "accepted": False, "published_history_id": published_id,
-            "gaps": ["KB/Eval/Tester import is separate", "Behavior Contract and quality not accepted"]}
+            "gaps": ["KB/Eval/Tester import is separate", "Import does not establish intended behavior or validate quality"]}
 
 
 def preview(project, client, remove_tools=None, note=""):

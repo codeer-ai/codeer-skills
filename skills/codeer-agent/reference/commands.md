@@ -436,7 +436,7 @@ outcomes, tool activities, proposed actions, operator attribution, and the
 actual correlated delivery when present. These fields are observed improvement
 signals. They do not by themselves establish the correct Agent change; compare
 them with the customer context, History parts, successful behavior to protect,
-and the accepted Behavior Contract. The artifact is marked
+and the accepted Agent design. The artifact is marked
 `snapshot_consistency: best-effort`: duplicate IDs and count changes fail the
 export, but the server provides no revision token, so field mutations during
 pagination cannot be detected.

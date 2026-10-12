@@ -32,7 +32,10 @@ class ProjectTests(unittest.TestCase):
             source = self.root / "sources/index.md"
             source.write_text("customer source https://example.invalid/sop\n")
             (self.root / "log.md").write_text("private decision\n")
+            readme = self.root / "README.md"
+            readme.write_text("Customer-authored project instructions\n")
             self.assertEqual(self.cli("init")[1]["created"], [])
+            self.assertEqual(readme.read_text(), "Customer-authored project instructions\n")
             nested = self.root / "sources/documents"
             os.chdir(nested)
             self.assertEqual(discover().root, self.root)

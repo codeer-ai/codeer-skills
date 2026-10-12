@@ -28,14 +28,14 @@ A local or single-object diagnosis need not produce passing gate metadata.
 Run a full audit:
 
 - before the first baseline eval;
-- after Behavior Contract, KB, FAQ/routing, agent settings, evaluator templates,
+- after Agent design, KB, FAQ/routing, agent settings, evaluator templates,
   judge models, or assignments change—and after an optional Query Distribution
   changes when the run uses it—and before the next full sweep;
 - before a full regression for the agreed scope or publish decision; and
 - whenever local manifests and server state may have drifted.
 
 Before implementation, this module may also perform a local-only scoped review
-of the Behavior Contract's core scenario and behavior path against the draft
+of the Agent design's core scenario and behavior path against the draft
 cases. When an accepted Query Distribution exists and informs the portfolio,
 include it as well. Server target pinning and runtime checks are not applicable
 to that limited review. State the limited scope explicitly; it is not a full
@@ -51,14 +51,15 @@ when the local object cannot be interpreted without its evaluator, source
 truth, assignment, or version context. Run the full audit before any later full
 regression or publish decision.
 
-For a maintained query-led customer guidance Agent, read the persistent
-`design/behavior-contract.md`. Include its scenario-to-acceptance-eval
+For any maintained Agent, read the relevant established design basis under the
+[shared source rules](../reference/agent-design.md#discover-and-ground-the-design),
+normally recorded in `design/agent-design.md`. Include its scenario-to-acceptance-eval
 alignment in a full audit. When an accepted
 `design/query_distribution.csv` exists and the portfolio claims to use
 it, also include distribution-to-eval-portfolio alignment. A missing optional
-distribution is not a design gap. For a legacy Agent without a Behavior
-Contract, do not fabricate one; record the missing normative design evidence
-and limit the conclusion accordingly.
+distribution is not a design gap. For a legacy Agent without an Agent design, use applicable explicit instructions and designated sources without
+requiring the whole file first. Do not infer intended behavior from settings;
+identify genuinely missing design evidence and limit only affected conclusions.
 
 Do not run an eval or mutate server state as part of this module. Use registered
 `codeer` read commands only. If required state cannot be read, record the gap in
@@ -102,8 +103,8 @@ Record the exact target before comparing content:
 - Query Distribution revision, evidence window, sampling scope, confidence,
   open gaps, and intended eval allocation only when that optional artifact is
   applicable; and
-- Behavior Contract revision and applicable Agent/version, and whether the
-  cases are intended to express that contract.
+- Agent design revision and applicable Agent/version, and whether the
+  cases are intended to express that design.
 
 For a local-only pre-implementation review, record the accepted design files
 and reviewed draft-case revision; mark server version, runtime, Tool, and
@@ -125,7 +126,7 @@ direct reads as needed.
 Build a compact dependency map:
 
 ```text
-accepted Behavior Contract (outcomes, guardrails, decision policies)
+accepted Agent design (outcomes, guardrails, decision policies)
   -> acceptance case -> assigned evaluator -> rubric -> observable evidence
 accepted Query Distribution -> eval portfolio allocation -> acceptance cases
   (when applicable)            -> assigned evaluator -> observable evidence
@@ -142,14 +143,14 @@ This map is evidence for the audit. It is not a proposal to change any layer.
 After the parent Agent pins the target and inventories the effective system, a
 full audit may use three read-only sub-agent lanes. A small scoped audit should
 normally stay with one investigator. Every lane receives the same target
-fingerprints and dependency map plus the immutable contract, settings, source,
+fingerprints and dependency map plus the immutable design, settings, source,
 case, evaluator, assignment, and runtime-contract evidence relevant to its
 lane. No lane may claim whole-system clearance or draft a repair.
 
 **Lane A — Normative alignment**
 
 ```text
-Behavior Contract -> acceptance cases -> expected behavior and rubrics
+Agent design -> acceptance cases -> expected behavior and rubrics
 optional Query Distribution -> portfolio allocation -> cases
 ```
 
@@ -161,14 +162,14 @@ accepted portfolio claims to use it.
 **Lane B — Implementation alignment**
 
 ```text
-Behavior Contract -> Agent settings / Tools / handoff
+Agent design -> Agent settings / Tools / handoff
                   -> KB source truth / retrieval / routing
 ```
 
 Check that the effective implementation can carry the accepted behavior and
 that canonical ownership, source truth, Tool contracts, handoff settings, and
 retrieval wiring do not contradict or duplicate one another. The current
-implementation cannot redefine the Behavior Contract.
+implementation cannot redefine the Agent design.
 
 **Lane C — Eval observability alignment**
 
@@ -183,9 +184,9 @@ comparison fingerprints. Existing evaluator or Agent objects do not count as
 coverage unless the planned run actually assigns and observes them.
 
 The overlap among lanes is deliberate: cases appear in A and C, while the
-Behavior Contract appears in A and B. The parent must reconcile cross-lane
+Agent design appears in A and B. The parent must reconcile cross-lane
 findings against the shared evidence. For example, settings and cases may agree
-with each other while both violate the contract, or a normatively correct case
+with each other while both violate the design, or a normatively correct case
 may still be unobservable. A blocker in one lane cannot be canceled by a pass
 in another. Only the parent issues the combined full-audit verdict and states
 which categories were not reviewed.
@@ -274,18 +275,18 @@ estimate a new distribution or choose the repair. When no distribution exists,
 do not infer production representativeness from case counts or aggregate pass
 rates, and do not block the run merely because traffic weights are absent.
 
-### Behavior Contract and acceptance-eval alignment
+### Agent design and acceptance-eval alignment
 
-When the accepted contract is available, first check the contract itself
+When the accepted design is available, first check the design itself
 against the canonical Evidence and autonomy boundaries in
 [consultative-guidance.md](consultative-guidance.md). Verified scarcity,
 urgency, authority, social proof, prices, eligibility, and Tool outcomes are
-allowed; a contract requiring fabrication, exaggeration, or unsupported claims
+allowed; a design requiring fabrication, exaggeration, or unsupported claims
 is a blocker even when the cases, rubrics, settings, KB, and Tools all agree
-with it. The contract inherits these canonical boundaries without restating
-them; missing duplicated boundary prose is not a contract-coverage gap.
+with it. The design inherits these canonical boundaries without restating
+them; missing duplicated boundary prose is not a design-coverage gap.
 
-Then compare the contract semantically with the cases, expected outputs, and
+Then compare the design semantically with the cases, expected outputs, and
 rubrics. Use a simple judgment review. Confirm that:
 
 - each material journey's accepted customer or task outcome, acceptable
@@ -294,12 +295,12 @@ rubrics. Use a simple judgment review. Confirm that:
   be one core scenario and one core outcome rather than a multi-journey map;
 - every mandatory criterion has a traceable
   [accepted or inherited basis](consultative-guidance.md#basis-for-acceptance-criteria)
-  and tests a necessary meaning or action; absence of a matching Contract
+  and tests a necessary meaning or action; absence of a matching Agent design
   sentence is not itself a defect, and "basic quality" does not authorize
   invented product or style requirements;
 - answer-versus-question initiative, consent before consequential actions,
   recommendation boundaries, and handoff expectations agree with the material
-  decisions in the contract, while truthfulness and uncertainty also satisfy
+  decisions in the design, while truthfulness and uncertainty also satisfy
   the canonical boundaries;
 - an optional discovery strategy has not become a mandatory script or fixed
   wording requirement;
@@ -308,22 +309,22 @@ rubrics. Use a simple judgment review. Confirm that:
 - expected outputs and rubrics test decisions and outcomes without
   over-specifying phrasing.
 
-Where the contract uses an entry condition or operational profile to select a
+Where the design uses an entry condition or operational profile to select a
 different policy, confirm that the distinction is observable in the case and
 actually changes correct handling. Do not require a Persona taxonomy or a
 separate operational case for profile variation that leaves the decision
 policy unchanged. A fairness, outcome-comparison, or heterogeneous-effect
 stratum may still belong in production analysis or sampling metadata without
-becoming a Query Type, contract branch, or runtime Persona inference.
+becoming a Query Type, design branch, or runtime Persona inference.
 
 Assess decision coverage, not document length or one-to-one rule/case mapping.
-One contract principle may govern several journeys and cases; concrete variants
+One design principle may govern several journeys and cases; concrete variants
 belong in the eval portfolio unless they expose a distinct material decision.
 
-Treat an explicit contradiction or violation of a hard contract boundary as a
+Treat an explicit contradiction or violation of a hard design boundary as a
 blocker. Treat a material but still interpretable coverage omission as a gap or
 warning unless the intended decision requires that behavior to be tested in
-the current run. Leave the exact case, rubric, contract, or implementation
+the current run. Leave the exact case, rubric, design, or implementation
 change to the appropriate follow-on module. Route a single clear missing probe
 to [eval-cases.md](eval-cases.md); route broader allocation,
 representativeness, evaluator-design, deduplication, or retirement questions to

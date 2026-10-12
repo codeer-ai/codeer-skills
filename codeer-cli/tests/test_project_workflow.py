@@ -13,7 +13,7 @@ class WorkflowTests(EvidenceFixture, unittest.TestCase):
         save_json(self.root / "agent/settings.json", {"name": "Synthetic Support", "human_handoff": self.api.agent["human_handoff"]})
         (self.root / "agent/instructions.md").write_text("Transfer explicit human requests; answer factual hours directly.")
         (self.root / "design").mkdir()
-        (self.root / "design/behavior-contract.md").write_text("Synthetic accepted policy: explicit human request transfers; hours questions do not.")
+        (self.root / "design/agent-design.md").write_text("Synthetic accepted policy: explicit human request transfers; hours questions do not.")
         (self.root / "sources/index.md").write_text("# Sources\n\nSynthetic SOP: documents/sop.md; authoritative only inside this fixture.\n")
         self.assertFalse(any(method != "GET" for method, _, _ in self.api.calls))
         _, preview = self.cli("agent", "apply", "--dry-run")
@@ -51,7 +51,7 @@ class WorkflowTests(EvidenceFixture, unittest.TestCase):
         self.api.agent["publish_history_id"] = "h0"
         project, design = self.prepare()
         self.apply_design()
-        self.assertFalse(project.path("contract").exists())  # does not block bounded import/review
+        self.assertFalse(project.path("design").exists())  # does not block bounded import/review
         imported = next((project.root / ".codeer/imports").glob("*/agent.json"))
         raw = read_json(imported)
         self.assertEqual(raw["published"]["system_prompt"], "Previously published")
@@ -91,8 +91,8 @@ class WorkflowTests(EvidenceFixture, unittest.TestCase):
         proposed["cases"][0]["source"] = {**candidate["source"], "document": candidate["source"]["artifact"]}
         save_json(project.root / "evals/history-proposal.json", proposed)
         (project.root / "design").mkdir(exist_ok=True)
-        (project.root / "design/behavior-contract.draft.md").write_text("Pending: should ambiguous frustration trigger transfer? Recommend explicit requests only; confirm business policy before changing.")
-        (project.root / "log.md").write_text("# Fixture log\n\nImported h1 Draft and h0 Published, unvalidated. Local/web prompt conflict preserved; no apply. [History candidates](reviews/history-candidates.json) are proposals. Ambiguous handoff policy awaits confirmation in Contract draft.\n")
+        (project.root / "design/agent-design.draft.md").write_text("Pending: should ambiguous frustration trigger transfer? Recommend explicit requests only; confirm business policy before changing.")
+        (project.root / "log.md").write_text("# Fixture log\n\nImported h1 Draft and h0 Published, unvalidated. Local/web prompt conflict preserved; no apply. [History candidates](reviews/history-candidates.json) are proposals. Ambiguous handoff policy awaits confirmation in Agent design draft.\n")
         self.assertEqual(read_json(project.path("evals")), design)
         self.assertEqual(self.api.agent["publish_history_id"], "h0")
         self.assertFalse(any(method == "POST" and path == "/external/agents" for method, path, _ in self.api.calls))

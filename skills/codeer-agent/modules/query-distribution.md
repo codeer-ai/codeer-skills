@@ -6,19 +6,22 @@ budget should be allocated. Typical triggers are supported first-party demand
 evidence, traffic-weighted quality reporting, capacity or latency planning,
 hot-path residency, portfolio prioritization across several scenarios, or
 production-drift analysis. Do not require a Query Distribution to create the
-first Behavior Contract or its core-scenario Evals.
+first Agent design or its core-scenario Evals.
 
 It may be used after Scope Alignment to inform core-scenario selection, after a
-Behavior Contract to allocate broader coverage, or during History Analysis when
+Agent design to allocate broader coverage, or during History Analysis when
 production evidence may have changed a previously accepted model.
 
-The Query Distribution is descriptive. The Behavior Contract is normative:
+The Query Distribution is descriptive. The Agent design consolidates
+established intent under the shared
+[source rules](../reference/agent-design.md#discover-and-ground-the-design);
+observed demand cannot silently redefine that intent:
 
 - `design/query_distribution.csv` records query types, demand bands,
   risk, and target eval-case counts;
 - `design/query_examples.csv` records concrete customer inputs linked
   to those query types;
-- `design/behavior-contract.md` records how the Agent is intended to
+- `design/agent-design.md` records how the Agent is intended to
   behave; and
 - eval cases select from and extend the accepted model to test observable
   behavior.
@@ -33,8 +36,7 @@ copy raw sensitive conversations into them.
 ## Minimum-sufficient rule
 
 First decide whether demand or allocation analysis itself has a named
-downstream use. If not, stop and proceed with the core Scenario and Behavior
-Contract. If it does, choose the analysis-only or persistent path below. When a
+downstream use. If not, stop and proceed with the core Scenario and Agent design. If it does, choose the analysis-only or persistent path below. When a
 persistent distribution is justified, the default schema is intentionally
 small. Do not add a field because it might be useful later. Add one only when a
 named downstream decision, review, or tool will use it now.
@@ -84,7 +86,7 @@ eval cases and not expected answers or rubrics.
 
 ## Step 1 — Frame only the material scope
 
-Start from Scope Alignment and any accepted Behavior Contract. Name the demand,
+Start from Scope Alignment and any accepted Agent design. Name the demand,
 allocation, capacity, hot-path, or drift decision the model must support.
 Establish or infer the company, product, operating model, customer journeys,
 locale, supported Agent actions, exclusions, and consequence owner. Persist a
@@ -105,9 +107,9 @@ to load only relevant task families.
 
 Use one row per customer task and journey state that materially changes the
 correct answer, next move, Tool choice, authority boundary, or risk policy.
-Customer-outcome language describes the task here; it does not establish a
-normative runtime outcome or guardrail before the Behavior Contract is
-accepted.
+Customer-outcome language describes observed demand here; it does not establish
+a runtime objective or guardrail by itself. Use the shared source and
+confirmation rules before adopting a proposed behavior change.
 
 - Write `customer_task` in plain customer-outcome language.
 - Fill `journey_state` only when state changes the correct handling; otherwise
@@ -144,7 +146,7 @@ the same task and policy still apply, keep concrete variation in
 type by every possible profile. When a distinction matters only for comparing
 outcomes, fairness, or heterogeneous effects, treat it as an analytic stratum
 in that analysis or sampling design; it is not an operational profile, Query
-Type, or Behavior Contract branch.
+Type, or Agent design branch.
 
 Treat Persona narratives, inferred personality, motivation, sophistication,
 demographics, or stylistic preference as product-research context rather than
@@ -234,9 +236,9 @@ when evidence materially changes the customer task, journey state, demand band,
 risk level, or target case allocation.
 
 Present the evidence limits and before/after diff for user acceptance. Revise
-the Behavior Contract only when the appropriate customer experience or stable
+the Agent design only when the appropriate customer experience or stable
 risk policy changes. Revise Agent Settings, KB, or Tools only after any
-contract change is accepted and expressed in eval cases. When the revision
+design change is accepted and expressed in eval cases. When the revision
 changes broader allocation, representativeness, evaluator value, or suite
 maintenance, use [eval-portfolio.md](eval-portfolio.md) before drafting the
 concrete case changes.

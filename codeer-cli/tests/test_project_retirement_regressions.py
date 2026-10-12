@@ -109,8 +109,8 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
 
     def test_older_release_does_not_clear_new_revision_or_remote_configuration(self):
         project = self.publish_h1()
-        project.path("contract").parent.mkdir(parents=True, exist_ok=True)
-        project.path("contract").write_text("New accepted behavior documentation")
+        project.path("design").parent.mkdir(parents=True, exist_ok=True)
+        project.path("design").write_text("New accepted behavior documentation")
         self.audit(project)
         self.assertEqual(self.cli("eval", "run", "--history", "h1", "--poll-timeout", "0")[0], 0)
         self.assertIn("publish only", self.cli("status")[1]["next_step"])

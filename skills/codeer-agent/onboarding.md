@@ -10,6 +10,14 @@ commits.
 
 ## Recommended setup
 
+Start by telling the coding agent what you want and where the source material
+is, for example: “Use these SOPs to build a support Agent; it may look up orders
+but refund decisions belong to staff.” The builder reads the material, explains
+its understanding and asks only material unresolved questions. It maintains
+the design and pending decisions for you; you do not need to learn mode names,
+fill an Agent design template or reapprove a clear instruction to save it.
+Commands below can be run by the coding agent as part of that work.
+
 Project commands below are available in the development source checkout. This
 change does not release them to PyPI; verify `codeer init --help` on the installed
 CLI and use the repository's development install if unavailable.

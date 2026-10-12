@@ -240,6 +240,16 @@ history, and show me proposed changes before applying them.
 
 ## 本機專案工作流程
 
+直接描述想要的 Agent，並提供檔案或連結。例如：「依這些 SOP 建立售後 Agent，
+可以查訂單，但退款由人工決定。」coding agent 會先讀資料、說明理解並提出建議，
+只詢問意圖不明、來源衝突或新的重要取捨，不要求你重複確認已清楚說過的需求。
+它會邊探索邊保存設計與待決事項，方便換對話後接續。你不必學習內部模式名稱、
+填寫 Agent 設計 模板，或為了記錄明確指示再核准一次文件。
+
+整體流程是：理解需求 → 設計行為與測試 → 預覽並套用已授權的 Draft 修改 →
+讀回與審查 → 測試指定版本 → 視結果診斷修正 → 明確授權後發布。
+以下命令可由 coding agent 代為操作；設計決策本身不等於遠端寫入授權。
+
 以下命令已在開發原始碼實作；本次變更尚未發布新的 PyPI 套件。
 先檢查 `codeer init --help`，尚未提供時請使用
 [開發版安裝](../../codeer-cli/README.md#development-install)。
@@ -261,13 +271,19 @@ codeer agent diff --local
 
 一個本機專案對應一個主要 Agent，不會建立遠端 Project。原始 SOP／PDF 放在
 `sources/documents/`，以 `sources/index.md` 記錄來源；整理後的 KB 放在 `kb/`。
-已接受的行為決策放在 `design/behavior-contract.md`，待確認提案放在
-`design/behavior-contract.draft.md`。`log.md` 簡記重要理由、狀態與證據連結。
+coding agent 將已確定的設計決策放在 `design/agent-design.md`，待確認提案放在
+`design/agent-design.draft.md`。`log.md` 簡記重要理由、狀態與證據連結。
 Prompt 的唯一編輯來源是 `agent/instructions.md`，其他設定放在
 `agent/settings.json`；穩定 Tester／Case／Rubric 配對放在 `evals/design.json`。
 
-直接用自然語言指定 **build、cases、audit、apply、eval、improve、publish、observe**
-八種 Skill 模式。例如「只 audit 這題轉人工失敗」、「套用先前確認的修改並測試，
+上述為新專案預設。既有專案沿用 `[paths].design` 或舊 `[paths].contract` 指定的檔案；
+未指定時，若只有舊 `design/behavior-contract.md` 或其草稿，便沿用舊位置。
+新舊兩組檔案並存時，以 `[paths].design` 明確選定來源。待確認提案放在選定檔案旁的
+`<stem>.draft.md`，不另建第二份設計。更新 CLI 不會搬移既有檔案；純名稱調整不會
+使證據過期，設計內容或其他依賴改變時仍需重新驗證。
+
+直接用日常語言提出需求，coding agent 會選擇 **build、cases、audit、apply、eval、improve、publish、observe**
+八種 Skill 模式，也可以明確指定模式。例如「只診斷這題轉人工失敗」、「套用先前確認的修改並測試，
 不要發布」，或「從上週 AI Draft 回饋提出測試候選」。這些是 Skill 模式，
 不是 CLI 子命令。既有 Agent 可以從局部診斷開始；匯入現況不等於接受業務規則或品質。
 

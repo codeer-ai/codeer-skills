@@ -46,7 +46,7 @@ per case unless a unique high-consequence trace requires independent review.
 
 The parent must pin the complete run evidence and static anchors before
 delegation. Give each worker the relevant cases and traces, the accepted
-Behavior Contract, exact Agent/version and KB snapshot, evaluator template and
+Agent design, exact Agent/version and KB snapshot, evaluator template and
 judge fingerprint, plus selected passing controls or successful contrasts.
 Withhold a proposed repair or preferred owner when independent diagnosis is the
 point of the delegation.
@@ -62,31 +62,34 @@ rather than averaging worker confidence or taking a majority vote.
 
 ---
 
-## Behavior Contract decision boundary
+## Agent design decision boundary
 
-Read the accepted `design/behavior-contract.md` and use it as the
-design anchor for diagnosis without treating it as hidden evaluator evidence.
+Read the relevant established design basis, normally consolidated in
+`design/agent-design.md`, under the shared
+[source rules](../reference/agent-design.md#discover-and-ground-the-design).
+Use it for diagnosis without treating it as hidden evaluator evidence.
 
-- If the response violates a clear contract behavior and the case accurately
+- If the response violates a clear design behavior and the case accurately
   tests that behavior, continue diagnosing the implementation owner.
 - Trace each required criterion through the
   [acceptance-criteria basis](consultative-guidance.md#basis-for-acceptance-criteria).
-  A requirement need not be repeated in the Contract to follow from the user's
+  A requirement need not be repeated in the Agent design to follow from the user's
   request, authoritative facts, Tool contract, or inherited boundaries. If a
   criterion lacks that basis, is unnecessary, or contradicts accepted behavior,
-  classify an eval-system defect; absence of a matching Contract sentence alone
+  classify an eval-system defect; absence of a matching Agent design sentence alone
   is not evidence of a defect.
-- If the contract is materially ambiguous, or faithfully implementing it would
-  still produce a worse customer experience, identify a contract decision for
-  [consultative-guidance.md](consultative-guidance.md) and human acceptance.
+- If the design is materially ambiguous, or faithfully implementing it would
+  still produce a worse customer experience, identify a design decision for
+  [shared decision resolution](../reference/agent-design.md#confirmation-and-progressive-revision),
+  using consultative guidance only where applicable.
 
-Eval Debug does not silently rewrite the Behavior Contract. It is used for all
+Eval Debug does not silently rewrite the Agent design. It is used for all
 non-perfect dynamic evidence, not only when the eval itself may need to change;
-its job is to determine the strongest supported owner. If the contract is not
+its job is to determine the strongest supported owner. If the design is not
 available, do not infer it from one rubric or the current Agent settings.
-For a legacy Agent without the persistent artifact, surface the missing design
-evidence and obtain user confirmation before classifying a finding as contract
-divergence or contract improvement.
+For a legacy Agent without the persistent artifact, use applicable explicit
+instructions or designated source rules. Ask only if the needed business intent
+is materially unclear; a missing file alone does not prevent a bounded diagnosis.
 
 ---
 
@@ -243,8 +246,9 @@ repairs.
 If a finding appears suite-wide, route the broader static consistency question
 to [static-audit.md](static-audit.md). When the user wants to change the system,
 hand accepted implementation or eval findings to
-[repair-planner.md](repair-planner.md). Route a contract decision to
-[consultative-guidance.md](consultative-guidance.md) first; after the revised
-contract is accepted, update eval cases before planning runtime changes. Eval
+[repair-planner.md](repair-planner.md). Route a design decision to
+[shared decision resolution](../reference/agent-design.md#confirmation-and-progressive-revision)
+first; after the intended behavior is established, update eval cases before
+planning runtime changes. Eval
 Debug does not choose the target state, draft the diff, define the impact
 regression, or apply server changes.

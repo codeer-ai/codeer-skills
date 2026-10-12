@@ -3,14 +3,16 @@
 Analyze production conversations to drive continuous improvement. Enter through
 observe for collection and candidate findings, then improve for a confirmed repair.
 
-Before analyzing behavior, read the accepted
-`design/behavior-contract.md`; it defines the intended scenario,
+Before analyzing behavior, recover the relevant established design basis using
+the shared [source rules](../reference/agent-design.md#discover-and-ground-the-design).
+`design/agent-design.md` consolidates the intended scenario,
 outcome, guardrails, and decision policies. When optional
 `design/query_distribution.csv` or
 `design/query_examples.csv` artifacts exist and the analysis concerns
 demand, allocation, or drift, read them as well. For a legacy Agent without a
-Behavior Contract, surface the missing normative design evidence before making
-strong claims about contract divergence. The absence of an optional Query
+Agent design, use applicable explicit instructions or designated sources;
+surface unresolved intent before making claims that depend on it. Observed
+settings or conversations cannot fill that normative gap. The absence of an optional Query
 Distribution is not a gap unless the requested decision requires one.
 
 ---
@@ -20,7 +22,7 @@ Distribution is not a gap unless the requested decision requires one.
 Before broad sampling or coding, establish from the request, accepted design
 evidence, and available operational context what outcome this analysis is meant
 to improve. Reuse stable journey outcomes and guardrails from the accepted
-Behavior Contract, but do not assume that they fully specify the current
+Agent design, but do not assume that they fully specify the current
 research question. Ask the user only about unresolved choices that would
 materially change the analysis. Define only what the current decision needs:
 
@@ -44,7 +46,7 @@ Tool events available so uncertain segmentation does not become hidden fact.
 Apply an outcome-relevance gate before adding a field, profile, category, or
 coding dimension. Keep it only when it helps select an Agent decision, measure
 or explain an outcome, support a fair comparison, protect a material
-guardrail, or drive a named Contract, Eval, settings, Tool, KB, handoff, or
+guardrail, or drive a named Agent design, Eval, settings, Tool, KB, handoff, or
 experiment decision. Otherwise omit it.
 
 ---
@@ -159,7 +161,7 @@ observation horizon, analysis unit, sampling frame, and outcome-relevant coding
 dimensions. The parent Agent should export the required conversations once and
 assign immutable local files or explicit History IDs; workers must not pull
 different ad hoc pages or redefine the population. Give every worker the
-accepted Behavior Contract revision and applicable Agent/version and KB
+accepted Agent design revision and applicable Agent/version and KB
 snapshot fingerprints in addition to the shared analysis design and assigned
 conversation evidence.
 
@@ -240,7 +242,7 @@ For each actionable Agent improvement that proceeds to Eval coverage, map the
 finding to the accepted core scenario, an accepted expansion, or an established
 portfolio group. If it does not fit, decide whether it is an Eval variant whose
 handling is already clear or a behaviorally distinct scenario that first needs
-Behavior Contract acceptance. Do not create a new category merely to file the
+Agent design acceptance. Do not create a new category merely to file the
 finding, and do not force descriptive demand, outcome, fairness, selection, or
 product observations into the Agent Eval taxonomy when they have not passed the
 Actionability Gate.
@@ -258,17 +260,17 @@ Group findings by shared behavioral mechanism when evidence supports it, not
 only by surface topic. A single finding may still expose a structural defect;
 multiple examples are useful evidence, not a prerequisite for diagnosis.
 
-When an accepted Behavior Contract is available, distinguish two decisions:
+When an accepted Agent design is available, distinguish two decisions:
 
 - **Implementation divergence** — the desired behavior is already clear, but
   the current settings, KB, Tools, handoff, retrieval, or platform behavior did
   not implement it.
-- **Contract improvement** — the current implementation may match the accepted
-  contract, but the evidence suggests a different customer-guidance behavior
-  would create a materially better experience, or the contract is too
+- **Agent design improvement** — the current implementation may match the accepted
+  design, but the evidence suggests a different customer-guidance behavior
+  would create a materially better experience, or the design is too
   ambiguous to decide.
 
-Do not infer the contract from current settings or eval rubrics when the
+Do not infer the design from current settings or eval rubrics when the
 accepted design context is unavailable. Surface the gap for user confirmation.
 
 ### Actionability gate
@@ -284,7 +286,7 @@ ideas reviewable in the clearest format for the task:
 - the strongest mechanism hypothesis and its evidence limits;
 - a modifiable behavioral treatment candidate stated at a reusable policy
   level rather than as production wording;
-- the likely owner, such as the Behavior Contract, system prompt, Tool policy,
+- the likely owner, such as the Agent design, system prompt, Tool policy,
   KB, retrieval, handoff, evaluator, UI, or platform; and
 - the reproduction, generalization, boundary, protection, production, or
   experimental evidence needed next.
@@ -299,15 +301,15 @@ complete evidence and configuration.
 ### Scenario coverage and optional query-distribution analysis
 
 Compare observed customer intentions, starting states, constraints, decision
-points, and risks with the accepted Behavior Contract. Distinguish:
+points, and risks with the accepted Agent design. Distinguish:
 
 - **Eval variant or example gap** — the accepted scenario and decision policy
   already apply, but a meaningful phrasing, disclosure order, input state, or
   boundary is not covered;
 - **scenario candidate** — an observable difference changes the appropriate
   outcome, next move, required evidence, Tool, handoff, consent, or risk policy
-  and may justify expanding the Behavior Contract;
-- **eval-portfolio gap** — the accepted Behavior Contract already determines
+  and may justify expanding the Agent design;
+- **eval-portfolio gap** — the accepted Agent design already determines
   correct handling, but reviewed cases do not cover it adequately; and
 - **individual behavior evidence** — a conversation exposes a failure or
   success without supporting a frequency conclusion.
@@ -345,9 +347,9 @@ Look for decision-policy patterns in tool behavior:
 ### Identify unserved scenarios and useful probes
 
 Find specific user query patterns that the current eval suite doesn't cover.
-When the accepted contract already determines correct handling, these become
+When the accepted design already determines correct handling, these become
 candidate Eval cases. When handling would materially differ, treat them as
-candidate Behavior Contract expansions and obtain acceptance before changing
+candidate Agent design expansions and obtain acceptance before changing
 runtime behavior. When a mechanism remains uncertain, identify paraphrases,
 nearby boundaries, or successful contrasts that could distinguish the
 plausible causes. A single clear probe can proceed to
@@ -375,7 +377,7 @@ scenario groups to work on and in what order.
 ## Step 4 — Choose the follow-on path
 
 After the user chooses priorities, keep scenario coverage, optional demand
-analysis, contract, and implementation decisions distinct.
+analysis, design, and implementation decisions distinct.
 
 ### Optional Query Distribution creation or update
 
@@ -388,15 +390,15 @@ obtain user acceptance before creating or replacing
 `design/query_examples.csv`. Then:
 
 1. update target case allocation and example coverage when warranted;
-2. revise `design/behavior-contract.md` only when the new demand model
+2. revise `design/agent-design.md` only when the new demand model
    changes the appropriate customer experience or a stable risk policy; and
-3. change Agent Settings, KB, or Tools only after any contract revision is
+3. change Agent Settings, KB, or Tools only after any design revision is
    accepted and expressed in eval cases.
 
 A distribution-only creation or update may end with
 [eval-portfolio.md](eval-portfolio.md) maintenance and no runtime Agent change.
 
-### Implementation divergence against an unchanged contract
+### Implementation divergence against an unchanged design
 
 Transition to **eval-cases**:
 
@@ -448,23 +450,24 @@ eventual change. Then hand off to **eval-debug** for causal findings and to
 **repair-planner** when accepted findings warrant an implementation or eval
 change.
 
-### Intentional Behavior Contract improvement
+### Intentional Agent design improvement
 
 Before drafting a runtime repair:
 
-1. Use [consultative-guidance.md](consultative-guidance.md) to compare the
-   accepted and proposed customer behavior, recommend the suitable dialogue or
-   discovery strategy, and obtain user acceptance.
-2. Persist the accepted `design/behavior-contract.md`, then update or
+1. Use the shared [confirmation rules](../reference/agent-design.md#confirmation-and-progressive-revision)
+   to compare established and proposed behavior and resolve material new
+   choices. Apply [consultative-guidance.md](consultative-guidance.md) only for
+   query-led guidance. Carry forward clear instructions without reapproval.
+2. Persist the accepted `design/agent-design.md`, then update or
    add acceptance cases and rubrics. They should express the revised behavior
    and protect still-valid successful patterns.
 3. Run Static Audit. Test the focused cases against the current published Agent
    when the result will inform the repair or comparison; otherwise preserve the
    prior configuration and sufficient existing evidence and explain why the
-   known mismatch does not need another run. For a user-authorized run despite
-   blockers, keep the limitations visible. Expected failures under the new
-   contract do not prove the old Agent violated the old contract.
-4. Hand the accepted contract and available pre-change evidence to **repair-planner**,
+   known mismatch does not need another run. Project runs require current
+   audit clearance; resolve blockers rather than bypassing that gate. Expected failures under the new
+   design do not prove the old Agent violated the old design.
+4. Hand the accepted design and available pre-change evidence to **repair-planner**,
    then use the owning modules for Agent Settings, KB, Tools, handoff, or other
    approved changes.
 5. Re-run Static Audit, the focused impact set, and the covering regression for

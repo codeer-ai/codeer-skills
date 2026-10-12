@@ -7,10 +7,10 @@ For HTTP body input types or JSON-text fields, read
 [HTTP input contracts](../reference/http-input-contracts.md) before editing.
 It covers wire types, generated keys and preserving complete settings on update.
 
-For a query-led customer guidance Agent, first read the accepted
-`design/behavior-contract.md` from
-[consultative-guidance.md](consultative-guidance.md) and the reviewed acceptance
-cases from [eval-cases.md](eval-cases.md). The contract defines the accepted
+First read the relevant established design basis using the shared
+[source and discovery rules](../reference/agent-design.md#discover-and-ground-the-design)
+and the reviewed acceptance
+cases from [eval-cases.md](eval-cases.md). The design defines the accepted
 core scenario, outcome, guardrails, and decision policies; the cases test them.
 When optional `design/query_distribution.csv` or
 `design/query_examples.csv` artifacts exist and are relevant, read them
@@ -20,10 +20,13 @@ into the system prompt. Translate them into the simplest coherent ownership
 split across Agent Settings, KB, Tools, and handoff.
 
 When improving an existing Agent, do not use a settings repair to make an
-unapproved change to the Behavior Contract. If evidence indicates that the
-intended experience itself should change, return to Consultative Customer
-Guidance, obtain user acceptance, and update eval cases before designing the
-runtime diff.
+unapproved change to the Agent design. If evidence indicates that the
+intended experience itself should change, resolve the decision through the
+shared [confirmation rules](../reference/agent-design.md#confirmation-and-progressive-revision),
+using Consultative Customer Guidance only for query-led guidance. Update eval
+cases before designing the runtime diff. Missing historical design files do not
+block a clearly specified bounded repair. Report unavailable capabilities or
+evidence rather than weakening the intended outcome to fit current settings.
 
 Use supported distribution evidence when it exists and frequency or hot-path
 residency is actually in question, but keep its limits visible. Do not put
@@ -31,7 +34,7 @@ traffic shares, sampling claims, speculative frequency estimates, or the
 distribution artifact itself into the runtime prompt. The absence of a Query
 Distribution does not block a core-scenario build. A distribution change alone
 warrants settings work only when it changes the appropriate operational
-dependency, capacity, Tool path, or accepted Behavior Contract.
+dependency, capacity, Tool path, or accepted Agent design.
 
 When a change starts from Static Audit or Eval Debug findings, use
 [repair-planner.md](repair-planner.md) to establish the cross-component target
@@ -194,7 +197,7 @@ Before showing a settings diff, present:
 - any accepted Query Distribution evidence actually used for frequency or hot-
   path decisions, including material confidence limits and open gaps; otherwise
   state that no such evidence is required for the proposed target state;
-- the accepted Behavior Contract and reviewed acceptance behavior this target
+- the accepted Agent design and reviewed acceptance behavior this target
   state is meant to implement, including any material ambiguity still open;
 - the customer or task outcome, guardrails, observable entry condition, and
   Agent decision policy the change is meant to affect;

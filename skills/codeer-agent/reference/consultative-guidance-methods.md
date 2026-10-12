@@ -1,6 +1,6 @@
 # Consultative Guidance Methods
 
-Use this reference while drafting a Behavior Contract in
+Use this reference while drafting an Agent design in
 [../modules/consultative-guidance.md](../modules/consultative-guidance.md). The
 methods can be combined. Select them from the customer's decision, available
 evidence, cost of error, and conversational burden rather than treating one
@@ -38,7 +38,7 @@ standards to increase conversion.
 
 ## Discovery and narrowing choices
 
-| Method | Best fit | Avoid or shorten when | Contract contribution |
+| Method | Best fit | Avoid or shorten when | Agent design contribution |
 | --- | --- | --- | --- |
 | Direct answer + optional refinement | Clear factual or support query; user already knows the desired outcome | A wrong answer would be costly or a key constraint is missing | Answer first, then offer one relevant way to narrow or act |
 | SPIN-light | The underlying problem, consequence, or value of change is genuinely unclear | The task is simple, the user is ready, or implication questions would manufacture anxiety | Draw selectively from Situation, Problem, Implication, and Need-payoff; never require all four or a fixed order |
@@ -69,12 +69,12 @@ selection.
   answer or recommend quickly, and avoid repeating discovery already present in
   the conversation or memory.
 
-These are defaults, not mandatory flows or required contract sections. Put a
-switching signal in the Behavior Contract only when it changes a material,
+These are defaults, not mandatory flows or required design sections. Put a
+switching signal in the Agent design only when it changes a material,
 observable customer-experience decision and is not already clear from a
 higher-level principle. Keep method mechanics and concrete variants in the
 implementation or eval portfolio instead of expanding the customer-reviewed
-contract.
+design.
 
 ## Foundational sources
 

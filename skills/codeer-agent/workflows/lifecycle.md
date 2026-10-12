@@ -29,15 +29,18 @@ neither applies changes.
 ### Outcome-anchored lifecycle
 
 Anchor design and improvement work in a user-accepted customer or task outcome.
-For a first Agent version, choose one **core scenario** and one **core outcome**
-that form the smallest valuable end-to-end journey. Do not begin by inventorying
+When scope is open, recommend one **core scenario** and one **core outcome**
+that form a valuable end-to-end journey. Preserve all tasks the user has already
+put in scope. Follow the shared [discovery and source rules](../reference/agent-design.md#discover-and-ground-the-design),
+including early persistence and direct recording of clear instructions.
+Do not begin by inventorying
 every possible scenario, profile, or edge case. Include acceptable alternative
 or non-conversion outcomes and only the material safety, authority, quality, and
 autonomy guardrails needed to keep that journey reliable. A small first scope
 does not relax the canonical evidence and autonomy boundaries.
 
 Treat the core scenario, outcome, and behavior path as the opening of the
-Behavior Contract, not as separate artifacts. Expand the contract one scenario
+Agent design, not as separate artifacts. Expand the design one scenario
 at a time only when an observable difference changes the intended outcome,
 next move, required evidence, Tool or handoff path, consent boundary, or risk
 policy. Keep wording, product, Persona, channel, and challenge variations in
@@ -45,11 +48,11 @@ Eval coverage when the same decision policy still applies.
 
 Analysis-specific outcomes and measurement choices belong in the current
 analysis scope unless they represent a stable intended customer experience that
-the user accepts into the contract. Scope Alignment business or conversion
-goals and optional demand evidence are inputs to this decision, not parallel
-normative authorities. The accepted Behavior Contract is the sole normative
-design source for project-specific stable runtime customer outcomes and
-guardrails; it inherits the canonical evidence and autonomy boundaries. Use
+the user establishes as part of the intended behavior. Consolidate applicable
+instructions, designated source rules and confirmed choices in the Agent design;
+do not make their validity depend on another whole-document approval.
+Demand observations alone do not establish objectives. This design record
+inherits the canonical evidence and autonomy boundaries. Use
 [the acceptance-criteria basis](../modules/consultative-guidance.md#basis-for-acceptance-criteria)
 to derive case-level requirements without inventing additional quality rules.
 
@@ -63,8 +66,7 @@ or operational-profile taxonomies unless an observable distinction selects
 different correct handling. A profile may instead be an **analytic stratum**
 when it is useful for fair comparison, outcome measurement, or heterogeneous-
 effect analysis but does not change the Agent policy; keep that stratum in the
-analysis or sampling design rather than turning it into a Query Type, Behavior
-Contract branch, or runtime Persona inference.
+analysis or sampling design rather than turning it into a Query Type, Agent design branch, or runtime Persona inference.
 
 Production improvement findings must identify a modifiable Agent decision or
 action policy, the entry condition and decision point where it applies, a
@@ -82,39 +84,39 @@ guidance, use **consultative-guidance** to persist the accepted core scenario,
 outcome, and behavior path. Use **query-distribution** only when supported
 frequency, weighted portfolio allocation, capacity, hot-path, or production-
 drift decisions require a separate demand model. Query Distribution is optional
-and descriptive; the Behavior Contract is normative. Neither is a server object
+and descriptive; the Agent design is normative. Neither is a server object
 or runtime prompt. Acceptance eval cases should be designed before the Agent is
 created and can use concrete inputs directly from the accepted scenario and
 source evidence when no distribution artifact exists.
 
-Treat the Behavior Contract as the business reviewer and Agent builder's record
+Treat the Agent design as the business reviewer and Agent builder's record
 of stable intended customer outcomes, guardrails, and material observable
-customer-experience decisions. Start with one core scenario, one core outcome,
-and the minimum end-to-end decisions and high-consequence boundaries needed to
-make that journey reviewable. Do not turn it into a full support manual by
+customer-experience decisions. Record the minimum end-to-end decisions and
+high-consequence boundaries needed to make the agreed scope reviewable.
+Do not turn it into a full support manual by
 restating generic service norms, canonical skill guardrails, implementation
-details, or each eval variant. Add narrower contract detail only when
+details, or each eval variant. Add narrower design detail only when
 implementation, eval, or production evidence exposes a material ambiguity or
 an intentional experience change; follow
-[modules/consultative-guidance.md](../modules/consultative-guidance.md) for the
+[shared Agent design](../reference/agent-design.md) for the
 admission and progressive-detail rules.
 
 ### Phase 1: Build (zero to first publish)
 
 | Step | Module | What happens |
 | --- | --- | --- |
-| 1 | **kb-and-agent** | Scope Alignment selects one core scenario, one candidate core outcome, material exclusions, capabilities, and boundaries |
-| 2 | **consultative-guidance** | Use available evidence → define the core outcome and guardrails, then the minimum behavior path, Tool, handoff, and risk decisions that advance or protect them → user accepts `design/behavior-contract.md` |
+| 1 | **kb-and-agent** | Read sources and goals; recover established scope, outcomes, capabilities and boundaries; recommend a small starting scope only when not already specified |
+| 2 | **shared design discovery** → **consultative-guidance** *(query-led guidance only)* | Distill established intent and unresolved choices; guide the user through material gaps using concrete recommendations; persist decisions and proposals as work proceeds without a whole-document approval ritual |
 | 3 | **query-distribution** *(optional; may run before Step 2)* | Only when an active decision requires demand evidence—for example, selecting the core scenario or allocating a broader portfolio → perform the minimum analysis; persist accepted CSV artifacts only when a reusable demand or allocation model is needed |
-| 4 | **eval-portfolio** *(when portfolio or evaluator architecture needs review)* → **eval-cases** | Select the minimum decision-useful portfolio and evaluator coverage, then design and review a small end-to-end acceptance set for the accepted core scenario; use optional distribution evidence only when available and relevant → preserve intended behavior and observable success in `evals/cases.draft.md` before an `agent_id` exists |
-| 5 | **agent-settings → kb-and-agent** | Translate the accepted contract into Agent Settings, KB, Tools, handoff, and the first full DRAFT Agent; use optional supported demand evidence only for decisions it can justify |
+| 4 | **eval-portfolio** *(when portfolio or evaluator architecture needs review)* → **eval-cases** | Select the minimum decision-useful portfolio and evaluator coverage, then design and review end-to-end acceptance for the agreed scope; use optional distribution evidence only when available and relevant → preserve intended behavior and observable success in `evals/cases.draft.md` before an `agent_id` exists |
+| 5 | **agent-settings → kb-and-agent** | Translate the accepted design into Agent Settings, KB, Tools, handoff, and the first full DRAFT Agent; use optional supported demand evidence only for decisions it can justify |
 | 6 | **eval-cases** | Read the DRAFT, Tools, and evaluator templates → resolve intended pairs through the Pair Admission Gate → review and apply stable `evals/design.json`; unresolved pairs stay local and do not count as coverage. `evals/legacy-cases.json` is only for standalone legacy operations |
-| 7 | **static-audit** | Read-only contract/scenario ↔ eval, contract ↔ implementation, and eval ↔ observable-runtime preflight gate; a full audit may use the three independent alignment lanes; include distribution ↔ portfolio only when an accepted distribution exists |
+| 7 | **static-audit** | Read-only design/scenario ↔ eval, design ↔ implementation, and eval ↔ observable-runtime preflight gate; a full audit may use the three independent alignment lanes; include distribution ↔ portfolio only when an accepted distribution exists |
 | 8 | **eval-cases → regression-triage → eval-debug → repair-planner** | Run and automatically pin the first full baseline for the agreed scope → organize baseline result clusters → diagnose non-perfect dynamic evidence → plan and review any repair |
 | 9 | **owning module → static-audit → eval-cases → regression-triage** | Apply approved repair → re-audit → focused checks and full regression for the agreed scope → compare the Agent diff, predicted impact, and observed result delta |
 | 10 | **kb-and-agent** | Publish after the final gate and separate user go-ahead |
 
-Before implementation, run a local semantic review of the Behavior Contract's
+Before implementation, run a local semantic review of the Agent design's
 core scenario and behavior path against the draft cases. When an accepted Query
 Distribution exists and is being used, also review it against the draft case
 portfolio. This local-only review does not require server state and is not a
@@ -160,19 +162,20 @@ entry paths.
    prior and current Agent/eval context, classify result deltas, and organize
    failure clusters. Send every non-perfect dynamic result to **eval-debug**.
    Determine whether the strongest owner is the eval system, the implementation
-   of an unchanged Behavior Contract, or the Behavior Contract itself.
+   of an unchanged Agent design, or the Agent design itself.
 2. For a case, rubric, evaluator, or assignment defect, use
    **repair-planner → eval-cases**. Use **eval-portfolio** first when the
    finding requires broader evaluator architecture, portfolio allocation,
    deduplication, or retirement decisions. Then run Static Audit and rerun the
    affected pairs. Do not change the Agent merely to satisfy a defective eval.
 3. For an Agent Settings, KB, Tool, handoff, retrieval, or platform defect
-   against an unchanged contract, use **repair-planner → owning module**, then
+   against an unchanged design, use **repair-planner → owning module**, then
    Static Audit, focused verification, and the required regression.
-4. If the contract is materially ambiguous or would produce a worse customer
+4. If the design is materially ambiguous or would produce a worse customer
    experience even when implemented correctly, stop implementation planning.
-   Use **consultative-guidance**, obtain user acceptance of the revised
-   contract, update eval cases first, and only then plan runtime changes.
+   Use the shared [confirmation rules](../reference/agent-design.md#confirmation-and-progressive-revision)
+   to resolve the intended behavior, with **consultative-guidance** only for
+   query-led guidance. Update eval cases first, then plan runtime changes.
 
 #### Production-history path
 
@@ -182,27 +185,29 @@ entry paths.
    user before pulling the necessary conversations. Compare observable entry
    conditions and Agent decision policies, separate observations from
    diagnosis, identify successful behavior to protect, and distinguish
-   implementation defects, contract improvements, distribution drift, and
+   implementation defects, design improvements, distribution drift, and
    eval-portfolio gaps.
 2. When the analysis decision requires demand or allocation evidence, use
    **query-distribution** for the minimum analysis and persist an optional model
    only when it needs reuse across later allocation, capacity, weighted-
    reporting, or drift decisions. A newly observed scenario normally creates
-   an Eval probe first; expand the Behavior Contract only when correct handling
+   an Eval probe first; expand the Agent design only when correct handling
    or a stable risk policy changes.
 3. When History exposes several candidate probes, evaluator-design needs,
    suite redundancy, or a material allocation choice, use **eval-portfolio** to
    propose the minimum decision-useful keep, merge, retire, and add set. A
    single clear reproduction or protection probe may go directly to
    **eval-cases**.
-4. For an implementation defect against the unchanged contract, add the
+4. For an implementation defect against the unchanged design, add the
    smallest reproduction and protection cases and run Static Audit. If a
    focused pre-change eval adds decision value, run it on the current Agent
    before **eval-debug → repair-planner**; otherwise use the sufficient
    existing evidence directly in **repair-planner**.
-5. For an intentional contract improvement, use **consultative-guidance** to
+5. For an intentional design improvement, use the shared
+   [confirmation rules](../reference/agent-design.md#confirmation-and-progressive-revision),
+   and **consultative-guidance** only for query-led guidance, to
    compare current and proposed customer behavior and obtain user acceptance.
-   Update the persistent contract and acceptance cases first. Run a focused
+   Update the persistent design and acceptance cases first. Run a focused
    pre-change eval when observing the old behavior will inform the repair or
    comparison; an already established mismatch can proceed to **repair-planner**
    without a redundant run.

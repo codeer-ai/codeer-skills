@@ -27,7 +27,7 @@ agent = "agent/settings.json"
 instructions = "agent/instructions.md"
 evals = "evals/design.json"
 sources = "sources/index.md"
-contract = "design/behavior-contract.md"
+design = "design/agent-design.md"
 acceptance = "design/acceptance.json"
 ```
 
@@ -39,13 +39,42 @@ paths to adopt existing files; do not move/delete legacy data automatically.
 Only a literal `[target]` table with simple one-line basic strings supports
 comment-preserving automated binding; exotic TOML is rejected for manual review.
 
+### Agent design paths and existing projects
+
+Resolve the Agent design source before reading or saving it. `[paths].design`
+is the preferred setting; `[paths].contract` remains a supported legacy alias.
+An explicit setting wins even when its file does not exist yet. If both keys
+are set, they must resolve to the same path inside the project; otherwise fix
+the conflicting settings before continuing.
+
+Without either setting, use `design/agent-design.md` for new projects. If only
+the old `design/behavior-contract.md` or `design/behavior-contract.draft.md`
+exists, continue using that old pair. If either member of both the new and old
+pairs exists, `status`/`validate` stop with an ambiguity error: establish the
+intended source and set `[paths].design`. Never create a second design authority
+or move customer files just to follow the new naming.
+
+Pending proposals belong beside the selected design as `<stem>.draft.md`, e.g.
+`notes/policy.md` uses `notes/policy.draft.md`. The paths below and in other skill
+modules are new-project defaults; always substitute the selected path and its
+draft. Both must stay inside the project. Init preserves existing authored
+files; updating the CLI does not rename them or rewrite historical references.
+
+The older name was Behavior Contract. Its content responsibilities and project
+schema have not changed. Revision hashing retains its legacy field identity:
+an upgrade, alias change, or rename of the design file with identical content
+alone does not invalidate audit/run/release evidence. Changes to content or
+other dependencies still do. If Eval source references point to a moved file,
+update those references and revalidate the affected evidence. Pending drafts
+are not accepted design and are not hashed as the established design file.
+
 | Location | Authority / purpose |
 | --- | --- |
 | `sources/index.md` | Original path/URL, purpose, version/date, authority, gaps, derivative/KB mapping |
 | `sources/documents/` | Original SOP/PDF/customer material; extracts are separate files with provenance |
 | `sources/history/<collection-id>/` | Raw History/AI Draft exports and collection scope; never public fixtures |
 | `kb/` | Curated upload content and source mapping; remote-only references need no local copy |
-| `design/behavior-contract.md` / `.draft.md` | Accepted policy / pending proposal; review version and confirmation source live in `reviews/` |
+| `design/agent-design.md` / `.draft.md` | Builder-maintained established design basis / pending proposal; instruction or confirmation evidence lives in `reviews/` |
 | `design/acceptance.md` / `.json` | Human delivery scope and gaps / machine acceptance pairs and scope-bound confirmation |
 | `agent/settings.json`, `agent/instructions.md` | Writable settings and the sole editable prompt; omit `system_prompt` from JSON when Instructions exists |
 | `evals/design.json` | Stable Case/Tester design, Rubrics, evidence requirements and pairs |
@@ -53,6 +82,16 @@ comment-preserving automated binding; exotic TOML is rejected for manual review.
 | `runs/<run-id>/`, `releases/<release-id>/` | Actual operation evidence; never overwrite a prior run |
 | `.codeer/` | Profile name, state, remote imports, ID mappings, sync bases and operation receipts |
 | `log.md` | Short dated reason, decision/status, evidence links and next unresolved step; never machine truth |
+
+The builder follows the shared [discovery and source rules](agent-design.md#discover-and-ground-the-design)
+to maintain this design from user goals, clear instructions, designated source
+rules and confirmed choices. Users need not know the internal file names or
+approve a document merely to make their explicit instructions effective.
+Persist important understanding and open proposals during discovery; keep
+unresolved assumptions in the draft. Record actual instruction/confirmation
+evidence and link it from the established design. Missing legacy design files
+do not block a bounded diagnosis or clearly specified repair. This does not
+change remote-operation authorization or machine evidence requirements below.
 
 Local `source.document` and evidence `verification` paths must exist within the
 project. Their bytes participate in revision identity; changing a report makes

@@ -118,11 +118,29 @@ an explicit `--agent` takes precedence. Other commands that require an Agent
 continue to require `--agent` when no project target is bound.
 
 Original documents and extracted derivatives stay under `sources/`; curated
-uploads belong in `kb/`. Keep accepted decisions in
-`design/behavior-contract.md`, pending decisions in its `.draft.md` counterpart,
+uploads belong in `kb/`. When working through the skill, the coding agent reads
+your material, helps resolve material gaps and maintains the design record;
+you need not learn its internal terminology or fill a template. Explicit
+instructions are recorded with their basis without another document approval.
+Unclear intent or conflicting sources still require a decision. The builder
+keeps established decisions in
+`design/agent-design.md`, pending decisions in its `.draft.md` counterpart,
 and important milestones/reasons in `log.md`. The single prompt authority is
 `agent/instructions.md`; omit `system_prompt` from `agent/settings.json`.
-Structured Eval design lives in `evals/design.json`.
+Structured Eval design lives in `evals/design.json`. Important understanding and
+proposals are saved during discovery, so a new conversation can resume them.
+Design decisions do not themselves authorize remote writes or publication.
+
+These are new-project defaults. Override the design path with `[paths].design`;
+the older `[paths].contract` key remains supported. Explicit settings take
+precedence; if both keys are present they must resolve to the same path. Without
+either key, an existing `design/behavior-contract.md` or its `.draft.md` selects
+the old pair. If both naming pairs exist, set `[paths].design` to resolve the
+ambiguity. Pending proposals use the selected file's sibling `<stem>.draft.md`.
+Existing files are never automatically renamed. Updating the CLI or renaming
+only the design file without changing content preserves its revision; changes
+to content or dependent Eval references still require renewed validation. See
+[the path rules](../skills/codeer-agent/reference/project.md#agent-design-paths-and-existing-projects).
 
 To adopt an existing Agent without overwriting local work:
 

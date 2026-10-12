@@ -23,55 +23,38 @@ an existing agent.
 
 ## Step 1 — Scope alignment
 
-**Do this before any KB or agent work.** For the first version, pin down six
-things with the user without turning scope alignment into a scenario inventory:
+Before designing a new Agent, follow the shared
+[discovery and source rules](../reference/agent-design.md#discover-and-ground-the-design).
+For existing Agents, recover only the scope needed for the requested work.
+Read the user's material, establish intended outcomes and limits, and clarify
+material gaps. Preserve explicit instructions and all tasks already in scope;
+do not require a questionnaire or a separate document approval.
 
-1. **Core scenario** — one smallest valuable end-to-end situation that
-   expresses why the Agent exists: the observable user intention or task,
-   starting state, material constraint, and supported Agent role. Choose the
-   central value path, not merely the easiest FAQ.
-2. **Candidate core outcome and exclusions** — the user-visible result this
-   version should help produce and what it deliberately defers, deflects, or
-   escalates (legal advice, medical advice, competitor pricing, unsupported
-   operations, etc.). The outcome remains non-normative until accepted in the
-   Behavior Contract.
-3. **Business or conversion goals** — candidate success signals for the core
-   scenario (booking link click, form submission, purchase URL, callback
-   request). At
-   this stage they are non-normative business context, not accepted Agent
-   outcomes; reconcile them with customer outcomes and guardrails in the
-   Behavior Contract before runtime design.
-4. **Hard rules** — anything the agent must never do (never quote a price
-   not in the KB, never invent a course slug, etc.).
-5. **Tools used** — which tools the agent needs and why (knowledge base,
-   web search, request form, call agent, memory, http request, etc.).
-6. **Human handoff** — whether the agent may transfer a conversation to a
-   person, what should trigger the transfer, and whether an idle timeout is
-   needed. Human handoff is separate from Call Agent, which delegates to
-   another AI agent.
+Connect permitted actions to available capabilities. Recommend appropriate
+Tools rather than requiring the user to know their technical names. For human
+handoff, establish the permitted triggers and any material idle-timeout need;
+human handoff is distinct from Call Agent delegation to another AI.
+Business measures such as conversion or containment are context unless clearly
+established as objectives, and must be reconciled with user outcomes and
+guardrails rather than optimized in isolation.
 
-Known additional scenarios may remain explicitly deferred without being fully
-specified. Add one only when it becomes part of the accepted build scope.
+Persist established decisions and pending proposals as discovery proceeds,
+using the existing Agent design/draft, source index and review/log records. Do not
+create a separate Scope Alignment artifact. Product facts belong in KB;
+operational configuration belongs in settings. The design records the governing
+decisions without copying either implementation.
 
-Keep the working answers in conversation context until the Behavior Contract is
-accepted. Do not create a separate Scope Alignment artifact: the persistent
-Behavior Contract owns the accepted core scenario, outcome, material
-boundaries, and exclusions; Agent Settings and Eval coverage record how that
-scope is implemented and tested. Assign source-of-truth facts to the KB and
-operational triggers to Tool or handoff settings rather than duplicating them
-in the contract.
+### Route through design and eval design before building
 
-### Route through contract and eval design before building
-
-For a query-led customer guidance agent, stop after Scope Alignment and use
-[consultative-guidance.md](consultative-guidance.md) to create the accepted
-`design/behavior-contract.md` for the one core scenario and outcome.
-Then use [eval-cases.md](eval-cases.md) to design its small end-to-end acceptance
+Use the shared design basis for any Agent. For query-led customer guidance,
+also use [consultative-guidance.md](consultative-guidance.md) for its specialized
+discovery methods. Once relevant decisions are established, use
+[eval-cases.md](eval-cases.md) to design a proportionate end-to-end acceptance
 set locally. These steps happen before KB upload, Agent Settings design, or
 Agent creation so intended customer behavior—not the first prompt draft—defines
 what the first Agent must satisfy.
 
-Use [query-distribution.md](query-distribution.md) before or after the contract
+Use [query-distribution.md](query-distribution.md) before or after the design
 only when a named demand, weighted portfolio, capacity, hot-path, or drift
 decision requires analysis. Keep a one-off result in the current analysis;
 create the optional `design/query_distribution.csv` and
@@ -87,7 +70,11 @@ return to Eval Case Design after creation to apply the cases using the new
 
 ## Step 2 — Prepare and upload KB
 
-### KB planning decisions (confirm with user)
+### KB planning decisions
+
+Propose the organization supported by the sources and existing conventions.
+Ask about unresolved content scope or material tradeoffs; reversible file layout
+choices do not require a separate approval ritual.
 
 - One KB or several? (default: one per agent)
 - Flat root or one level of folders? (KB UI only renders one level)
@@ -148,7 +135,7 @@ Payload-only examples below describe standalone use; project operations also
 require their current preview token.
 
 Write `agent/settings.json`. Pull stable normative customer
-outcomes and guardrails from the accepted Behavior Contract; use Scope
+outcomes and guardrails from the accepted Agent design; use Scope
 Alignment for scope, capabilities, and operational context, and use supported
 Query Distribution evidence for hot-path and capacity decisions only when that
 optional analysis exists and applies. Business or conversion goals from Scope

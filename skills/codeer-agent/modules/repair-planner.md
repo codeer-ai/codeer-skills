@@ -8,7 +8,8 @@ owner and does not apply a change merely because it can propose one.
 
 Planning is read-only. Before any later server mutation, follow the skill's
 mutation and diff guardrails, use the module that owns the affected component,
-show the complete diff, and wait for explicit user approval.
+show the complete diff, and carry forward authorization for that reviewed scope;
+ask only for a new material decision or effect.
 
 ---
 
@@ -27,8 +28,8 @@ The planner still needs enough meaning to recover:
 - the likely owner and material uncertainty; and
 - the current objects that would be affected by a change.
 
-For a query-led customer guidance Agent, also read the accepted
-`design/behavior-contract.md` when it is relevant to the finding. Read
+For any Agent, also read the established design basis in
+`design/agent-design.md` when it is relevant to the finding. Read
 optional `design/query_distribution.csv` and
 `design/query_examples.csv` artifacts only when they exist and the
 finding depends on demand, allocation, or concrete-input evidence. They are
@@ -66,24 +67,25 @@ Do not plan an exact repair when source truth is unresolved or the available
 evidence cannot distinguish plausible owners. In those cases, recommend the
 smallest decision, read, trace, or probe needed to unblock planning.
 
-If the accepted finding is that the Behavior Contract itself is ambiguous or
+If the accepted finding is that the Agent design itself is ambiguous or
 should change, stop runtime repair planning. Use
-[consultative-guidance.md](consultative-guidance.md) to obtain user acceptance
-of the revised behavior, then update acceptance eval cases first. Re-enter the
-planner with the accepted contract and sufficient existing or new evidence.
+[shared confirmation rules](../reference/agent-design.md#confirmation-and-progressive-revision)
+to resolve the decision, carrying forward clear instructions. Use
+[consultative-guidance.md](consultative-guidance.md) only for query-led guidance.
+Update acceptance eval cases first. Re-enter the
+planner with the accepted design and sufficient existing or new evidence.
 Use the parent skill's pre-change-run decision: a known mismatch need not be
-rerun solely to fail again. Do not hide an unapproved contract change inside
+rerun solely to fail again. Do not hide an unapproved design change inside
 Agent Settings, KB, Tools, or a rubric.
 
 If the accepted finding is a scenario-coverage gap, route it to
-[eval-cases.md](eval-cases.md) when the existing Behavior Contract already
+[eval-cases.md](eval-cases.md) when the existing Agent design already
 determines correct handling; route it first to
-[consultative-guidance.md](consultative-guidance.md) when it requires a new
+[design discovery](../reference/agent-design.md#discover-and-ground-the-design) when it requires a new
 outcome, behavior path, or stable boundary. If the decision also requires
 demand or allocation evidence, use the optional
 [query-distribution.md](query-distribution.md) module. Do not plan a runtime
-repair for a distribution-only change unless it also changes the Behavior
-Contract, an operational dependency, capacity, Tool path, or another runtime
+repair for a distribution-only change unless it also changes the Agent design, an operational dependency, capacity, Tool path, or another runtime
 owner. When the finding requires broader evaluator architecture, portfolio
 allocation, representativeness, deduplication, or retirement decisions, use
 [eval-portfolio.md](eval-portfolio.md) before drafting the maintained-suite
@@ -208,7 +210,8 @@ When justified, read the current canonical file and `snapshot_object_id`, then
 preview the representative question and target with `codeer kb faq-create ...
 --dry-run` or `faq-update ... --dry-run`. Use a line range only when the passage
 is stable and the question should land on that specific section. Present the
-preview and wait for explicit approval before applying it.
+preview and reconcile it with the existing authorization; obtain approval if
+the reviewed change is not already covered before applying it.
 
 ### Agent settings, tools, handoff, or model
 
@@ -289,7 +292,7 @@ Choose the additional impact set from the changed owner:
 
 | Changed owner | Minimum impact set |
 | --- | --- |
-| Behavior Contract scenario or outcome | Core path, material branch, nearby boundary, accepted alternative outcome, and protected guardrails; update Evals before runtime changes |
+| Agent design scenario or outcome | Core path, material branch, nearby boundary, accepted alternative outcome, and protected guardrails; update Evals before runtime changes |
 | Optional Query Distribution or eval-portfolio allocation | Changed cells, neighboring allocation boundaries, risk reserves, and distribution-to-portfolio audit; runtime regression only when the Agent also changes |
 | One case rubric | The pair plus calibration examples and adjacent cases using the same criterion |
 | FAQ/routing target | Reproduction, same-source variants, similar routes, boundary, negative control |

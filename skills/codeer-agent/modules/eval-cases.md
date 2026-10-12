@@ -1,13 +1,13 @@
 # Eval Case Design
 
 Build eval cases that cover the Agent's accepted operating scope. For a first
-version, begin with a small end-to-end acceptance set for the one core scenario
-in the Behavior Contract. Work one scenario or later portfolio group at a time
+version, begin with a proportionate end-to-end acceptance set for the agreed scope
+in the Agent design. Work one scenario or later portfolio group at a time
 so each review batch is mentally manageable.
 
-For a new query-led customer guidance Agent, begin from the accepted
-`design/behavior-contract.md` in
-[consultative-guidance.md](consultative-guidance.md). It defines the core
+For any Agent, begin from the established design basis under the shared
+[source and discovery rules](../reference/agent-design.md#discover-and-ground-the-design).
+The builder-maintained `design/agent-design.md` records the applicable
 scenario, accepted outcome, guardrails, and correct Agent decision policies.
 When optional `design/query_distribution.csv` or
 `design/query_examples.csv` artifacts exist and apply, read them through
@@ -40,7 +40,7 @@ Preview tokens identify content and do not grant approval.
 
 ## Step 1 — Select minimum-sufficient scenario coverage
 
-Inspect the accepted scope, Behavior Contract, and source material. When an
+Inspect the accepted scope, Agent design, and source material. When an
 Agent already exists, also inspect its settings, system prompt, KBs, and Tools,
 but do not let the current implementation silently redefine accepted behavior.
 When an accepted Eval Portfolio proposal exists, use its coverage universe,
@@ -56,8 +56,9 @@ by packing unrelated requirements into one rubric or overwriting a still-needed
 input or state. This is part of ordinary authoring, not a requirement for a
 separate portfolio review on every small change.
 
-For the first version, keep one core scenario and select only the variants
-needed to make its end-to-end behavior judgeable:
+For each scenario in the agreed scope, select only the variants needed to make
+its end-to-end behavior judgeable. A single-scenario starting recommendation
+must not remove tasks the user already requested:
 
 - a representative path from the observable starting state to the core or an
   acceptable alternative outcome;
@@ -68,12 +69,12 @@ needed to make its end-to-end behavior judgeable:
 - a paraphrase, disclosure-order, or nearby-boundary probe only when needed to
   show that the decision policy generalizes beyond one wording.
 
-These are Eval variants of one scenario, not new Behavior Contract scenarios.
+These are Eval variants of one scenario, not new Agent design scenarios.
 Do not require a MECE category map or invent additional journeys before the
-core path is stable. When the accepted scope later contains several scenarios
-or a large suite needs review groups, propose 3–6 mutually exclusive,
-collectively exhaustive portfolio categories and confirm that structure with
-the user before writing grouped cases.
+core path is stable. When grouping helps review several scenarios or a large
+suite, reuse existing categories or choose the smallest useful grouping.
+Organizing already agreed coverage does not require a separate approval;
+confirm only material changes to scope, coverage priorities or allocation.
 
 End-to-end acceptance may use a small set of state-complete cases, each carrying
 the prior facts needed to judge one material decision point. This can verify the
@@ -319,9 +320,9 @@ as a baseline.
 
 ### 2f. Next accepted scenario or group
 
-Stop after the accepted first-version core scenario is covered. Otherwise,
-repeat from 2a for the next accepted scenario or portfolio group; do not expand
-the Behavior Contract merely to continue the loop.
+Stop when the agreed scope is covered. Otherwise, repeat from 2a for the next
+accepted scenario or portfolio group; do not expand
+the Agent design merely to continue the loop.
 
 ---
 
@@ -331,14 +332,13 @@ Before the first baseline, a full regression, or a publish decision, run a full
 [static-audit.md](static-audit.md). After a bounded exploratory case or rubric
 change, a scoped audit is sufficient before a focused probe when it checks all
 affected static dependencies and no whole-system claim is made. Run a full
-audit after any accepted KB, FAQ, settings, evaluator, assignment, Behavior
-Contract, or optional Query Distribution change before the next full sweep.
+audit after any accepted KB, FAQ, settings, evaluator, assignment, Agent design, or optional Query Distribution change before the next full sweep.
 Do not start a project run while the applicable audit verdict is `BLOCKED`;
 the current CLI has no exploratory override. For standalone exploratory work,
 follow [the audit verdict rules](static-audit.md#step-6--report-the-findings)
 and keep that run separate from clearance or publish evidence. Do not use
 `--outside-project` to bypass a project's blockers. Always include
-the Behavior Contract's semantic alignment with affected acceptance cases;
+the Agent design's semantic alignment with affected acceptance cases;
 include distribution-to-portfolio alignment only when applicable.
 
 For a new Agent, after the accepted first-version scope is covered, cases are

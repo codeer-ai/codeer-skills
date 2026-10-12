@@ -127,6 +127,13 @@ Make sure:
 
 ## Local Agent development
 
+Tell the coding agent your goals and provide source files or links. It reads
+the material, summarizes intended behavior, recommends how to resolve gaps and
+asks only questions that change the design. It maintains the design basis and
+pending decisions for you, including before discovery is complete. You need not
+learn “Agent design,” fill a template or approve a clear instruction again
+just to record it. The commands below support that workflow.
+
 ```bash
 codeer init ./support-agent
 cd support-agent
@@ -152,8 +159,8 @@ support-agent/
 │   └── history/                   # Raw conversations and AI Draft exports
 ├── kb/                            # Curated content prepared for upload
 ├── design/
-│   ├── behavior-contract.md       # Accepted customer behavior decisions
-│   ├── behavior-contract.draft.md # Pending behavior proposals
+│   ├── agent-design.md            # Established Agent design decisions
+│   ├── agent-design.draft.md      # Pending design proposals
 │   ├── acceptance.md              # Delivery scope and criteria
 │   └── acceptance.json            # Confirmed evaluation scope
 ├── agent/
@@ -167,14 +174,22 @@ support-agent/
 └── .codeer/                       # Local state, mappings and receipts
 ```
 
-The detailed contract lives in
+These are new-project defaults. Existing projects keep their configured design
+path (`[paths].design`, or legacy `[paths].contract`) and sibling `.draft.md`.
+Without an explicit setting, an existing `design/behavior-contract.md` or its
+draft keeps the old pair in use. If both naming pairs exist, select the intended
+source with `[paths].design`; do not create a second design authority.
+
+The detailed project format lives in
 [`skills/codeer-agent/reference/project.md`](skills/codeer-agent/reference/project.md).
 It defines file responsibilities, synchronization, evaluation evidence and
 publication checks for all local projects. Keep project-specific usage and
 context in each project's own `README.md`.
 
-Ask the skill to **build, cases, audit, apply, eval, improve, publish, or observe**
-in natural language. These are skill modes, not CLI subcommands. Existing Agents
+Use ordinary requests such as “Build a support Agent from this SOP” or “Diagnose
+only this failed handoff.” The builder selects **build, cases, audit, apply,
+eval, improve, publish, or observe**; these internal skill modes are also available
+as explicit entry points, not CLI subcommands. Existing Agents
 can enter at a bounded audit or repair. Import means unvalidated current state;
 it does not accept business policy. Draft apply, focused tests, covering
 regression and publication are separate operations. Existing authorization

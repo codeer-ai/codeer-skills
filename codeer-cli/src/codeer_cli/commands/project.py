@@ -30,7 +30,37 @@ def run_init(args, client=None):
     root.mkdir(parents=True, exist_ok=True)
     files = {
         "project.toml": f'schema_version = 1\nname = {json.dumps(args.name or root.name)}\n\n[target]\n# Bound by agent pull/apply after scope verification. No credentials here.\n\n[paths]\n# Override paths to adopt existing local files without moving them.\n',
-        "README.md": "# Agent development project\n\nPut original SOP/PDF files in `sources/documents/`; list paths or URLs, purpose, version, authority and gaps in `sources/index.md`. Keep originals; extracted text is a separate derivative. Curated upload content belongs in `kb/`. Raw histories/AI Draft exports belong in `sources/history/<collection-id>/`.\n\nUse `codeer status` and `codeer validate` offline. Ask codeer-agent to build, cases, audit, apply, eval, improve, publish or observe. Existing Agents start with `agent pull --agent <id>`; import KB/Eval separately.\n\nAccepted behavior: `design/behavior-contract.md`; pending behavior: `design/behavior-contract.draft.md`; acceptance narrative: `design/acceptance.md`; machine acceptance scope: `design/acceptance.json`. Editable settings: `agent/settings.json`; the only prompt authority is `agent/instructions.md`. Eval design: `evals/design.json`. Reviews hold proposals and scope-bound confirmations. Each run/release has its own evidence directory.\n\nAppend important reasons and outcomes to `log.md`, linking actual reviews/runs/releases. Status derives from structured evidence, not this log. Unknown business decisions require confirmation; imports are not acceptance.\n",
+        "README.md": (
+            "# Agent development project\n\n"
+            "Tell the coding agent your goals and where the source material is. It reads first, "
+            "summarizes intended behavior, recommends choices and asks only material unresolved questions. "
+            "It maintains the design and pending decisions for you as discovery proceeds. You need not "
+            "learn internal mode names or fill an Agent design template. Clear instructions can be "
+            "recorded with their basis without another document approval; conflicts and new material "
+            "choices still need a decision. Design decisions do not authorize remote writes or publication.\n\n"
+            "Original SOP/PDF files belong in `sources/documents/`; the builder lists paths or URLs, "
+            "purpose, version, authority and gaps in `sources/index.md`. Keep originals; extracted text "
+            "is a separate derivative. Curated upload content belongs in `kb/`. Raw histories/AI Draft "
+            "exports belong in `sources/history/<collection-id>/`.\n\n"
+            "Use `codeer status` and `codeer validate` offline. Requests such as 'Build an Agent from "
+            "this SOP' or 'Diagnose only this failed handoff' route to the appropriate skill workflow. "
+            "Existing Agents start with `agent pull --agent <id>`; import KB/Eval separately.\n\n"
+            "Builder-maintained design basis: `design/agent-design.md`; pending proposals: "
+            "`design/agent-design.draft.md`; acceptance narrative: `design/acceptance.md`; "
+            "machine acceptance scope: `design/acceptance.json`. Editable settings: `agent/settings.json`; "
+            "the only prompt authority is `agent/instructions.md`. Eval design: `evals/design.json`. "
+            "Reviews hold source/instruction evidence, proposals and scope-bound confirmations. "
+            "Each run/release has its own evidence directory.\n\n"
+            "These are new-project defaults. Use `[paths].design` for another design file; "
+            "legacy `[paths].contract` remains supported. Without an explicit setting, an existing "
+            "`design/behavior-contract.md` or `.draft.md` keeps the old pair in use. If both naming "
+            "pairs exist, select the intended source with `[paths].design`. Pending proposals use "
+            "the selected file's sibling `<stem>.draft.md`. Do not create a second design authority "
+            "or move existing files just to follow the new name.\n\n"
+            "Append important reasons and outcomes to `log.md`, linking actual reviews/runs/releases. "
+            "Status derives from structured evidence, not this log. Unknown business decisions require "
+            "confirmation; imports are not acceptance.\n"
+        ),
         "log.md": "# Decision and change log\n\nAppend dated proposals, confirmations, apply and verification outcomes with reasons and evidence links. Do not record secrets or every command.\n",
         "sources/index.md": "# Source index\n\n| Source path or URL | Purpose | Version/date | Authority | Derivative/KB | Gaps |\n| --- | --- | --- | --- | --- | --- |\n",
         ".gitignore": ".codeer/\nsources/history/\nruns/\nreleases/*/raw*\n*.pdf\n",
