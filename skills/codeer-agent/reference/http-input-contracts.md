@@ -72,12 +72,19 @@ GET/HEAD still validate configuration, but their runtime ignores body inputs.
 
 ## Read, preserve, apply, verify, then publish separately
 
+In a tracked project, prefer `agent pull`, edit Instructions/settings and use
+`agent diff --local` followed by the confirmed `agent apply --expect <token>`.
+The [project contract](project.md) supplements editable reads from exact latest
+history to preserve attachments. Project update also preserves supported
+response mode/presentation fields; external create cannot set those fields.
+The payload-only instructions below describe standalone command behavior.
+
 1. Run `codeer check` before server work, then export the current editable Agent:
-   `codeer agent get <agent-id> --out .codeer/current/agent.json`.
+   `codeer agent get <agent-id> --out reviews/observations/agent.json`.
    This preserves nested payload/schema/template/contract keys, including
    `owner`, `profile`, and `workspace`. Full exports retain HTTP credentials;
    inspect them locally without pasting secrets into chat or a review.
-2. Build `.codeer/current/local_draft_agent.json` from current **writable**
+2. Build `agent/settings.json` from current **writable**
    settings. External PATCH is not a nested partial update: supply `name`,
    `system_prompt`, `use_search`, the complete `unified_tools` list, and all
    desired contracts. Preserve unrelated tools, auth, headers, query parameters,
@@ -87,7 +94,7 @@ GET/HEAD still validate configuration, but their runtime ignores body inputs.
 3. GET is evidence, not a universal ready-to-apply payload. Check current version
    metadata with `codeer agent versions --agent <agent-id>`, then read the needed
    snapshot with `codeer agent get <agent-id> --history <history-id> --out
-   .codeer/current/agent-version.json`. Reconstruct writable `attachment_ids`
+   reviews/observations/agent-version.json`. Reconstruct writable `attachment_ids`
    from the snapshot's `attachments[].id` and any other absent writable fields
    from current evidence. The CLI's supported top-level fields are name, prompt,
    tools, search, description, model/model settings, questions, primary object IDs,
@@ -95,7 +102,7 @@ GET/HEAD still validate configuration, but their runtime ignores body inputs.
    sent to preserve behavior (for example a non-default `response_mode`, which
    apply does not forward), stop before apply and report the unsupported setting.
 4. Run `codeer agent apply --agent-id <agent-id> --payload
-   .codeer/current/local_draft_agent.json --dry-run`. `http_inputs` shows each
+   agent/settings.json --dry-run`. `http_inputs` shows each
    tool index and generated input key with effective type/format/root restriction
    and whether it was configured. It excludes HTTP values and instructions.
    Review the complete local payload diff as well; the summary is not a full diff.

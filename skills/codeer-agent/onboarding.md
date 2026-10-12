@@ -10,6 +10,16 @@ commits.
 
 ## Recommended setup
 
+Project commands below are available in the development source checkout. This
+change does not release them to PyPI; verify `codeer init --help` on the installed
+CLI and use the repository's development install if unavailable.
+
+You can first run `codeer init <customer-directory>`, `codeer status` and
+`codeer validate` without credentials. Put original SOP/PDF files in
+`sources/documents/` and list paths or external URLs in `sources/index.md`.
+Read [project mechanics](reference/project.md) for the file contract and existing
+Agent adoption. Select a profile only when server reads/writes are needed.
+
 Install the CLI from PyPI with `pipx`:
 
 ```bash

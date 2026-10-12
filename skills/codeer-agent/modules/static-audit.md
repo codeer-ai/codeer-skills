@@ -15,6 +15,12 @@ any change. Send findings that need a change to
 Use [eval-debug.md](eval-debug.md) only after response, tool, retrieval, or judge
 evidence exists for a specific run.
 
+For a project pre-eval clearance, use `codeer eval snapshot` and save the small
+[scope-bound audit metadata](../reference/project.md#audit-runs-and-publication)
+beside the readable report. The report format remains flexible; metadata binds
+the actual reviewed revision, exact history, remote dependencies and pairs.
+A local or single-object diagnosis need not produce passing gate metadata.
+
 ---
 
 ## When to run
@@ -25,7 +31,7 @@ Run a full audit:
 - after Behavior Contract, KB, FAQ/routing, agent settings, evaluator templates,
   judge models, or assignments change—and after an optional Query Distribution
   changes when the run uses it—and before the next full sweep;
-- before a full assigned-pair regression or publish decision; and
+- before a full regression for the agreed scope or publish decision; and
 - whenever local manifests and server state may have drifted.
 
 Before implementation, this module may also perform a local-only scoped review
@@ -46,9 +52,9 @@ truth, assignment, or version context. Run the full audit before any later full
 regression or publish decision.
 
 For a maintained query-led customer guidance Agent, read the persistent
-`.codeer/design/behavior_contract.md`. Include its scenario-to-acceptance-eval
+`design/behavior-contract.md`. Include its scenario-to-acceptance-eval
 alignment in a full audit. When an accepted
-`.codeer/design/query_distribution.csv` exists and the portfolio claims to use
+`design/query_distribution.csv` exists and the portfolio claims to use
 it, also include distribution-to-eval-portfolio alignment. A missing optional
 distribution is not a design gap. For a legacy Agent without a Behavior
 Contract, do not fabricate one; record the missing normative design evidence
@@ -338,8 +344,9 @@ Verify mechanically where possible:
 
 An evaluator existing on the server is not coverage. For example, a Source
 Support evaluator with zero assignments provides no Source Support coverage.
-Running only Content Compliance is not a full eval when other assigned pairs
-exist.
+Apply the shared [regression scope](../reference/project.md#regression-scope).
+Running only Content Compliance is not full clearance when other pairs are
+required by that scope.
 
 ### Evaluator visibility
 
@@ -434,13 +441,21 @@ For a full pre-eval gate, use one verdict:
 Report the verdict first, followed by the evidence-backed findings, unresolved
 questions, and likely owners. State when a material category has no findings.
 
-The user may explicitly authorize a run despite known blockers after their
-impact is explained. Record the unresolved blockers, the user's run scope, and
-what the results can and cannot establish; keep the verdict and do not claim
-clearance or publish readiness from that run. Authorization does not make
-contradictory truth judgeable. When the defect is already sufficiently clear,
-the user may instead approve its repair before another eval; follow Repair
-Planner and verify afterward rather than requiring a redundant failing run.
+In project mode, `BLOCKED` prevents execution even when the user authorizes an
+exploratory run. The current CLI has no project override: resolve the blockers
+and re-audit the intended scope first. Never change a blocked conclusion to
+`pass` or use `--outside-project` to bypass that gate. For an unblocked scope,
+machine metadata uses `conclusion: "pass"` for either `PASS` or
+`PASS_WITH_WARNINGS`; retain the warnings in the readable report.
+
+For genuine standalone work, the user may explicitly authorize a run despite
+known blockers after their impact is explained. Record the unresolved blockers,
+the user's run scope, and what the results can and cannot establish; keep the
+verdict and do not claim clearance or publish readiness from that run.
+Authorization does not make contradictory truth judgeable. When the defect is
+already sufficiently clear, the user may instead approve its repair before
+another eval; follow Repair Planner and verify afterward rather than requiring
+a redundant failing run.
 
 For a scoped audit, state the scope and report the findings without implying
 that the rest of the test system passed. A scoped verdict is optional; use it

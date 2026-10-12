@@ -3,10 +3,10 @@
 Use these two persistent canonical files only when an active demand or
 allocation decision justifies the optional Query Distribution:
 
-- `.codeer/design/query_distribution.csv`
-- `.codeer/design/query_examples.csv`
+- `design/query_distribution.csv`
+- `design/query_examples.csv`
 
-Draft revisions under `.codeer/current/` and replace canonical files only after
+Draft revisions under `reviews/observations/` and replace canonical files only after
 user acceptance. Keep prior revisions in Git or another project history when
 available.
 
@@ -60,7 +60,7 @@ If the purpose of a field is uncertain, omit it.
 
 ## Optional notes artifact
 
-Use `.codeer/current/query_distribution_notes.md` only when document-level
+Use `reviews/observations/query_distribution_notes.md` only when document-level
 scope, evidence window, sampling limits, exclusions, unresolved gaps, or
 allocation rationale must be persisted. Do not repeat those values on every
 CSV row and do not use the notes file as a raw-data dump.

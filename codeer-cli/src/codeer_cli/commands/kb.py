@@ -100,6 +100,10 @@ def register(subparsers):
     p.set_defaults(func=run_export)
 
     p = sub.add_parser("upload", help="Create/reuse KB and upload files from a directory; run --dry-run first")
+    p.add_argument("--kb-id", help="Explicit KB ID (required to reuse an existing KB in project mode)")
+    p.add_argument("--local-id", help="Stable project KB identity")
+    p.add_argument("--expect", help="Reviewed project dry-run token")
+    p.add_argument("--reconcile", action="store_true", help="Project only: read back saved file IDs without uploading again")
     p.add_argument("--dir", required=True, help="Directory containing files to upload")
     p.add_argument("--name", required=True, help="KB display name (idempotent on name)")
     p.add_argument("--description", default=None)
@@ -518,6 +522,9 @@ def _compact_export_result(result: dict) -> dict:
 
 
 def _print_export_result(args, result: dict) -> None:
+    if getattr(args, "project", None):
+        from ..project_kb import record_export
+        record_export(args.project, result)
     write_json(args.out, result)
     print_json(result if args.full else _compact_export_result(result))
 
@@ -735,6 +742,14 @@ def run_export(args, client) -> int:
 
 
 def run_upload(args, client) -> int:
+    if getattr(args, "project", None):
+        from ..project_kb import upload
+        result = upload(args.project, client, args)
+        print_json(result)
+        write_json(args.out, result)
+        return 1 if result.get("status") == "not_ready" or result.get("unsupported_replacements") or result.get("missing_sources") else 0
+    if args.reconcile:
+        raise ValueError("--reconcile requires a local project and saved upload receipt")
     workspace_id, organization_id = client.resolve_scope()
     kb_dir = Path(args.dir).resolve()
     if not kb_dir.is_dir():

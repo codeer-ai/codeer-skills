@@ -15,7 +15,7 @@ The Behavior Contract is the business reviewer and Agent builder's shared
 record of material customer-experience decisions. It is a persistent design
 input, not a complete support manual, customer-service primer, runtime prompt,
 or Codeer runtime component. Store the accepted contract at
-`.codeer/design/behavior_contract.md` so later Eval Debug and History Analysis
+`design/behavior-contract.md` so later Eval Debug and History Analysis
 can distinguish implementation divergence from an intentional experience
 change. After the user accepts it, use [eval-cases.md](eval-cases.md) to turn it
 into observable acceptance cases before creating or changing Agent Settings,
@@ -28,8 +28,8 @@ KB, or Tools.
 Read the completed Scope Alignment from [kb-and-agent.md](kb-and-agent.md), then
 inspect whatever product documents, KB content, current settings, Tools, evals,
 and production-history findings are available. When accepted
-`.codeer/design/query_distribution.csv` or
-`.codeer/design/query_examples.csv` artifacts exist and are relevant, read them
+`design/query_distribution.csv` or
+`design/query_examples.csv` artifacts exist and are relevant, read them
 through [query-distribution.md](query-distribution.md); do not require or create
 them merely to begin the first Behavior Contract. Use concrete source examples
 to test whether a proposed policy produces the intended experience. Do not ask
@@ -80,7 +80,7 @@ governance decisions will use:
   fully under the Agent's control.
 
 Keep the core scenario and outcome at the opening of
-`.codeer/design/behavior_contract.md`; do not create a separate Scenario or
+`design/behavior-contract.md`; do not create a separate Scenario or
 Outcome Contract artifact. Reconcile Scope Alignment business and conversion
 goals with any descriptive demand evidence, but treat both as inputs for
 review. The user-accepted Behavior Contract establishes project-specific stable
@@ -204,112 +204,20 @@ or boundary probe, not a case-specific contract clause.
 
 ## Draft the Behavior Contract
 
-Use this compact first-version structure by default. Omit a field that has no
-material downstream use, and adapt the presentation only when another format
-makes the same decisions easier to review:
-
-1. **Core scenario** — observable user intention or task, starting state,
-   material constraint, supported Agent role, and explicit first-version
-   exclusions.
-2. **Core outcome** — the user-visible result, acceptable alternative or
-   non-conversion outcomes, immediate observable evidence, material attribution
-   limits, and guardrails.
-3. **Behavior path** — only the decision points that can change the next move.
-   For each, make the observable signal, expected move, required information or
-   evidence, and stop or handoff condition reviewable. Cover answer, ask,
-   retrieve, compare, recommend, Tool, consent, or handoff only when material.
-4. **Material boundaries** — domain-specific facts the Agent must not invent,
-   unsupported actions, sensitive-data or consent limits, and rare but high-
-   consequence conditions that change verification, uncertainty disclosure,
-   action, or handoff. State stable policies, not an edge-case catalog.
-5. **Acceptance behavior** — the smallest observable success and prohibited
-   behavior needed to turn the core scenario into acceptance Evals without
-   prescribing exact wording.
-
-The first version should not contain a backlog of speculative scenarios. Add
-one scenario at a time after evidence shows that correct handling materially
-differs. When the contract expands, keep shared decision policies once at the
-highest stable scope and add only the scenario-specific override; do not copy
-the full behavior path into every scenario.
-
-### Compression example
-
-**Over-expanded:** Require the reviewer to approve separate rules saying that
-the Agent greets politely, uses clear language, avoids repeating known
-information, asks one question at a time, explains every option, offers further
-help, does not pressure a refusal, and apologizes when information is missing.
-
-**Decision-oriented:** "For product-selection journeys, answer supported factual
-questions before starting discovery. Ask only for a missing constraint that can
-change fit, then offer a small evidence-grounded shortlist with the relevant
-tradeoffs. Move to a form or payment only after an explicit readiness signal. If
-a high-consequence eligibility fact cannot be verified, disclose the uncertainty
-and hand off rather than infer it."
-
-The compressed version records the material initiative, evidence, progression,
-and risk decisions. Ordinary conversational quality remains expected under the
-acceptance-criteria basis below, while concrete product, wording, and boundary
-variants belong in the KB and evals.
-Use this as an illustration of decision granularity, not as required contract
-language.
+Use the shared [Behavior Contract](../reference/behavior-contract.md) for compact decision structure, progressive detail and compression examples. This module supplies the query-led discovery methods above.
 
 ### Evidence and autonomy boundaries
 
-The Agent builder may choose whether and how to use verified scarcity,
-urgency, authority, social proof, prices, eligibility, and tool outcomes. These
-are selectable customer-guidance strategies, not prohibited topics. The fixed
-boundary is that the Agent must not fabricate, exaggerate, or present
-unsupported claims or outcomes as fact. Apply these non-negotiable evidence
-and autonomy boundaries regardless of the selected dialogue or sales method:
-
-- ground factual claims in available evidence and disclose material
-  uncertainty;
-- never fabricate or exaggerate scarcity, urgency, authority, social proof,
-  prices, eligibility, tool outcomes, or customer intent, and never present an
-  unsupported claim as verified;
-- distinguish product facts, the agent's recommendation, and the customer's
-  decision;
-- preserve customer autonomy and make declining or reconsidering easy;
-- explain the purpose and obtain appropriate consent before collecting
-  sensitive or persistent structured data or initiating a consequential tool
-  action; ordinary conversational clarification need not become a permission
-  ritual, and every action should collect only what it needs; and
-- identify the agent honestly and use human handoff when human accountability
-  or judgment is required.
-
----
+Apply the shared [evidence and autonomy boundaries](../reference/behavior-contract.md#evidence-and-autonomy-boundaries).
 
 ## Basis for acceptance criteria
 
-The user or authorized project owner decides project-specific experience
-requirements through the accepted Behavior Contract and explicit instructions.
-The builder and reviewer derive case-level criteria from those requirements,
-the canonical evidence and autonomy boundaries above, the actual user request,
-authoritative case facts, and applicable Tool schemas or operational contracts.
-The evaluator applies the resulting rubric to its visible evidence; it does
-not invent another standard of "basic quality."
-
-Clarity, relevance, and completeness justify a mandatory criterion only when
-its absence would materially obscure the answer, change the correct next move,
-or hide an important risk. State that consequence and its basis. For example,
-an ambiguous fee or missing condition may change a customer's decision;
-repeating already-understood context or adding a preferred greeting usually
-does not. Style, answer length, fixed acknowledgement wording, and a preferred
-question sequence are not universal pass requirements.
-
-A criterion need not quote a Contract sentence if it is a necessary implication
-of an accepted requirement or one of these inherited constraints. Conversely,
-calling a preference "basic quality" does not authorize it. When it introduces
-a new material product decision or tradeoff, return that decision to the user;
-otherwise make unnecessary detail optional. Keep this basis in case reasoning
-and rubric review rather than expanding the Contract into a quality checklist.
-Use [eval-cases.md](eval-cases.md#semantic-acceptance-and-material-omissions)
-for judging equivalent wording and omissions.
+Use the shared [acceptance-criteria basis](../reference/behavior-contract.md#basis-for-acceptance-criteria); consult [eval-cases.md](eval-cases.md#semantic-acceptance-and-material-omissions) for equivalent wording and omissions.
 
 ## Acceptance gate and handoff
 
 Draft new or revised content in conversation or at
-`.codeer/current/local_draft_behavior_contract.md`. Present the complete
+`design/behavior-contract.draft.md`. Present the complete
 decision record or before/after diff and confirm with the user that it captures
 the intended experience, any material discovery-strategy choice, and material
 risk policies. For a first version, complete means one core scenario and
@@ -333,7 +241,7 @@ govern the journey, which next move is appropriate for each material observable
 condition, what evidence or user input is needed, and what the Agent must not
 do.
 
-After acceptance, persist `.codeer/design/behavior_contract.md`. Then use
+After acceptance, persist `design/behavior-contract.md`. Then use
 [eval-cases.md](eval-cases.md) to design the acceptance cases and rubrics
 locally. Those cases are the first executable expression of the contract, but
 they must test its behavior rather than prescribe exact wording. Only after the

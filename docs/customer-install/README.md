@@ -28,7 +28,8 @@ and shared project files.
 
 - Plan and create an Agent v0 from a folder of KB, product docs, SOPs, or other
   source files.
-- Generate behavior case categories, cases, and rubrics before applying them.
+- Select or design a Tester, verify evidence delivery, then design cases,
+  Rubrics and pairs before applying them. Tester means the existing Evaluator/Judge.
 - Use failed behavior cases to decide whether to adjust KB, the Agent, retrieval,
   or Standard / Rubric.
 - Analyze production histories and negative feedback to find failure patterns
@@ -203,9 +204,60 @@ help me plan an Agent from KB/files, create behavior cases, analyze production
 history, and show me proposed changes before applying them.
 ```
 
-The answer should mention the Codeer Agent lifecycle, behavior cases,
-production history, and asking for confirmation before creating, updating, or
-publishing Codeer resources.
+The answer should mention the Codeer Agent lifecycle, Tester/Case/Rubric pairs,
+production history, concrete change previews and scoped authorization. Previously
+confirmed scope carries forward; publication is separately authorized.
+
+## Local Project Workflow
+
+These commands are implemented in the development source checkout. This change
+does not release a new PyPI package. Check `codeer init --help`; until released,
+use the [development install](../../codeer-cli/README.md#development-install).
+
+```bash
+codeer init ./support-agent
+cd support-agent
+codeer status
+codeer validate
+```
+
+These three commands work without credentials or network access. When adopting
+an existing Agent, select the correct profile, then run:
+
+```bash
+codeer agent pull --agent <id>
+codeer eval pull
+codeer agent diff --local
+```
+
+The project targets one main Agent; it is not a new remote Project. Original
+SOPs/PDFs belong in `sources/documents/`, indexed in `sources/index.md`; curated
+KB content belongs in `kb/`. Keep accepted behavior in
+`design/behavior-contract.md`, pending proposals in
+`design/behavior-contract.draft.md`, and milestone reasons/evidence links in
+`log.md`. Keep the prompt in `agent/instructions.md`, other settings in
+`agent/settings.json`, and stable Tester/Case/Rubric pairs in `evals/design.json`.
+
+Use natural language to select **build, cases, audit, apply, eval, improve,
+publish or observe**. These are Skill modes. For example: “Audit only this failed
+handoff case,” “Apply the already confirmed batch and test it; do not publish,”
+or “Use last week's AI Draft feedback to propose test candidates.” Existing
+Agents can start with a bounded diagnosis; an imported configuration does not
+establish accepted policy or quality.
+
+Project apply requires a current `--dry-run` preview and its `--expect <token>`.
+The token identifies content; it does not grant authorization. Local/web
+conflicts and unknown outcomes remain visible for reconciliation. Applying a
+Draft does not publish it. Runs save exact result IDs under `runs/`; publication
+checks current semantic audit, confirmed acceptance scope and a covering passing
+run, and saves readback evidence under `releases/`. Missing tool evidence and
+old test results cannot establish success. A Judge score alone cannot prove
+that an operation occurred.
+
+See the [project contract](../../skills/codeer-agent/reference/project.md) for
+formats, legacy-project adoption and API limits. Original History/AI Draft exports
+stay private under `sources/history/<collection-id>/`; proposed tests retain
+source references and require review before application.
 
 ## 7. What To Do Next
 
@@ -213,8 +265,8 @@ If you do not have an agent yet, point Claude Code or Codex at your KB folder,
 product docs, SOPs, or source files and ask it to discuss what Agent v0 should
 be built.
 
-If you have an agent but no behavior cases yet, ask it to design behavior
-categories, cases, and rubrics before applying anything.
+If you have an agent but no behavior cases yet, ask it to select/design a Tester,
+verify available evidence, and propose Case/Rubric pairs before applying them.
 
 If you have behavior cases but some are failing, ask it to analyze whether the
 fix belongs in the KB, the Agent instructions, retrieval, or the Standard /
@@ -310,6 +362,19 @@ codeer skill uninstall codeer-agent --target claude
 ```
 
 Removing the CLI does not remove Skills.
+
+### Regenerate the Traditional Chinese PDF
+
+The Markdown guide is the editable source. The checked-in builder uses ReportLab,
+matching the existing PDF producer, and preserves its screenshots:
+
+```bash
+python build_pdf.py --font /path/to/traditional-chinese.ttf
+```
+
+Run from this directory in an environment with `reportlab`. On macOS the default
+font is Arial Unicode. Render the resulting PDF with `pdftoppm` and inspect every
+page before delivery; text extraction alone does not verify layout.
 
 Remove the CLI:
 

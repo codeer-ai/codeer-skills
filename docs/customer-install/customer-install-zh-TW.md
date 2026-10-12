@@ -41,8 +41,8 @@ Codeer Agent Skill 是安裝到 Codex / Claude Code 的工作說明。
 
 2. **產生 Behavior Cases**
 
-   依照目標使用情境建立行為分類、測試案例與評分標準，讓品質討論有具體
-   依據。
+   先選擇或設計 Tester、確認它能取得必要證據，再建立 Case、Rubric 與配對。
+   Tester 就是既有 Evaluator／Judge，讓品質討論有具體依據。
 
 3. **根據失敗問題作出調整**
 
@@ -236,7 +236,50 @@ history, and show me proposed changes before applying them.
 - Agent lifecycle
 - Behavior Cases
 - Production History
-- 在建立、更新或發布 Codeer 資源前，會先向你確認
+- 顯示具體修改預覽並核對授權範圍；已確認的同一批內容可沿用授權，發布另行確認
+
+## 本機專案工作流程
+
+以下命令已在開發原始碼實作；本次變更尚未發布新的 PyPI 套件。
+先檢查 `codeer init --help`，尚未提供時請使用
+[開發版安裝](../../codeer-cli/README.md#development-install)。
+
+```bash
+codeer init ./support-agent
+cd support-agent
+codeer status
+codeer validate
+```
+
+這三個命令不需要憑證或網路。接手既有 Agent 時，先選擇正確 profile，再執行：
+
+```bash
+codeer agent pull --agent <id>
+codeer eval pull
+codeer agent diff --local
+```
+
+一個本機專案對應一個主要 Agent，不會建立遠端 Project。原始 SOP／PDF 放在
+`sources/documents/`，以 `sources/index.md` 記錄來源；整理後的 KB 放在 `kb/`。
+已接受的行為決策放在 `design/behavior-contract.md`，待確認提案放在
+`design/behavior-contract.draft.md`。`log.md` 簡記重要理由、狀態與證據連結。
+Prompt 的唯一編輯來源是 `agent/instructions.md`，其他設定放在
+`agent/settings.json`；穩定 Tester／Case／Rubric 配對放在 `evals/design.json`。
+
+直接用自然語言指定 **build、cases、audit、apply、eval、improve、publish、observe**
+八種 Skill 模式。例如「只 audit 這題轉人工失敗」、「套用先前確認的修改並測試，
+不要發布」，或「從上週 AI Draft 回饋提出測試候選」。這些是 Skill 模式，
+不是 CLI 子命令。既有 Agent 可以從局部診斷開始；匯入現況不等於接受業務規則或品質。
+
+專案套用先取得 `--dry-run` 預覽，再傳入 `--expect <token>`。
+token 只辨識內容，不代表授權。本機／網頁衝突與結果不明都會保留，需先核對再重試。
+套用 Draft 不等於發布。每輪測試在 `runs/` 保存確切 result IDs；發布會核對有效
+語意 audit、已確認驗收範圍與涵蓋該範圍的通過 run，再於 `releases/` 保存發布讀回。
+缺少工具證據或只有舊結果不能算成功；Judge 分數本身也無法證明操作真的發生。
+
+格式、舊專案接手方式及 API 限制請見
+[專案契約](../../skills/codeer-agent/reference/project.md)。原始 History／AI Draft
+匯出留在 `sources/history/<collection-id>/` 私有目錄；候選測試保留來源，經審查才套用。
 
 ## Codeer Agent Skill 會怎麼和你協作？
 
@@ -306,7 +349,7 @@ codeer agent list
 可以問：
 
 ```text
-請根據這個 Agent 的任務，設計 behavior categories、cases 和 rubrics，先讓我審核再套用。
+請根據這個 Agent 的任務，選擇或設計 Tester、確認必要證據，再提出 Case、Rubric 和配對，先讓我審核再套用。
 ```
 
 ### 如果你有 Behavior Cases，但有些沒有通過

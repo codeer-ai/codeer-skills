@@ -118,6 +118,9 @@ def _validate_single_tool(tool: dict[str, Any], index: int) -> None:
             raise ToolValidationError(
                 f"{prefix}: knowledge_base tool needs non-empty knowledge_node_ids."
             )
+    elif tool_type == "tabular_data":
+        if not isinstance(tool.get("knowledge_node_id"), str) or not tool["knowledge_node_id"].strip():
+            raise ToolValidationError(f"{prefix}: tabular_data tool requires one non-empty knowledge_node_id.")
     elif tool_type == "call_agent":
         if not tool.get("agent_id"):
             raise ToolValidationError(f"{prefix}: call_agent tool requires agent_id.")

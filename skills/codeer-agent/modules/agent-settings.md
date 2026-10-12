@@ -8,12 +8,12 @@ For HTTP body input types or JSON-text fields, read
 It covers wire types, generated keys and preserving complete settings on update.
 
 For a query-led customer guidance Agent, first read the accepted
-`.codeer/design/behavior_contract.md` from
+`design/behavior-contract.md` from
 [consultative-guidance.md](consultative-guidance.md) and the reviewed acceptance
 cases from [eval-cases.md](eval-cases.md). The contract defines the accepted
 core scenario, outcome, guardrails, and decision policies; the cases test them.
-When optional `.codeer/design/query_distribution.csv` or
-`.codeer/design/query_examples.csv` artifacts exist and are relevant, read them
+When optional `design/query_distribution.csv` or
+`design/query_examples.csv` artifacts exist and are relevant, read them
 through [query-distribution.md](query-distribution.md) for supported demand,
 risk, allocation, or concrete-input evidence. None should be copied verbatim
 into the system prompt. Translate them into the simplest coherent ownership

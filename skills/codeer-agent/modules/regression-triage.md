@@ -21,7 +21,8 @@ Use triage:
   comparable Agent exists, call this **baseline result triage**, not regression
   attribution;
 - after a post-change focused impact run;
-- after a full assigned-pair regression; or
+- after a full regression for the agreed
+  [acceptance/protection scope](../reference/project.md#regression-scope); or
 - across established batches when a common prior comparison point exists.
 
 For a small run whose results fit one coherent diagnosis, Eval Debug may perform

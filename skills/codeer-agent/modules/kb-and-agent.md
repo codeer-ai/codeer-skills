@@ -11,9 +11,10 @@ requirement.
 
 ## Diff rule
 
-**Before applying any agent changes** (create or update via `codeer agent apply`),
-present the full diff to the user and wait for approval. Never apply agent
-changes silently — the user must see what is being changed.
+Before applying Agent changes, show the concrete diff and reconcile it with
+the user's authorization. Carry forward authorization for the same reviewed
+content and scope; ask before applying a material new decision or scope change.
+The CLI preview token identifies content and does not itself grant approval.
 
 Use `codeer agent diff` to show differences between versions when updating
 an existing agent.
@@ -64,7 +65,7 @@ in the contract.
 
 For a query-led customer guidance agent, stop after Scope Alignment and use
 [consultative-guidance.md](consultative-guidance.md) to create the accepted
-`.codeer/design/behavior_contract.md` for the one core scenario and outcome.
+`design/behavior-contract.md` for the one core scenario and outcome.
 Then use [eval-cases.md](eval-cases.md) to design its small end-to-end acceptance
 set locally. These steps happen before KB upload, Agent Settings design, or
 Agent creation so intended customer behavior—not the first prompt draft—defines
@@ -73,8 +74,8 @@ what the first Agent must satisfy.
 Use [query-distribution.md](query-distribution.md) before or after the contract
 only when a named demand, weighted portfolio, capacity, hot-path, or drift
 decision requires analysis. Keep a one-off result in the current analysis;
-create the optional `.codeer/design/query_distribution.csv` and
-`.codeer/design/query_examples.csv` artifacts only when the model needs reuse.
+create the optional `design/query_distribution.csv` and
+`design/query_examples.csv` artifacts only when the model needs reuse.
 Their absence does not block a first core-scenario build.
 
 The cases cannot be applied to the server until the Agent exists. Keep the
@@ -114,14 +115,23 @@ return to Eval Case Design after creation to apply the cases using the new
 
 ### Upload
 
+In a project, use a stable local ID and review the preview before upload:
+
 ```bash
-codeer kb upload \
-    --dir kb/ --name "<KB display name>"
+codeer kb upload --dir kb/ --name "<KB display name>" --local-id support --dry-run
+codeer kb upload --dir kb/ --name "<KB display name>" --local-id support --expect <token>
 ```
 
-The CLI prints `kb_id` and `node_ids` to stdout — use these when
-constructing the agent payload. Do not persist IDs to a local file;
-query the server with `codeer kb list` if you need them later.
+Use `--kb-id <id>` to adopt an existing KB explicitly. Project operations persist
+IDs, source directory/glob, content fingerprints and receipts in `.codeer/`;
+use returned node IDs in Agent settings. If readiness polling is interrupted
+after file IDs were saved, use the same upload arguments with `--reconcile` to
+read back those IDs without uploading again. Unknown file identities remain
+blocked. Local managed source changes invalidate prior audit/run clearance.
+Existing content replacement is unsupported by this API: do
+not delete/recreate nodes as a substitute. See [project KB boundaries](../reference/project.md).
+Outside a project, `codeer kb upload --dir kb/ --name "<name>"` retains its
+legacy name-based selection; inspect `codeer kb list` before using it.
 
 Wait for all files to reach READY status before proceeding. Files in
 PROCESSING state are not yet available for retrieval.
@@ -130,7 +140,14 @@ PROCESSING state are not yet available for retrieval.
 
 ## Step 3 — Create agent
 
-Write `.codeer/current/local_draft_agent.json`. Pull stable normative customer
+In a project, `agent/instructions.md` is the prompt authority; omit
+`system_prompt` from `agent/settings.json`. Use [project apply](../reference/project.md#scope-import-and-apply)
+to preserve unmodified remote settings and stable tool IDs. Preview with
+`codeer agent apply --dry-run`, then use the reviewed `--expect <token>`.
+Payload-only examples below describe standalone use; project operations also
+require their current preview token.
+
+Write `agent/settings.json`. Pull stable normative customer
 outcomes and guardrails from the accepted Behavior Contract; use Scope
 Alignment for scope, capabilities, and operational context, and use supported
 Query Distribution evidence for hot-path and capacity decisions only when that
@@ -174,7 +191,7 @@ Then present the full payload diff before applying:
 
 ```bash
 codeer agent apply \
-    --payload .codeer/current/local_draft_agent.json
+    --payload agent/settings.json --dry-run
 ```
 
 `codeer agent apply` always creates a new DRAFT version. The agent is not
@@ -183,7 +200,7 @@ live until explicitly published.
 After a successful apply, refresh the server cache:
 
 ```bash
-codeer agent get <agent_id> --full --out .codeer/current/agent.json
+codeer agent get <agent_id> --full --out reviews/observations/agent.json
 ```
 
 ---
@@ -194,8 +211,10 @@ Only after all of the following are true:
 
 - [static-audit.md](static-audit.md) has no blockers against the exact version
   to publish;
-- the final regression ran all assigned case/evaluator pairs and planned versus
-  completed counts reconcile;
+- the final regression covered the shared
+  [acceptance/protection scope](../reference/project.md#regression-scope), planned
+  versus completed counts reconcile, and exploratory or unresolved pairs are
+  explicitly accounted for;
 - any evaluator-template or judge-model change has been treated as a new
   baseline;
 - the evaluated AgentHistory/version, `response_mode`, KB attachments, and
@@ -214,5 +233,6 @@ Preview the publish target before writing server state:
 
 ```bash
 codeer agent publish --agent <agent_id> --version <version_number> --dry-run
-codeer agent publish --agent <agent_id> --version <version_number>
+# In a project, after separate publication authorization:
+codeer agent publish --agent <agent_id> --version <version_number> --expect <reviewed-token>
 ```

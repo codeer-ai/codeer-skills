@@ -11,6 +11,17 @@ from ._validate import validate_human_handoff, validate_unified_tools
 from .client import CodeerClient
 
 
+def referenced_knowledge_nodes(tools: list[dict] | None) -> set[str]:
+    """Knowledge dependencies from both multi-file search and single-file tables."""
+    nodes = set()
+    for tool in tools or []:
+        if tool.get("type") == "knowledge_base":
+            nodes.update(tool.get("knowledge_node_ids") or [])
+        elif tool.get("type") == "tabular_data" and tool.get("knowledge_node_id"):
+            nodes.add(tool["knowledge_node_id"])
+    return nodes
+
+
 def create(
     client: CodeerClient,
     *,

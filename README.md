@@ -12,6 +12,11 @@ Codex/Claude skills for building, evaluating, and managing [Codeer](https://code
 
 ## Installation
 
+The local Agent project workflow described below is implemented in this source
+checkout and has not been released by this change. Use the development install
+for these commands; installing the current PyPI package does not establish that
+it contains them.
+
 For customer-facing setup docs, see
 [docs/customer-install/](docs/customer-install/).
 
@@ -117,8 +122,66 @@ Make sure:
 - Workspace and organization scope resolve from the workspace API-key virtual
   user's profile. The CLI does not use `CODEER_WORKSPACE_ID`,
   `CODEER_ORGANIZATION_ID`, `--workspace`, or `--org`.
-- If a project has one default agent, provide `CODEER_AGENT_ID` as a
-  non-secret environment variable.
+- Bind the main Agent in `project.toml`; outside a project, `CODEER_AGENT_ID`
+  remains an optional non-secret default.
+
+## Local Agent development
+
+```bash
+codeer init ./support-agent
+cd support-agent
+codeer status
+codeer validate
+# When adopting an existing Agent (requires credentials):
+codeer agent pull --agent <id>
+codeer eval pull
+```
+
+Each local project targets one main Agent. The standard layout below grows as
+work proceeds; `codeer init` creates only the initial scaffold. Paths can be
+configured in `project.toml` to adopt existing files.
+
+```bash
+support-agent/
+├── project.toml                   # Project identity, target and paths
+├── README.md                      # Project usage and entry points
+├── log.md                         # Important decisions and outcomes
+├── sources/
+│   ├── index.md                   # Source paths, URLs and provenance
+│   ├── documents/                 # Original SOPs, PDFs and customer files
+│   └── history/                   # Raw conversations and AI Draft exports
+├── kb/                            # Curated content prepared for upload
+├── design/
+│   ├── behavior-contract.md       # Accepted customer behavior decisions
+│   ├── behavior-contract.draft.md # Pending behavior proposals
+│   ├── acceptance.md              # Delivery scope and criteria
+│   └── acceptance.json            # Confirmed evaluation scope
+├── agent/
+│   ├── instructions.md            # Sole editable prompt authority
+│   └── settings.json              # Other Agent settings
+├── evals/
+│   └── design.json                # Stable Cases, Testers, Rubrics and evidence
+├── reviews/                       # Audits, proposals and confirmations
+├── runs/                          # Evaluation snapshots and results, per run
+├── releases/                      # Publication evidence and readback
+└── .codeer/                       # Local state, mappings and receipts
+```
+
+The detailed contract lives in
+[`skills/codeer-agent/reference/project.md`](skills/codeer-agent/reference/project.md).
+It defines file responsibilities, synchronization, evaluation evidence and
+publication checks for all local projects. Keep project-specific usage and
+context in each project's own `README.md`.
+
+Ask the skill to **build, cases, audit, apply, eval, improve, publish, or observe**
+in natural language. These are skill modes, not CLI subcommands. Existing Agents
+can enter at a bounded audit or repair. Import means unvalidated current state;
+it does not accept business policy. Draft apply, focused tests, covering
+regression and publication are separate operations. Existing authorization
+carries forward for its reviewed scope; publication needs explicit authorization.
+
+See [CLI usage](codeer-cli/README.md#local-agent-projects) and
+[reproducible synthetic journeys](examples/agent-workflow/README.md).
 
 ## Prerequisites
 
@@ -130,25 +193,26 @@ Make sure:
 
 ## Repo structure
 
-```
+```bash
 codeer-skills/
-├── codeer-cli/               ← standalone CLI package
+├── codeer-cli/               # standalone CLI package
 ├── skills/
 │   ├── codeer-audience-value-narrative/
-│   │   ├── SKILL.md          ← cross-format audience-value contract and checks
-│   │   └── references/       ← examples and regression fixtures
+│   │   ├── SKILL.md          # cross-format audience-value contract and checks
+│   │   └── references/       # examples and regression fixtures
 │   ├── codeer-presentations/
-│   │   ├── SKILL.md          ← Codeer deck workflow and narrative adapter
-│   │   └── references/       ← visual, layout, copy, and QA contracts
+│   │   ├── SKILL.md          # Codeer deck workflow and narrative adapter
+│   │   └── references/       # visual, layout, copy, and QA contracts
 │   └── codeer-agent/
-│       ├── SKILL.md          ← orientation, setup, lifecycle walkthrough
-│       ├── onboarding.md     ← auth and environment setup
-│       ├── modules/          ← lifecycle workflows
-│       └── reference/        ← concepts, commands, errors
+│       ├── SKILL.md          # eight-mode routing and shared boundaries
+│       ├── onboarding.md     # auth and environment setup
+│       ├── modules/          # lifecycle workflows
+│       ├── workflows/        # cross-module journeys
+│       └── reference/        # project contract, concepts, commands, errors
 └── docs/
     └── customer-install/
-        ├── README.md                 ← customer setup guide
-        ├── customer-install-zh-TW.md ← editable Traditional Chinese guide
+        ├── README.md                 # customer setup guide
+        ├── customer-install-zh-TW.md # editable Traditional Chinese guide
         ├── customer-install-zh-TW.pdf
-        └── assets/                   ← screenshots used by the guide
+        └── assets/                   # screenshots used by the guide
 ```

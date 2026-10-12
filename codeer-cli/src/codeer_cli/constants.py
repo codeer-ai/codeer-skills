@@ -12,6 +12,7 @@ from __future__ import annotations
 # Source: codeer/agents/types.py :: UnifiedToolType
 UNIFIED_TOOL_TYPES: frozenset[str] = frozenset({
     "knowledge_base",
+    "tabular_data",
     "web_search",
     "call_agent",
     "image_generation",

@@ -33,6 +33,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Iterable, Optional
 
+from .agents import referenced_knowledge_nodes
+
 # ---------------------------------------------------------------------------
 # Tool calls (stored as `<tool id=call_xxx>tool_name</tool>` inside `content`)
 # ---------------------------------------------------------------------------
@@ -380,7 +382,7 @@ class AgentSummary:
 
     # Derived from unified_tools
     tools_by_type: dict[str, list[dict]]   # "memory" -> [tool_dict, ...]
-    kb_attached_node_ids: list[str]        # union of all KB tools' knowledge_node_ids
+    kb_attached_node_ids: list[str]        # search and tabular file dependencies
     form_field_names: list[str]            # field names from the first request_form tool
     call_agent_targets: list[str]          # agent_ids referenced by call_agent tools
     http_request_endpoints: list[str]      # method+url_template strings
@@ -394,9 +396,7 @@ def parse_agent(raw: dict) -> AgentSummary:
     for t in tools:
         by_type.setdefault(t.get("type") or "?", []).append(t)
 
-    kb_nodes = []
-    for t in by_type.get("knowledge_base", []):
-        kb_nodes.extend(t.get("knowledge_node_ids") or [])
+    kb_nodes = sorted(referenced_knowledge_nodes(tools))
 
     form_fields = []
     for t in by_type.get("request_form", []):

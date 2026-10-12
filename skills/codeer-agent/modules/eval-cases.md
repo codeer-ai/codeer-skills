@@ -6,16 +6,16 @@ in the Behavior Contract. Work one scenario or later portfolio group at a time
 so each review batch is mentally manageable.
 
 For a new query-led customer guidance Agent, begin from the accepted
-`.codeer/design/behavior_contract.md` in
+`design/behavior-contract.md` in
 [consultative-guidance.md](consultative-guidance.md). It defines the core
 scenario, accepted outcome, guardrails, and correct Agent decision policies.
-When optional `.codeer/design/query_distribution.csv` or
-`.codeer/design/query_examples.csv` artifacts exist and apply, read them through
+When optional `design/query_distribution.csv` or
+`design/query_examples.csv` artifacts exist and apply, read them through
 [query-distribution.md](query-distribution.md); they can inform portfolio
 allocation and concrete inputs but are not prerequisites. Design the acceptance
 cases locally before the Agent exists. An `agent_id` is required to apply or run
 cases, not to decide the customer behavior they should test.
-Use `.codeer/current/local_draft_eval_cases.md` for this human-reviewed design
+Use `evals/cases.draft.md` for this human-reviewed design
 draft. It may preserve unresolved evaluator or runtime-evidence decisions that
 cannot yet be represented in the apply-ready JSON manifest.
 For an existing Agent, also inspect its current effective settings and relevant
@@ -31,9 +31,10 @@ concrete case, rubric, assignment, review, and apply-ready manifest.
 
 ## Diff rule
 
-**Before applying any eval case changes** (new cases or rubric edits),
-present the full diff to the user and wait for approval. Never apply
-cases or rubric changes silently.
+Before applying case, Tester or Rubric changes, show the concrete diff and
+reconcile it with the user's authorization. Reuse authorization for the same
+reviewed content and scope; ask only for a material new decision or scope change.
+Preview tokens identify content and do not grant approval.
 
 ---
 
@@ -256,11 +257,24 @@ pretend that an unresolved evaluator ID or runtime evidence shape is final.
 
 ### 2d. Apply
 
+In a local project, follow [the stable design format](../reference/project.md#complete-evaluation-design).
+Complete: select/design Tester → required evidence producer/delivery →
+Case/Rubric → pairs → review. Save `evals/design.json` before remote changes.
+Use `codeer validate`, then preview `codeer eval cases-apply --dry-run` and
+apply the confirmed diff with `--expect <token>`. `codeer eval pull` imports
+IDs without overwriting local design. Missing Testers, pairs or observable
+required evidence stay unresolved and do not count as executable coverage.
+
+The input-based `evals/legacy-cases.json` procedure below remains for commands
+**outside a project**. It is not the stable project format; do not bypass
+project validation to use it in a bound project. Legacy adoption explicitly
+reconciles server IDs and ambiguous duplicate inputs (see project reference).
+
 After the user approves the cases and the Agent has been created, read the
-DRAFT Agent and Tools with `codeer agent get --full` and read evaluator
+DRAFT Agent and Tools with `codeer agent get <agent-id> --full` and read evaluator
 templates with `codeer eval evaluators --full`. Resolve every intended pair
 through the Pair Admission Gate, then convert the admitted cases into
-`.codeer/current/local_draft_eval_cases.json`. If the conversion changes the
+`evals/legacy-cases.json`. If the conversion changes the
 accepted behavior rather than only its evaluator/evidence binding, return the
 semantic change to the user for review. Cases with no admitted pair remain in
 the Markdown draft and do not count as applied coverage.
@@ -270,7 +284,7 @@ skill. Then apply the admitted cases using the new `agent_id`:
 
 ```bash
 codeer eval cases-apply \
-    --cases .codeer/current/local_draft_eval_cases.json --agent <agent_id>
+    --cases evals/legacy-cases.json --agent <agent_id>
 ```
 
 If the manifest references new server label names, preview label creation and
@@ -278,7 +292,7 @@ case assignment first:
 
 ```bash
 codeer eval cases-apply \
-    --cases .codeer/current/local_draft_eval_cases.json \
+    --cases evals/legacy-cases.json \
     --agent <agent_id> \
     --create-labels \
     --dry-run
@@ -287,7 +301,7 @@ codeer eval cases-apply \
 After apply, refresh the server cache:
 
 ```bash
-codeer eval list --agent <agent_id> --out .codeer/current/eval_cases.json
+codeer eval list --agent <agent_id> --out reviews/observations/eval_cases.json
 ```
 
 Then output the eval-cases server link so the user can verify.
@@ -319,38 +333,40 @@ change, a scoped audit is sufficient before a focused probe when it checks all
 affected static dependencies and no whole-system claim is made. Run a full
 audit after any accepted KB, FAQ, settings, evaluator, assignment, Behavior
 Contract, or optional Query Distribution change before the next full sweep.
-By default, do not start a run while the applicable audit verdict is `BLOCKED`.
-The user may explicitly authorize an exploratory run after seeing the blockers
-and their consequences; follow [static-audit.md](static-audit.md#step-6--report-the-findings)
-and keep that run separate from clearance or publish evidence. Always include
+Do not start a project run while the applicable audit verdict is `BLOCKED`;
+the current CLI has no exploratory override. For standalone exploratory work,
+follow [the audit verdict rules](static-audit.md#step-6--report-the-findings)
+and keep that run separate from clearance or publish evidence. Do not use
+`--outside-project` to bypass a project's blockers. Always include
 the Behavior Contract's semantic alignment with affected acceptance cases;
 include distribution-to-portfolio alignment only when applicable.
 
 For a new Agent, after the accepted first-version scope is covered, cases are
-applied, and the first full DRAFT Agent passes Static Audit, run every assigned
-case/evaluator pair. This is the first baseline: the pre-repair dynamic evidence
-for that accepted scope, not proof of broader unmodeled scenario coverage. On
-later iterations, the same full sweep is a regression check. The default full-
-suite run uses every case/evaluator pair already assigned on the server. For a
-full-suite run with many cases, use `--out` to avoid flooding the context window:
+applied, and the first full DRAFT Agent passes Static Audit, run the agreed
+[acceptance and protection pairs](../reference/project.md#regression-scope).
+This is the first baseline: the pre-repair dynamic evidence for that scope,
+not proof of broader unmodeled scenario coverage. On later iterations, the same
+full sweep is a regression check. An unfiltered CLI run uses every assigned
+case/evaluator pair; select explicitly when the agreed set is smaller. For a
+run with many cases, use `--out` to avoid flooding the context window:
 
 ```bash
 codeer eval run \
     --agent <agent_id> --history <audited_agent_history_id> \
-    --out .codeer/current/eval_results.json
+    --out reviews/observations/eval_results.json
 ```
 
-Supplying `--evaluator`/`--evaluators` intentionally narrows the run. Use that
-for a focused impact set, not for a completion claim. Reconcile the planned
-assigned-pair count with completed results; a Content-only run is not full
-coverage when other evaluator assignments exist.
+Supplying `--cases` or `--evaluator`/`--evaluators` narrows the run. Judge
+completion against the agreed pair set, not whether filters were used.
+Reconcile planned pairs with completed results; a Content-only run is not full
+coverage when other Testers are required by that scope.
 
 For a full export (user review, spreadsheet analysis), run:
 
 ```bash
 codeer eval export \
     --agent <agent_id> --version <evaluated_version_number> \
-    --out-dir .codeer/current/eval_table/
+    --out-dir reviews/observations/eval_table/
 ```
 
 Resolve the version number from the run's AgentHistory UUID, not from whichever
@@ -363,7 +379,7 @@ with mismatched results.
 
 After the first baseline completes, automatically copy the original run results
 and any verified export plus exact Agent/version, evaluator-template, and
-judge-model context to `.codeer/pinned/<date>-first-baseline/` before diagnosis
+judge-model context to `reviews/evidence/<date>-first-baseline/` before diagnosis
 or dynamic repair.
 
 Then use **regression-triage** for baseline result clustering without claiming a
@@ -449,7 +465,7 @@ unpublished draft version.
 For a brand-new Agent with no suitable persisted history, this limitation makes
 an authentic multi-turn pair unresolved before first publish. Do not seed it
 through a different Agent or publish merely to create the prerequisite. Keep
-the case in `.codeer/current/local_draft_eval_cases.md`, report the coverage
+the case in `evals/cases.draft.md`, report the coverage
 blocker, and do not claim a complete multi-turn baseline or publish readiness.
 A deliberately limited first publish requires separate, explicit user risk
 acceptance. Full pre-publish coverage requires Codeer support for
@@ -537,21 +553,20 @@ is warranted).
 
 ### Tracking progress
 
-Record batch status in `.codeer/current/progress.json`. Update this file
-when a batch completes — record the final score and a short change summary.
-
-When starting a new session, read `progress.json` to understand which
-batches are done and which remain. All debug-loop artifacts (rubrics,
-eval results, exports) overwrite the same files in `current/` regardless
-of which batch is active — `progress.json` is the only cross-batch
-state.
+Use `codeer status` and inspect `runs/<run-id>/run.json` for planned, triggered,
+completed, skipped and passing pairs. Each run preserves its own inputs/results;
+never overwrite the preceding round. Keep only decision-useful batch narrative
+in `reviews/` and reasons/status/evidence links in `log.md`. A written summary
+cannot turn a missing or unjudgeable pair into completed coverage.
 
 ### Full regression check
 
 After all batches are done, re-run [static-audit.md](static-audit.md), then run
-all assigned case/evaluator pairs as a regression check before publishing.
+the confirmed acceptance and declared protection pairs as a covering regression
+before publishing. Account explicitly for exploratory/unresolved assignments;
+do not silently expand the agreed delivery scope.
 Reconcile planned and completed pair counts, then use **regression-triage** to
 compare the approved Agent diff and impact hypothesis with the full-suite
 deltas and protected controls. If the user wants to preserve the batch-level
 progress beyond the active cycle, pin
-`.codeer/current/progress.json` before it is replaced during later work.
+`reviews/observations/progress.json` before it is replaced during later work.

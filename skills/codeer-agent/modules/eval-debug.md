@@ -64,7 +64,7 @@ rather than averaging worker confidence or taking a majority vote.
 
 ## Behavior Contract decision boundary
 
-Read the accepted `.codeer/design/behavior_contract.md` and use it as the
+Read the accepted `design/behavior-contract.md` and use it as the
 design anchor for diagnosis without treating it as hidden evaluator evidence.
 
 - If the response violates a clear contract behavior and the case accurately

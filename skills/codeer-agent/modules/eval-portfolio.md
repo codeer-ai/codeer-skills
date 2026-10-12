@@ -166,9 +166,10 @@ Keep portfolio layers distinct when useful:
 | Change impact | Reproduction, generalization, boundary, controls, and protected passes | Per material change |
 | Exploratory probes | Distinguish a new History or Eval Debug hypothesis | Promote, merge, or retire after learning |
 
-Do not keep every exploratory probe in every full sweep. Conversely, a focused
-impact set does not replace the required full assigned-pair regression before a
-release decision.
+Use the shared [regression scope](../reference/project.md#regression-scope).
+Do not keep every exploratory probe in every full sweep. A focused impact set
+does not replace coverage of the agreed acceptance and protection pairs before
+a release decision.
 
 ### Representativeness boundary
 

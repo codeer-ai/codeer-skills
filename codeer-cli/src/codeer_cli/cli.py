@@ -18,6 +18,7 @@ import sys
 from .client import AuthError, CodeerClient, CodeerError
 from .commands import check, skill
 from .histories import HistoryExportError
+from .project import ProjectError, discover
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -59,7 +60,10 @@ Preview mutations before applying:
 Use --out <path> for large raw artifacts; stdout defaults to compact summaries.
 """,
     )
+    parser.add_argument("--outside-project", action="store_true", help="Explicitly operate outside the discovered project binding")
     sub = parser.add_subparsers(dest="group")
+    from .commands import project as project_cmd
+    project_cmd.register(sub)
 
     check.register(sub)
     skill.register(sub)
@@ -107,6 +111,26 @@ Use --out <path> for large raw artifacts; stdout defaults to compact summaries.
         parser.print_help()
         return 2
 
+    try:
+        project = None if args.outside_project else discover()
+        args.project = project
+        if project and not getattr(args, "no_client", False):
+            expected = project.target.get("agent_id")
+            for field in ("agent", "agent_id"):
+                if hasattr(args, field):
+                    explicit = getattr(args, field)
+                    if expected and explicit and explicit != expected:
+                        raise ProjectError("Agent differs from project binding; use --outside-project for a separate operation")
+                    if not explicit:
+                        setattr(args, field, expected)
+        # Legacy export/reconcile resolve client/env fallbacks in their handlers.
+        # Required targets are declared by each command, independent of its group.
+        if getattr(args, "requires_agent", False) and not args.agent:
+            parser.error("--agent is required outside a bound project")
+    except ProjectError as e:
+        print(f"project: {e}", file=sys.stderr)
+        return 2
+
     if getattr(args, "no_client", False):
         client = None
     else:
@@ -131,6 +155,8 @@ Use --out <path> for large raw artifacts; stdout defaults to compact summaries.
             return 2
 
     try:
+        if project and client is not None:
+            project.check_scope(client)
         return args.func(args, client)
     except HistoryExportError as e:
         print(f"error: {e}", file=sys.stderr)
@@ -143,6 +169,9 @@ Use --out <path> for large raw artifacts; stdout defaults to compact summaries.
         if e.body:
             print(json.dumps(e.body, ensure_ascii=False, indent=2, default=str), file=sys.stderr)
         return 1
+    except (ProjectError, OSError, ValueError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
     finally:
         if client is not None:
             client.close()

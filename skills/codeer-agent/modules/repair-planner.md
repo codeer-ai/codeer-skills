@@ -28,9 +28,9 @@ The planner still needs enough meaning to recover:
 - the current objects that would be affected by a change.
 
 For a query-led customer guidance Agent, also read the accepted
-`.codeer/design/behavior_contract.md` when it is relevant to the finding. Read
-optional `.codeer/design/query_distribution.csv` and
-`.codeer/design/query_examples.csv` artifacts only when they exist and the
+`design/behavior-contract.md` when it is relevant to the finding. Read
+optional `design/query_distribution.csv` and
+`design/query_examples.csv` artifacts only when they exist and the
 finding depends on demand, allocation, or concrete-input evidence. They are
 design anchors, not runtime components or instructions to copy into the system
 prompt.
@@ -296,7 +296,7 @@ Choose the additional impact set from the changed owner:
 | One KB policy/file | Dependent Content/Source pairs and routes to that source |
 | Handoff policy/settings | Should-transfer, should-not-transfer, boundary, and affected Content pairs |
 | Global KB/tool configuration | All KB/tool-backed cases; full regression is usually required |
-| System prompt or model | Full assigned-pair regression |
+| System prompt or model | Full regression for the agreed acceptance/protection scope |
 | Evaluator template or judge model | All pairs assigned to it and a new baseline |
 | Retrieval/platform contract | All cases using the affected KB, FAQ, filter, source, or evaluator trace; then full regression before release |
 
@@ -307,9 +307,11 @@ distribution; one passing trial is not completion.
 
 After an approved KB, settings, case, rubric, evaluator, assignment, or routing
 change is applied, run [static-audit.md](static-audit.md) before the next full
-regression. Before publish, run all assigned case/evaluator pairs and reconcile
-planned versus completed counts. A Content-only sweep is not a full regression
-when other assignments exist.
+regression. Before publish, cover the shared
+[regression scope](../reference/project.md#regression-scope) and reconcile
+planned versus completed counts. A Content-only sweep is insufficient when the
+required scope includes other Testers; exploratory assignments alone do not
+expand the release gate.
 
 ---
 

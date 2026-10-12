@@ -3,117 +3,47 @@
 Use registered `codeer` domain commands only. If an operation is not supported
 by the CLI, say that it is not supported by the CLI and stop for user direction.
 
-Only `kb/` (source content for upload) stays at root level.
-All working files go under **`.codeer/`** in the project root.
+For local development projects, use [project.md](project.md) as the file and
+evidence contract: customer files in `sources/`, curated knowledge in `kb/`,
+accepted/pending design in `design/`, editable settings in `agent/` and `evals/`,
+reviews/runs/releases at root, and only machine state/profile under `.codeer/`.
+Skill modes are conversation routes, not CLI command names.
+
+```bash
+codeer init customer-project
+codeer status
+codeer validate
+codeer agent pull --agent <id>
+codeer eval pull
+codeer agent diff --local
+codeer agent apply --dry-run
+codeer agent apply --expect <reviewed-token>
+codeer eval cases-apply --dry-run
+codeer eval cases-apply --expect <reviewed-token>
+codeer eval snapshot --history <history-id> --out reviews/anchor.json
+codeer eval run --history <history-id>
+codeer eval export --run-id <run-id> --out-dir reviews/export
+codeer agent publish --history <history-id> --dry-run
+codeer agent publish --history <history-id> --expect <reviewed-token>
+```
+
+Audit metadata and acceptance confirmation formats are in project.md. Run and
+publication require current evidence; init/status/validate are offline, and
+status queries remote only with `--refresh`. Project KB upload needs stable
+`--local-id` and explicit `--kb-id` for reuse; it adds nodes, not replacements.
+The remaining legacy input-based manifest examples describe standalone
+resource use outside a project. Use stable project design in a bound project.
 
 ---
 
-## `.codeer/` file lifecycle
+## File lifecycle
 
-The server is the source of truth for all agent, eval case, and rubric data.
-The accepted Behavior Contract is persistent local design state, not a server
-object. Query Distribution and query-example files are optional persistent
-design state created only when a demand or allocation decision requires them.
-Other local files are **caches** of server state,
-**drafts** staged for apply, or pinned evidence.
-
-```
-.codeer/
-├── design/                             # accepted, persistent local design state
-│   ├── behavior_contract.md            # normative core scenario and behavior
-│   ├── query_distribution.csv         # optional demand and eval allocation
-│   └── query_examples.csv              # optional inputs linked to query types
-│
-├── current/                            # working directory for active cycle
-│   ├── agent.json                      # cache:  codeer agent get
-│   ├── eval_cases.json                 # cache:  codeer eval list
-│   ├── rubrics.json                    # cache:  codeer eval rubrics
-│   ├── eval_table/                     # cache:  codeer eval export (on demand)
-│   │   ├── eval_table_full.json
-│   │   ├── eval_table_summary.md
-│   │   └── eval_table.csv
-│   ├── eval_results.json               # cache:  codeer eval run --out (full-suite runs)
-│   ├── ai-drafts-<history-id>.json      # cache:  codeer history ai-drafts --out
-│   ├── local_draft_agent.json          # draft:  codeer agent apply
-│   ├── local_draft_eval_cases.md       # reviewed behavior draft; may contain unresolved pairs
-│   ├── local_draft_eval_cases.json     # draft:  codeer eval cases-apply
-│   ├── local_draft_rubrics.json        # draft:  codeer eval rubrics-apply
-│   └── progress.json                   # batch tracking across eval runs
-│
-└── pinned/                             # append-only baselines, pre-change evidence, saved revisions
-    └── YYYY-MM-DD/                     # append -2, -3 for same-day pins
-```
-
-### Rules
-
-1. **`design/` is persistent accepted state** — it survives cycles and is never
-   auto-overwritten. Before replacing an accepted design artifact, preserve the
-   prior accepted revision under `pinned/<date>-design/`.
-2. **`current/` overwrites in place** — no date-stamping, no versioning.
-   Refresh caches from the server at the start of each cycle.
-3. **`pinned/` is append-only** — automatically pin the first full baseline
-   and any pre-change eval used as a comparison before a runtime change. Ask
-   whether to pin other temporary debug or batch results only when preserving
-   them would be useful.
-4. **No files outside `design/`, `current/`, and `pinned/`** — nothing at
-   `.codeer/` root.
-5. **No scripts** — `.py`, `.mjs`, `.html`, `.cjs` are prohibited under
-   `.codeer/`. If the CLI cannot do it, say so and stop for user direction.
-6. **Drafts use `local_draft_` prefix** — distinguishes local working files
-   from server caches. Delete apply-staging drafts after successful apply +
-   cache refresh. Retain `local_draft_eval_cases.md` while it still records an
-   unresolved case/evaluator pair or an accepted behavior that has not yet been
-   transferred into the server-backed suite.
-7. **ID cache files are not used** — no `kb_ids.json`, `agent_ids.json`,
-   `case_ids.json`. The CLI resolves IDs from env vars or server queries.
-
-These paths do not decide whether a customer project commits `.codeer/design/`
-to Git. Treat design artifacts as potentially confidential. Use Git only in an
-approved private repository or use another approved revision store; local
-persistence and pinning do not by themselves authorize sharing the files.
-
-### Cycle lifecycle
-
-| Phase | Required handling |
-| --- | --- |
-| Cycle start | Preserve `design/`; refresh caches in `current/`: `codeer agent get`, `codeer eval list`, `codeer eval rubrics` |
-| During cycle | Drafts created, diffs shown, applied. Eval exports overwrite `current/eval_table/`. Debug artifacts overwrite in place per batch. |
-| First baseline | Automatically copy original run results, any matched export, and exact Agent/version and evaluator/judge context to `pinned/<date>-first-baseline/` before diagnosis or dynamic repair. |
-| Pre-change evidence | Run only when it adds decision value. Pin any run used as a comparison, plus context, to `pinned/<date>-pre-change/`; otherwise preserve prior configuration and sufficient existing evidence and explain why no new run is needed. |
-| Other pin (optional) | Ask before copying temporary debug or batch evidence to `pinned/<date>/`. |
-| Cycle end (publish) | `current/` stays as final state; next cycle start overwrites it |
-
-### Batch progress tracking
-
-When eval cases are split into batches, track status in `current/progress.json`:
-
-```json
-{
-  "total_cases": 120,
-  "batches": [
-    {
-      "batch": 1,
-      "label": "books-pricing",
-      "case_ids": ["uuid1", "uuid2"],
-      "status": "done",
-      "final_score": 0.92,
-      "fix_summary": "relaxed price-optional rubric"
-    },
-    {
-      "batch": 2,
-      "label": "routing",
-      "case_ids": ["uuid3"],
-      "status": "in-progress"
-    }
-  ]
-}
-```
-
-All debug-loop artifacts (rubrics before/after, rerun results) overwrite the
-same files in `current/` regardless of which batch is active. When a batch
-completes, record the summary in `progress.json` and move to the next batch.
-
----
+Local authored design and remote observations have separate authorities; see
+[project.md](project.md). Do not delete local settings after apply: they are the
+editable source for the next iteration. Do not overwrite original sources or
+prior run/release evidence. `.codeer/state.json` owns scoped stable IDs and sync
+bases. A descriptive batch summary may live in `reviews/`, but completed and
+passed status comes from exact run evidence, never a hand-written score table.
 
 ## Commands
 
@@ -187,9 +117,11 @@ codeer eval evaluators
 Before any server mutation, preview the intended write:
 
 ```bash
-codeer agent apply --payload .codeer/current/local_draft_agent.json --dry-run
-codeer eval cases-apply --agent <agent-id> --cases .codeer/current/local_draft_eval_cases.json --dry-run
-codeer eval rubrics-apply --rubrics .codeer/current/local_draft_rubrics.json --dry-run
+codeer agent apply --payload agent/settings.json --dry-run
+codeer eval cases-apply --dry-run  # Configured project design
+# Standalone legacy manifest (explicitly outside project scope):
+codeer --outside-project eval cases-apply --agent <agent-id> --cases evals/legacy-cases.json --dry-run
+codeer eval rubrics-apply --rubrics evals/rubrics.draft.json --dry-run
 codeer eval label-create --name "Routing" --color "#0969da" --dry-run
 codeer kb upload --dir kb --name "Product KB" --dry-run
 codeer kb node-rename --node-id <node-id> --name "New Name" --dry-run
@@ -199,7 +131,8 @@ codeer kb faq-create --context-object-id <snapshot-object-id> --question "..." -
 codeer agent publish --agent <agent-id> --version <n> --dry-run
 ```
 
-Apply only after the user approves the dry-run summary.
+Apply within the user's confirmed scope after reviewing the concrete summary.
+Reuse existing authorization for the same content/scope; ask for material changes.
 
 Approval follows server-state effects, not HTTP methods: registered CLI reads
 of eval results and rubrics use POST internally but remain read-only. An eval
@@ -213,7 +146,7 @@ List the active text models before creating or updating an agent:
 ```bash
 codeer model list --type text
 codeer model list --type text --full
-codeer model list --type text --out .codeer/current/models.json
+codeer model list --type text --out reviews/observations/models.json
 ```
 
 Use the returned `model_id` verbatim as the agent payload's `llm_model`.
@@ -252,7 +185,7 @@ Or recursively export a folder or KB root:
 codeer kb export \
   --node-id <folder-or-kb-root-node-id> \
   --dir kb/ \
-  --out .codeer/current/kb_export_manifest.json
+  --out reviews/observations/kb_export_manifest.json
 ```
 
 `--file` and `--dir` are mutually exclusive. Single-file mode calls
@@ -494,7 +427,7 @@ matters.
 
 ```bash
 codeer history ai-drafts <history_id> \
-    --out .codeer/current/ai-drafts-<history_id>.json
+    --out sources/history/<collection-id>/ai-drafts-<history_id>.json
 ```
 
 The artifact preserves generated content, `generation_instruction`,
@@ -525,7 +458,7 @@ arguments and results; use `--out` whenever completeness matters.
 
 ```bash
 codeer history conversations <history_id> \
-    --out .codeer/current/history-<history_id>.json
+    --out sources/history/<collection-id>/history-<history_id>.json
 ```
 
 The management artifact uses `history-parts-v1` and includes persisted
@@ -626,7 +559,7 @@ the public CLI.
 For an audited baseline or comparison, resolve discovery to an explicit
 `--history <agent_history_id>` before running. Export the same version with
 `codeer eval export --agent <agent_id> --version <evaluated_version_number>
---out-dir .codeer/current/eval_table/`, preserving focused `--cases` and
+--out-dir reviews/observations/eval_table/`, preserving focused `--cases` and
 `--evaluators` selections when used. Verify the export's history ID and result
 IDs against the original `eval run --out` artifact before pinning. Neither
 default-latest nor `--published` identifies an immutable prior run; even the

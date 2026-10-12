@@ -14,11 +14,11 @@ production evidence may have changed a previously accepted model.
 
 The Query Distribution is descriptive. The Behavior Contract is normative:
 
-- `.codeer/design/query_distribution.csv` records query types, demand bands,
+- `design/query_distribution.csv` records query types, demand bands,
   risk, and target eval-case counts;
-- `.codeer/design/query_examples.csv` records concrete customer inputs linked
+- `design/query_examples.csv` records concrete customer inputs linked
   to those query types;
-- `.codeer/design/behavior_contract.md` records how the Agent is intended to
+- `design/behavior-contract.md` records how the Agent is intended to
   behave; and
 - eval cases select from and extend the accepted model to test observable
   behavior.
@@ -40,7 +40,7 @@ small. Do not add a field because it might be useful later. Add one only when a
 named downstream decision, review, or tool will use it now.
 
 Keep document-level scope, evidence limits, exclusions, or review dates in the
-optional `.codeer/current/query_distribution_notes.md` rather than repeating
+optional `reviews/observations/query_distribution_notes.md` rather than repeating
 them on every row. Add optional row fields such as `observed_share`, `channel`,
 `source_ref`, or `notes` only when available evidence and an active decision
 make them useful.
@@ -61,8 +61,8 @@ reusable accepted model. In that case, follow the artifact rule below.
 
 Draft new or revised content at:
 
-- `.codeer/current/local_draft_query_distribution.csv`
-- `.codeer/current/local_draft_query_examples.csv`
+- `reviews/observations/local_draft_query_distribution.csv`
+- `reviews/observations/local_draft_query_examples.csv`
 
 Present both complete artifacts or a clear before/after diff and obtain user
 acceptance before replacing either canonical file.
@@ -73,8 +73,8 @@ Validate the pair with:
 
 ```bash
 python <codeer-agent-skill-dir>/scripts/validate_eval_artifacts.py \
-  .codeer/current/local_draft_query_distribution.csv \
-  .codeer/current/local_draft_query_examples.csv
+  reviews/observations/local_draft_query_distribution.csv \
+  reviews/observations/local_draft_query_examples.csv
 ```
 
 The examples are design inputs for [eval-cases.md](eval-cases.md), not reviewed

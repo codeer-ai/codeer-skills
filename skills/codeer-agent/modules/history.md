@@ -1,13 +1,13 @@
 # History Analysis
 
-Analyze production conversations to drive continuous improvement. This module
-is the entry point for Phase 2 (Improve).
+Analyze production conversations to drive continuous improvement. Enter through
+observe for collection and candidate findings, then improve for a confirmed repair.
 
 Before analyzing behavior, read the accepted
-`.codeer/design/behavior_contract.md`; it defines the intended scenario,
+`design/behavior-contract.md`; it defines the intended scenario,
 outcome, guardrails, and decision policies. When optional
-`.codeer/design/query_distribution.csv` or
-`.codeer/design/query_examples.csv` artifacts exist and the analysis concerns
+`design/query_distribution.csv` or
+`design/query_examples.csv` artifacts exist and the analysis concerns
 demand, allocation, or drift, read them as well. For a legacy Agent without a
 Behavior Contract, surface the missing normative design evidence before making
 strong claims about contract divergence. The absence of an optional Query
@@ -105,7 +105,7 @@ returned separately from the conversation parts:
 
 ```bash
 codeer history ai-drafts <history_id> \
-    --out .codeer/current/ai-drafts-<history_id>.json
+    --out sources/history/<collection-id>/ai-drafts-<history_id>.json
 ```
 
 The saved artifact follows every page and preserves generated content,
@@ -129,7 +129,7 @@ must not be treated as the complete history:
 
 ```bash
 codeer history conversations <history_id> \
-    --out .codeer/current/history-<history_id>.json
+    --out sources/history/<collection-id>/history-<history_id>.json
 ```
 
 Read the saved JSON selectively. It follows every page of the
@@ -384,11 +384,11 @@ decision requires it. For a one-off estimate, report the evidence scope,
 uncertainty, and conclusion without creating canonical artifacts. When later
 decisions need a reusable model, present the complete new model or revision and
 obtain user acceptance before creating or replacing
-`.codeer/design/query_distribution.csv` or
-`.codeer/design/query_examples.csv`. Then:
+`design/query_distribution.csv` or
+`design/query_examples.csv`. Then:
 
 1. update target case allocation and example coverage when warranted;
-2. revise `.codeer/design/behavior_contract.md` only when the new demand model
+2. revise `design/behavior-contract.md` only when the new demand model
    changes the appropriate customer experience or a stable risk policy; and
 3. change Agent Settings, KB, or Tools only after any contract revision is
    accepted and expressed in eval cases.
@@ -421,7 +421,7 @@ When a pre-change run is useful, pin its exact target and selection:
 codeer eval run \
     --agent <agent_id> --history <published_history_id> \
     --cases <focused_case_ids> --evaluator <evaluator_id> \
-    --out .codeer/current/eval_results.json
+    --out reviews/observations/eval_results.json
 ```
 
 Export the pre-change results and pin them so they survive the improvement
@@ -430,15 +430,15 @@ cycle:
 ```bash
 codeer eval export --agent <agent_id> --version <evaluated_version_number> \
     --cases <focused_case_ids> --evaluators <evaluator_id> \
-    --out-dir .codeer/current/eval_table/
+    --out-dir reviews/observations/eval_table/
 ```
 
 Resolve `<evaluated_version_number>` from the run's `published_history_id`,
 even if a newer DRAFT or published version now exists. Verify version, selection,
 and result IDs using [eval-cases.md](eval-cases.md#step-3--static-preflight-and-full-sweep).
-Automatically copy the original `.codeer/current/eval_results.json`, any matched
+Automatically copy the original `reviews/observations/eval_results.json`, any matched
 export, and the exact Agent/version, evaluator-template, and judge-model context
-to `.codeer/pinned/<date>-pre-change/` before changing the Agent. If this run is
+to `reviews/evidence/<date>-pre-change/` before changing the Agent. If this run is
 used as a comparison, pinning is required and needs no optional pin prompt.
 
 The audit must verify the exact version, sources, settings, cases, rubrics,
@@ -455,7 +455,7 @@ Before drafting a runtime repair:
 1. Use [consultative-guidance.md](consultative-guidance.md) to compare the
    accepted and proposed customer behavior, recommend the suitable dialogue or
    discovery strategy, and obtain user acceptance.
-2. Persist the accepted `.codeer/design/behavior_contract.md`, then update or
+2. Persist the accepted `design/behavior-contract.md`, then update or
    add acceptance cases and rubrics. They should express the revised behavior
    and protect still-valid successful patterns.
 3. Run Static Audit. Test the focused cases against the current published Agent
@@ -467,5 +467,6 @@ Before drafting a runtime repair:
 4. Hand the accepted contract and available pre-change evidence to **repair-planner**,
    then use the owning modules for Agent Settings, KB, Tools, handoff, or other
    approved changes.
-5. Re-run Static Audit, the focused impact set, and the required full
-   assigned-pair regression before any publish decision.
+5. Re-run Static Audit, the focused impact set, and the covering regression for
+   confirmed acceptance/protection scope before any publish decision; account
+   explicitly for exploratory/unresolved assignments.
