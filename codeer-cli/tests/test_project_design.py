@@ -91,7 +91,7 @@ class DesignPathTests(unittest.TestCase):
         self.assertEqual(new.read_text(), "Pending new proposal")
 
     def test_legacy_revision_survives_alias_and_filename_rename(self):
-        self.cli("init")
+        self.cli("init", "--legacy")
         old = self.root / "design/behavior-contract.md"
         old.parent.mkdir()
         old.write_text("Accepted decision\n")

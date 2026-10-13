@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any, List, Optional
 
-from ._validate import validate_human_handoff, validate_unified_tools
+from ._validate import validate_human_handoff, validate_suggested_questions, validate_unified_tools
 from .client import CodeerClient
 
 
@@ -47,7 +47,7 @@ def create(
         "primary_object_ids": primary_object_ids or [],
         "attachment_ids": attachment_ids or [],
         "use_search": use_search,
-        "suggested_questions": suggested_questions or [],
+        "suggested_questions": validate_suggested_questions(suggested_questions),
     }
     if description is not None:
         body["description"] = description
@@ -88,7 +88,7 @@ def update(
         "attachment_ids": attachment_ids or [],
         "use_search": use_search,
         "version_note": version_note,
-        "suggested_questions": suggested_questions or [],
+        "suggested_questions": validate_suggested_questions(suggested_questions),
     }
     if description is not None:
         body["description"] = description

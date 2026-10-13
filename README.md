@@ -98,6 +98,12 @@ use `/reload-skills` if the destination skills directory was newly created.
 
 ### CLI development
 
+Portable Agent projects preserve KB originals, exact saved text and complete FAQ
+through resource-export APIs, then rebuild FAQ after target text verification.
+Website crawl settings remain an explicit gap. See the
+[KB/FAQ workflow](skills/codeer-agent/reference/project.md#portable-kb-text-originals-and-faq)
+for API availability, ID mapping, integrity and recovery boundaries.
+
 For CLI development, use an editable install from `codeer-cli/`:
 
 ```bash
@@ -140,19 +146,24 @@ cd support-agent
 codeer status
 codeer validate
 # When adopting an existing Agent (requires credentials):
+codeer agent bind --alias prod --agent <id>
+codeer agent use prod
 codeer agent pull --agent <id>
 codeer eval pull
 ```
 
-Each local project targets one main Agent. The standard layout below grows as
+Each local project describes one main Agent with isolated local deployments.
+New schema 2 projects keep target/profile outside committed content; legacy
+schema 1 remains readable and can be explicitly migrated. The layout grows as
 work proceeds; `codeer init` creates only the initial scaffold. Paths can be
 configured in `project.toml` to adopt existing files.
 
 ```bash
 support-agent/
-├── project.toml                   # Project identity, target and paths
+├── project.toml                   # Portable project identity and paths
+├── resources.json                 # Attachment originals and KB selections, when needed
 ├── README.md                      # Project usage and entry points
-├── log.md                         # Important decisions and outcomes
+├── logs/YYYY-MM.md                # Important decisions and outcomes; old log.md continues
 ├── sources/
 │   ├── index.md                   # Source paths, URLs and provenance
 │   ├── documents/                 # Original SOPs, PDFs and customer files
@@ -170,8 +181,8 @@ support-agent/
 │   └── design.json                # Stable Cases, Testers, Rubrics and evidence
 ├── reviews/                       # Audits, proposals and confirmations
 ├── runs/                          # Evaluation snapshots and results, per run
-├── releases/                      # Publication evidence and readback
-└── .codeer/                       # Local state, mappings and receipts
+├── releases/                      # Unique flat JSON receipts; legacy directories also read
+└── .codeer/deployments/<alias>/    # Local target, mappings, bases and receipts
 ```
 
 These are new-project defaults. Existing projects keep their configured design
@@ -185,6 +196,18 @@ The detailed project format lives in
 It defines file responsibilities, synchronization, evaluation evidence and
 publication checks for all local projects. Keep project-specific usage and
 context in each project's own `README.md`.
+
+Keep Agent projects in your own repository, e.g. `projects/<stable-name>/`;
+root README/AGENTS can provide shared guidance. `.codeer/`, raw histories and
+trial runs/releases stay local. Required PDF/attachment/KB originals remain
+eligible for controlled Git storage. Clone requires connection setup and explicit
+resource mapping/adoption. Add `.codeer/` to the repo-root ignore for inherited
+profile selection; project init preserves parent files. Clone
+does not import deployment state or old local
+history. Platform changes use `agent adopt`, preserving aligned/pending/undecided
+fields. `eval delivery` exports/verifies selected formal evidence. Read the
+project contract for logical references, unavailable original bytes, unsupported
+Sub-Agent project deployment, KB replacement limits and coordinated writes.
 
 Use ordinary requests such as “Build a support Agent from this SOP” or “Diagnose
 only this failed handoff.” The builder selects **build, cases, audit, apply,

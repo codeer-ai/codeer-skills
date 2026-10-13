@@ -30,6 +30,18 @@ class HumanHandoffValidationError(ValueError):
     """Raised when a human_handoff payload is definitely wrong."""
 
 
+def validate_suggested_questions(value: Any) -> list[str]:
+    """Match the backend's Agent create/update limits before any write."""
+    questions = [] if value is None else value
+    if not isinstance(questions, list) or any(not isinstance(q, str) for q in questions):
+        raise ValueError("suggested_questions must be an array of strings.")
+    if len(questions) > 3:
+        raise ValueError("Maximum 3 suggested questions allowed.")
+    if any(len(q) > 200 for q in questions):
+        raise ValueError("Each suggested question must be 200 characters or less.")
+    return questions
+
+
 def validate_human_handoff(config: Any) -> dict[str, Any] | None:
     """Validate and normalize an optional human-handoff configuration."""
     if config is None:

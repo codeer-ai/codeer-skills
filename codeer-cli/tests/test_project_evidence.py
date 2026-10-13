@@ -86,7 +86,7 @@ class EvidenceTests(EvidenceFixture, unittest.TestCase):
         _, plan = self.cli("agent", "publish", "--history", "h1", "--dry-run")
         self.api.run_mode = "publish_timeout"
         self.assertEqual(self.cli("agent", "publish", "--history", "h1", "--expect", plan["token"])[0], 1)
-        records = [read_json(p) for p in (project.root / "releases").glob("*/release.json")]
+        records = [read_json(p) for p in project.release_paths()]
         self.assertIn("outcome_unknown", [r["status"] for r in records])
         self.assertEqual(self.cli("agent", "publish", "--history", "h1", "--dry-run")[0], 2)
         self.assertEqual(self.cli("agent", "publish", "--history", "h1", "--reconcile")[0], 0)

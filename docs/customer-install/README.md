@@ -240,6 +240,8 @@ These three commands work without credentials or network access. When adopting
 an existing Agent, select the correct profile, then run:
 
 ```bash
+codeer agent bind --alias prod --agent <id>
+codeer agent use prod
 codeer agent pull --agent <id>
 codeer eval pull
 codeer agent diff --local
@@ -250,7 +252,7 @@ SOPs/PDFs belong in `sources/documents/`, indexed in `sources/index.md`; curated
 KB content belongs in `kb/`. The coding agent keeps established design decisions in
 `design/agent-design.md`, pending proposals in
 `design/agent-design.draft.md`, and milestone reasons/evidence links in
-`log.md`. Keep the prompt in `agent/instructions.md`, other settings in
+`logs/YYYY-MM.md` (continue an existing `log.md`). Keep the prompt in `agent/instructions.md`, other settings in
 `agent/settings.json`, and stable Tester/Case/Rubric pairs in `evals/design.json`.
 
 These are new-project defaults. Existing projects keep the file selected by
@@ -282,6 +284,85 @@ See the [project contract](../../skills/codeer-agent/reference/project.md) for
 formats, legacy-project adoption and API limits. Original History/AI Draft exports
 stay private under `sources/history/<collection-id>/`; proposed tests retain
 source references and require review before application.
+
+### Portable projects, clone and platform changes
+
+Keep Agent projects in your own repo, e.g. `projects/<stable-name>/`; a root
+README can link them and shared AGENTS can record maintenance rules. A new
+project init preserves parent files; add `.codeer/` to the repo-root ignore too,
+protecting inherited profile selection. New
+`project.toml` uses schema 2 without targets/personal profiles. Legacy schema 1
+still reads original hashes; explicitly use `agent migrate --alias <name>` to
+retain originals and move tracking into a local deployment. Migration does not
+renew old evaluation evidence or resolve environment IDs automatically.
+
+After clone, missing `.codeer/` is normal. Reuse explicitly configured environment
+variables, nearest parent/project profile or global default. Run `profile current`
+and `check`; only missing configuration needs explicit `profile add <name>`
+(another platform: `--api-base`), while unselected profiles need `profile use`.
+Correct missing/rejected keys at their source; environment overrides remain
+effective after profile switching. Interactive add saves secure input with
+restricted permissions. No automatic key collection/persistence occurs.
+Network/timeouts/5xx mean connection unverified. Permission errors and uncertain
+401/403 rejections do not establish expiration.
+
+Explicitly configure a new deployment with `agent bind --alias dev --new`, or
+take over with `--agent <id>`. Select with `agent use <alias>` or global
+`--deployment <alias>`. Each deployment has its own target/mappings/bases/receipts;
+profile names are not identity. Operators coordinate shared production writes;
+there is no concurrent-writer guarantee or state handoff package.
+
+Declare required originals/KB selections in `resources.json`. Agent/Case settings
+use `attachment:<local-id>` and knowledge tools use `kb:<local-id>[/path]`.
+Explicit `env:<VARIABLE>` references supply environment values/credentials at the
+HTTP boundary; do not commit credentials. Upload originals with `agent attachment`
+and KB with their declared selections; each uses reviewed `--dry-run`/`--expect`.
+Keep needed PDFs/attachments in controlled Git/storage. Raw histories and trial
+runs/releases stay local; no broad PDF ignore is added to new projects.
+
+Portable imports use resource-export APIs to preserve KB originals, exact saved
+text and complete FAQ. `kb import --local-id <id> --kb-id <id>` uses preview/expect
+and writes separate originals, FAQ definitions and provenance evidence. After
+target KB upload/binding, `kb faq-sync --remote` adopts platform FAQ locally;
+`--keep-local` saves a pending proposal, then a separately reviewed `--apply`
+rebuilds it. Existing FAQ need explicit ID mappings; target text must match before
+ranges are recreated. Unknown creates block retry; an investigated ID can recover
+the recorded operation even if a newer local proposal removed it. Reconcile does
+not accept unrelated platform changes: they require a fresh comparison and choice.
+Partial KB imports retain available files and record each unavailable resource;
+declared FAQ/manifests must be present for validation and delivery.
+Website crawl settings are
+excluded and recorded as a gap. Missing APIs/originals remain gaps; text or source
+URLs do not substitute for verified originals. See the
+[KB/FAQ workflow](../../skills/codeer-agent/reference/project.md#portable-kb-text-originals-and-faq).
+
+For platform edits, pull observations, then use `agent adopt --resource agent
+--fields description --remote --dry-run` and repeat the reviewed command with
+`--expect <token>`. `--keep-local` preserves the proposal as pending apply; map
+Case/Tester/pairs by explicit IDs, never names. `kb bind` maps source files to
+node IDs and can adopt text snapshots. Aligned, pending_apply and undecided fields
+remain distinct. Adoption writes no platform resources; unresolved fields block
+the entire replacement payload. Local/remote changes invalidate the preview.
+Unknown operations must reconcile first; another deployment is never pushed.
+Existing attachment takeover uses `agent attachment --local-id <id> --remote-id
+<uuid>` with preview/expect and matching downloaded bytes, without upload.
+Genuinely new attachments/KB after deployment or takeover require explicit `--new`.
+
+Release receipts use unique flat JSON names, retaining pending/unknown/readback
+states; legacy release directories remain readable. For formal controlled sharing,
+run `eval delivery --run-id <id> --release-id <id> --out-dir <fresh-directory>` and
+`eval delivery --verify <directory>`. It preserves exact result IDs, target/content
+fingerprints and necessary audit/result/trace/release evidence. Missing files
+remain incomplete; a summary is insufficient. It excludes `.codeer/` and other
+trials. Verification proves offline integrity/identity, not live platform status.
+
+Without original local files, import is a current-state project: attachments may
+be downloaded and checked, but expired/unavailable originals remain gaps. KB
+export is Markdown, not original PDF bytes. Design rationale/confirmed requirements
+and previous local history cannot be reconstructed. Sub-Agent references stay
+read-only and block project deployment. These imports are not complete backups,
+accepted policy or validated quality; existing KB content has no in-place
+replacement API.
 
 ## 7. What To Do Next
 
@@ -318,19 +399,24 @@ Python user scripts directory is on `PATH`.
 
 ### `codeer check` Shows 401 or 403
 
-The API key is missing, invalid, expired, revoked, or under-scoped. Create a new
-Admin workspace API key and update the CLI profile:
+401/403 alone does not identify expiration or distinguish rejected credentials
+from insufficient access. Inspect the selected source, API/workspace and
+permissions. If the key is confirmed invalid, explicitly update its profile with
+`codeer profile add <name>`, then check again. If `CODEER_API_KEY` or
+`CODEER_API_BASE` overrides the profile, correct/remove that variable; profile
+switching alone cannot repair it. Network/timeouts/5xx mean unverified connection,
+so keep existing credentials while checking the service.
 
 ```bash
-codeer profile add work
-codeer profile use work
+codeer profile current
 codeer check
 ```
 
 ### The Wrong Workspace Appears
 
-The active API key belongs to a different workspace. Switch to a profile created
-with the correct workspace API key:
+Verify the API base and effective key's workspace. Correct environment overrides
+or select a profile with the intended workspace key, then check. Never rebind a
+deployment automatically:
 
 ```bash
 codeer profile use <profile-name>

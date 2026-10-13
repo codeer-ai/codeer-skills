@@ -56,7 +56,7 @@ def save_json(path, value):
 
 def scope_matches(saved, current, *, allow_unbound_agent=False):
     """Older receipts may omit profile; known scope fields must still agree."""
-    return all(current.get(k) == v or k == "agent_id" and v is None and allow_unbound_agent for k, v in saved.items())
+    return all(k == "profile" and k not in current or current.get(k) == v or k == "agent_id" and v is None and allow_unbound_agent for k, v in saved.items())
 
 
 def discover(start=None):
@@ -71,6 +71,7 @@ def discover(start=None):
 class Project:
     root: Path
     config: dict
+    deployment: str | None = None
 
     @classmethod
     def load(cls, root):
@@ -79,8 +80,10 @@ class Project:
             config = tomllib.loads((root / "project.toml").read_text(encoding="utf-8"))
         except (ValueError, OSError) as exc:
             raise ProjectError(f"Invalid project.toml: {exc}") from exc
-        if config.get("schema_version") != 1:
-            raise ProjectError("Unsupported project schema_version (expected 1)")
+        if config.get("schema_version") not in (1, 2):
+            raise ProjectError("Unsupported project schema_version (expected 1 or 2)")
+        if config["schema_version"] == 2 and "target" in config:
+            raise ProjectError("Portable projects keep targets in .codeer/deployments, not project.toml")
         if not isinstance(config.get("name"), str) or not config["name"].strip():
             raise ProjectError("project.toml requires a nonempty name")
         for table in ("target", "paths"):
@@ -89,6 +92,10 @@ class Project:
             if any(not isinstance(v, str) for v in config.get(table, {}).values()):
                 raise ProjectError(f"{table} values must be strings")
         result = cls(root, config)
+        if result.portable:
+            selected = root / ".codeer/deployment"
+            if selected.is_file():
+                result.select(selected.read_text(encoding="utf-8").strip())
         for key in PATHS:
             result.path(key)
         return result
@@ -123,14 +130,47 @@ class Project:
 
     @property
     def target(self):
+        if self.portable:
+            value = read_json(self.local_dir / "target.json", {}) if self.deployment else {}
+            if not isinstance(value, dict) or value and (value.get("schema_version", 1) != 1 or any(not isinstance(value.get(k), str) or not value[k] for k in ("api_base", "workspace_id")) or value.get("agent_id") is not None and not isinstance(value["agent_id"], str)):
+                raise ProjectError("Invalid deployment target; inspect its identity rather than guessing")
+            return value
         return self.config.get("target", {})
 
     @property
+    def portable(self):
+        return self.config["schema_version"] == 2
+
+    def select(self, alias):
+        if not self.portable:
+            raise ProjectError("Legacy project: explicitly migrate before selecting deployments")
+        if not isinstance(alias, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", alias):
+            raise ProjectError("Deployment alias requires 1–64 letters, digits, underscores or hyphens")
+        self.deployment = alias
+        base = (self.root / ".codeer/deployments").resolve()
+        if not base.is_relative_to(self.root) or not self.local_dir.resolve().is_relative_to(base):
+            raise ProjectError("Deployment path escapes project")
+        return self
+
+    @property
+    def local_dir(self):
+        if self.portable:
+            if not self.deployment:
+                raise ProjectError("Select a deployment with --deployment <alias>; configure it with agent bind --new or --agent <id>")
+            return self.root / ".codeer/deployments" / self.deployment
+        return self.root / ".codeer"
+
+    @property
     def state_path(self):
-        return self.root / ".codeer/state.json"
+        return self.local_dir / "state.json"
 
     def state(self):
-        return read_json(self.state_path, {"schema_version": 1, "resources": {}})
+        if self.portable and not self.deployment:
+            return {"schema_version": 1, "resources": {}}
+        value = read_json(self.state_path, {"schema_version": 1, "resources": {}})
+        if not isinstance(value, dict) or value.get("schema_version", 1) != 1 or not isinstance(value.get("resources", {}), dict) or any(not isinstance(v, dict) for v in value.get("resources", {}).values()):
+            raise ProjectError("Unsupported or invalid resource state; preserve it for recovery")
+        return value
 
     def save_state(self, state):
         save_json(self.state_path, state)
@@ -140,6 +180,11 @@ class Project:
 
         Exotic valid TOML target spellings are refused rather than rewritten.
         """
+        if self.portable:
+            if "profile" in fields:
+                raise ProjectError("Profile selection belongs in .codeer/profile")
+            save_json(self.local_dir / "target.json", {**self.target, **fields})
+            return
         path = self.root / "project.toml"
         text = path.read_text(encoding="utf-8")
         match = re.search(r"(?m)^\[target\][ \t]*(?:#.*)?$", text)
@@ -172,6 +217,10 @@ class Project:
         base = client.base_url.rstrip("/")
         if self.target.get("agent_id") and getattr(client, "agent_id", None) not in (None, self.target["agent_id"]):
             raise ProjectError("CODEER_AGENT_ID differs from the project binding")
+        if self.portable and self.target and not self.target.get("agent_id") and getattr(client, "agent_id", None):
+            known = self.state().get("resources", {}).get("agent", {}).get("server_id")
+            if client.agent_id != known:
+                raise ProjectError("CODEER_AGENT_ID conflicts with this unbound deployment; correct the override before create")
         for key, actual in (("api_base", base), ("workspace_id", str(ws))):
             expected = self.target.get(key)
             if expected and expected.rstrip("/") != actual:
@@ -181,7 +230,14 @@ class Project:
         profile = resolve_profile().get("name")
         if expected and profile != expected:
             raise ProjectError(f"Project expects profile {expected}; select it with codeer profile use")
-        return {"api_base": base, "workspace_id": str(ws), "agent_id": self.target.get("agent_id"), "profile": profile}
+        result = {"api_base": base, "workspace_id": str(ws), "agent_id": self.target.get("agent_id")}
+        if not self.portable:
+            result["profile"] = profile
+        return result
+
+    def preview_identity(self, client):
+        from .commands.profile import resolve_profile
+        return {"profile": resolve_profile().get("name"), "connection": fingerprint({"api_base": client.base_url, "api_key": client.api_key})}
 
     def revision(self):
         files = {}
@@ -200,13 +256,33 @@ class Project:
                 path = (self.root / reference).resolve()
                 files["reference:" + reference] = fingerprint(path.read_bytes().hex()) if path.is_relative_to(self.root) and path.is_file() else None
         from .project_kb import local_sources
-        for key, entry in self.state().get("resources", {}).items():
+        for key, entry in ({} if self.portable else self.state().get("resources", {})).items():
             if key.startswith("kb:"):
                 files[key] = local_sources(self, entry)
+        if self.portable:
+            from .portable import content_files
+            files.update(content_files(self))
+            # Content identity is independent of deployment, state and credentials.
+            return fingerprint({"files": files})
         return fingerprint({"target": self.target, "files": files})
 
     def validate(self):
         issues = []
+        if self.portable:
+            from .portable import definitions, content_files
+            try:
+                definitions(self)
+                issues.extend(f"Missing deployment source: {key}" for key, value in content_files(self).items() if key.startswith(("attachment:", "kb:", "faq:")) and not value)
+                from .project_knowledge import validate_bundle
+                for kind in ("knowledge", "attachments"):
+                    for entry in definitions(self).get(kind, {}).values():
+                        if entry.get("manifest") and not self.resolve_path(kind, entry["manifest"]).is_file():
+                            issues.append("Missing declared manifest: " + entry["manifest"])
+                for entry in definitions(self).get("knowledge", {}).values():
+                    if entry.get("faq_file"):
+                        validate_bundle(read_json(self.resolve_path("knowledge", entry["faq_file"])))
+            except (ProjectError, OSError) as exc:
+                issues.append(str(exc))
         settings = read_json(self.path("agent"))
         if settings is not None:
             if not isinstance(settings, dict):
@@ -219,16 +295,60 @@ class Project:
             issues.extend(validate_design(design, self.state(), self.root).get("unresolved", []))
         return issues
 
+    def owns_scope(self, scope):
+        if not self.portable:
+            return True
+        return bool(scope and self.target.get("agent_id") and all(scope.get(k) == self.target.get(k) for k in ("api_base", "workspace_id", "agent_id")))
+
+    def release_paths(self):
+        paths = [*(self.root / "releases").glob("*.json"), *(self.root / "releases").glob("*/release.json")]
+        unique = {}
+        for path in sorted(paths):
+            record = read_json(path)
+            identity = record.get("id", str(path.relative_to(self.root)))
+            if identity in unique:
+                if read_json(unique[identity]) != record:
+                    raise ProjectError(f"Conflicting release copies: {identity}")
+                continue
+            unique[identity] = path
+        return sorted(unique.values(), key=lambda p: read_json(p).get("time", str(p)))
+
     def status(self):
         state = self.state()
         revision = self.revision()
         issues = self.validate()
         audits = sorted((self.root / "reviews").glob("*.audit.json"))
         audit = read_json(audits[-1]) if audits else None
-        runs = sorted((self.root / "runs").glob("*/run.json"))
+        runs = sorted(p for p in (self.root / "runs").glob("*/run.json") if self.owns_scope(read_json(p).get("snapshot", {}).get("scope")))
         run = read_json(runs[-1]) if runs else None
-        releases = sorted((self.root / "releases").glob("*/release.json"))
+        releases = [p for p in self.release_paths() if self.owns_scope(read_json(p).get("plan", {}).get("scope"))]
         local_changes = []
+        comparisons = {}
+        if self.portable:
+            from .deployment import compare
+            from .project_eval import CASE_FIELDS, TESTER_FIELDS, select
+            design = read_json(self.path("evals"), {})
+            local_rows = {}
+            if self.path("agent").is_file() and not issues:
+                from .project_agent import local_settings
+                local_rows["agent"] = local_settings(self)
+            if isinstance(design, dict):
+                for kind, rows, fields in (("case", design.get("cases", []), CASE_FIELDS), ("tester", design.get("testers", []), TESTER_FIELDS)):
+                    if isinstance(rows, list):
+                        local_rows.update({f"{kind}:{row['local_id']}": select(row, fields) for row in rows if isinstance(row, dict) and row.get("local_id")})
+            if not issues:
+                from .portable import definitions
+                from .project_knowledge import faq_value
+                for local_id, definition in definitions(self).get("knowledge", {}).items():
+                    if definition.get("faq_file"):
+                        rows = read_json(self.resolve_path("knowledge", definition["faq_file"]))["files"]
+                        local_rows[f"faq:{local_id}"] = {name: {"content": row["content"], "faqs": {lid: faq_value(faq, row["content"]) for lid, faq in row["faqs"].items()}} for name, row in rows.items()}
+            for key, entry in state.get("resources", {}).items():
+                if key in local_rows and "observed" in entry:
+                    comparison = compare(entry, local_rows[key], entry["observed"])
+                    comparisons[key] = {field: {k: v for k, v in item.items() if k not in ("local", "remote")} for field, item in comparison.items()}
+                    if any(item["state"] != "aligned" for item in comparison.values()):
+                        local_changes.append(key)
         from .sync import checkpoint
         from .project_kb import local_sources
         for key, entry in state.get("resources", {}).items():
@@ -287,6 +407,8 @@ class Project:
             for k in ("history_id", "revision", "remote_fingerprint")))
         if issues:
             next_step = "Resolve structural issues before apply or validation clearance."
+        elif any(v.get("status") in ("pending", "outcome_unknown", "readback_mismatch") for v in state.get("resources", {}).values()):
+            next_step = "Inspect unfinished resource receipts and reconcile known identities before another write; do not repeat unknown creates."
         elif local_changes:
             next_step = "Review local proposals and compare current remote changes before apply."
         elif release and release.get("status") in ("pending", "outcome_unknown", "readback_mismatch"):
@@ -299,10 +421,11 @@ class Project:
             next_step = "Review sources, unresolved decisions and current evidence. Imported state is not acceptance."
         return {
             "project": self.config["name"], "target": self.target,
+            "deployment": self.deployment,
             "last_remote_query": state.get("queried_at"),
             "revision": revision, "structural_issues": issues,
             "local_changes": sorted(set(local_changes)),
-            "resources": {k: {"server_id": v.get("server_id"), "status": v.get("status")} for k, v in state.get("resources", {}).items()},
+            "resources": {k: {"server_id": v.get("server_id"), "status": v.get("status"), **({"comparison_at_last_query": comparisons.get(k, v.get("alignment"))} if self.portable else {})} for k, v in state.get("resources", {}).items()},
             "audit": {"local_revision_valid": audit_local, "valid_at_last_remote_query": audit_cached,
                       "checked_pair_scope": wanted,
                       "live_remote_validity": "not checked by offline status", "record": audit},

@@ -68,17 +68,17 @@ def resolve_profile() -> dict[str, str | None]:
         source = str(_profiles_path()) if selected else None
 
     if not selected:
-        return {"name": None, "source": None, "api_key": None, "api_base": DEFAULT_CODEER_API_BASE}
+        return {"name": None, "source": None, "api_key": None, "api_base": os.environ.get("CODEER_API_BASE") or DEFAULT_CODEER_API_BASE}
 
     profile = (data.get("profiles") or {}).get(selected)
     if not isinstance(profile, dict):
-        return {"name": selected, "source": source, "api_key": None, "api_base": DEFAULT_CODEER_API_BASE}
+        return {"name": selected, "source": source, "api_key": None, "api_base": os.environ.get("CODEER_API_BASE") or DEFAULT_CODEER_API_BASE}
 
     return {
         "name": selected,
         "source": source,
         "api_key": profile.get("api_key"),
-        "api_base": profile.get("api_base") or DEFAULT_CODEER_API_BASE,
+        "api_base": os.environ.get("CODEER_API_BASE") or profile.get("api_base") or DEFAULT_CODEER_API_BASE,
     }
 
 
@@ -92,7 +92,9 @@ def run_current(args, client=None) -> int:
     print(f"Profile: {name}")
     print(f"Source: {source}")
     print(f"API base: {api_base}")
-    print(f"API key: {_mask(api_key) if api_key else '(missing)'}")
+    if "CODEER_API_BASE" in os.environ:
+        print("API base source: CODEER_API_BASE override")
+    print(f"API key: {'(configured)' if api_key else '(missing)'}")
     return 0 if api_key else 1
 
 
@@ -112,6 +114,9 @@ def run_list(args, client=None) -> int:
 
 
 def run_add(args, client=None) -> int:
+    if not sys.stdin.isatty():
+        print("error: profile add requires an interactive terminal for secure input; use explicitly configured environment variables for noninteractive execution", file=sys.stderr)
+        return 2
     api_key = getpass.getpass("API key: ").strip()
     if not api_key:
         print("error: API key is required", file=sys.stderr)
@@ -179,14 +184,23 @@ def _read_profiles() -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"Invalid profile config: {path}")
     data.setdefault("profiles", {})
+    if not isinstance(data["profiles"], dict) or any(not isinstance(v, dict) for v in data["profiles"].values()):
+        raise ValueError(f"Invalid profiles table: {path}")
     return data
 
 
 def _write_profiles(data: dict[str, Any]) -> None:
     path = _profiles_path()
     path.parent.mkdir(mode=0o700, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+    import uuid
+    temporary = path.with_name(f".profiles-{uuid.uuid4().hex}.tmp")
+    try:
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, stat.S_IRUSR | stat.S_IWUSR)
+        with os.fdopen(fd, "w", encoding="utf-8") as output:
+            output.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _find_local_profile(start: Path) -> Path | None:

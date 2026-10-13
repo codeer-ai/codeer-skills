@@ -7,7 +7,7 @@ from typing import Optional
 
 from .. import agents as agents_mod
 from .._http_contracts import validate_http_input_contracts
-from .._validate import validate_human_handoff, validate_unified_tools
+from .._validate import validate_human_handoff, validate_suggested_questions, validate_unified_tools
 from ..client import CodeerClient
 from ._util import log, print_json, strip_noisy_fields, truncate, write_json
 
@@ -15,6 +15,44 @@ from ._util import log, print_json, strip_noisy_fields, truncate, write_json
 def register(subparsers):
     agent = subparsers.add_parser("agent", help="Agent CRUD and versioning")
     sub = agent.add_subparsers(dest="action", required=True)
+
+    p = sub.add_parser("bind", help="Configure an isolated local deployment; creates no remote resources")
+    p.add_argument("--alias", required=True)
+    group = p.add_mutually_exclusive_group(required=True)
+    group.add_argument("--new", action="store_true")
+    group.add_argument("--agent")
+    p.set_defaults(func=run_bind)
+    p = sub.add_parser("use", help="Select an existing local deployment (offline)")
+    p.add_argument("alias")
+    p.set_defaults(func=run_use_deployment, no_client=True)
+    p = sub.add_parser("migrate", help="Explicitly migrate a legacy project, retaining originals (offline)")
+    p.add_argument("--alias", required=True)
+    p.set_defaults(func=run_migrate, no_client=True)
+    p = sub.add_parser("adopt", help="Compare and explicitly adopt remote content or retain local proposals; no remote writes")
+    p.add_argument("--resource", required=True, help="agent, case:<local-id>, tester:<local-id>, pairs:<local-id>")
+    p.add_argument("--remote-id", help="Explicit ID for a previously unmapped resource")
+    p.add_argument("--fields", help="Comma-separated fields; default all")
+    group = p.add_mutually_exclusive_group()
+    group.add_argument("--remote", action="store_true")
+    group.add_argument("--keep-local", action="store_true")
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--expect")
+    p.set_defaults(func=run_adopt)
+    p = sub.add_parser("recover-rejected-create", help="Recover an evidenced legacy validation-rejected Agent create; no remote writes")
+    p.add_argument("--evidence", required=True, help="Project-relative operator evidence bound to the original receipt SHA-256")
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--expect")
+    p.add_argument("--out")
+    p.set_defaults(func=run_recover_rejected_create)
+    p = sub.add_parser("attachment", help="Upload an original declared in resources.json")
+    p.add_argument("--local-id", required=True)
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--expect")
+    p.add_argument("--reconcile", action="store_true")
+    mapping = p.add_mutually_exclusive_group()
+    mapping.add_argument("--remote-id", help="Take over this existing original after byte verification; no upload")
+    mapping.add_argument("--new", action="store_true", help="Explicitly create a new attachment on an existing deployment")
+    p.set_defaults(func=run_attachment)
 
     p = sub.add_parser("pull", help="Import Agent editable/Published snapshots without remote writes")
     p.add_argument("--agent", default=None)
@@ -156,6 +194,60 @@ def _agent_summary(agent: dict, *, full: bool = False) -> dict:
 
 
 
+def run_bind(args, client):
+    from ..deployment import configure
+    if not args.project:
+        raise ValueError("agent bind requires codeer init")
+    print_json(configure(args.project, client, alias=args.alias, agent_id=args.agent, new=args.new))
+    return 0
+
+
+def run_recover_rejected_create(args, client):
+    from ..deployment import rejected_create_plan, recover_rejected_create
+    if not args.project or not args.project.portable:
+        raise ValueError("Recovery requires a portable project/deployment")
+    plan = rejected_create_plan(args.project, client, args.evidence)
+    result = plan if args.dry_run else recover_rejected_create(args.project, client, plan, args.expect)
+    print_json(result)
+    write_json(args.out, result)
+    return 0
+
+
+def run_use_deployment(args, client):
+    from ..deployment import use
+    if not args.project:
+        raise ValueError("agent use requires a project")
+    print_json(use(args.project, args.alias))
+    return 0
+
+
+def run_migrate(args, client):
+    from ..deployment import migrate
+    if not args.project:
+        raise ValueError("agent migrate requires a project")
+    print_json(migrate(args.project, args.alias))
+    return 0
+
+
+def run_adopt(args, client):
+    from ..deployment import adoption_plan, adopt
+    if not args.project or not args.project.portable:
+        raise ValueError("agent adopt requires a portable project/deployment")
+    choice = "remote" if args.remote else "local" if args.keep_local else None
+    plan = adoption_plan(args.project, client, args.resource, remote_id=args.remote_id,
+                         fields=args.fields.split(",") if args.fields else None, choice=choice)
+    print_json(plan if args.dry_run else adopt(args.project, client, plan, args.expect))
+    return 0
+
+
+def run_attachment(args, client):
+    from ..project_attachments import upload
+    if not args.project:
+        raise ValueError("agent attachment requires a project")
+    print_json(upload(args.project, client, args.local_id, dry_run=args.dry_run, expected=args.expect, reconcile=args.reconcile, remote_id=args.remote_id, new=args.new))
+    return 0
+
+
 def run_pull(args, client) -> int:
     from ..project_agent import pull
     if not getattr(args, "project", None):
@@ -206,6 +298,7 @@ def run_apply(args, client) -> int:
     try:
         validated_tools = validate_unified_tools(body.get("unified_tools") or [])
         validated_handoff = validate_human_handoff(body.get("human_handoff"))
+        validate_suggested_questions(body.get("suggested_questions"))
     except ValueError as exc:
         log(f"error: invalid agent payload: {exc}")
         return 2

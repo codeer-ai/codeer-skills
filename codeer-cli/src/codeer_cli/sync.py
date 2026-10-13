@@ -42,6 +42,9 @@ def checkpoint(entry, key, *, local=False):
 
 
 def effective_change(entry, key, local, remote):
+    if entry.get("tracking_version") == 1:
+        from .deployment import compare
+        return any(item["state"] != "aligned" for item in compare(entry, local, remote).values())
     desired, conflicts = merge(checkpoint(entry, key), local, remote, checkpoint(entry, key, local=True))
     return bool(conflicts) or desired != remote
 
@@ -58,11 +61,22 @@ def plan_change(project, key, server_id, base, local, remote):
     base = normalize(key, base)
     local_base = normalize(key, entry.get("local_base", base))
     payload, conflicts = merge(base, local, remote, local_base)
+    comparison = None
+    if project.portable and server_id:
+        from .deployment import compare
+        comparison = compare(entry, local, remote)
+        conflicts = [field for field, item in comparison.items() if item["state"] == "undecided"]
+        payload = deepcopy(remote)
+        for field, item in comparison.items():
+            if item["state"] == "pending_apply":
+                payload[field] = deepcopy(item["local"])
     if entry.get("status") in ("pending", "outcome_unknown", "readback_mismatch"):
         conflicts.append("unreconciled_previous_operation")
     plan = {"resource": key, "server_id": server_id, "base": base, "local_base": local_base, "local": local,
             "remote": remote, "payload": payload, "conflicts": conflicts,
             "changed": payload != remote}
+    if comparison is not None:
+        plan["comparison"] = comparison
     plan["token"] = fingerprint(plan)
     return plan
 
@@ -77,11 +91,14 @@ def apply_change(project, plan, expected, mutation, readback):
     entry = state.setdefault("resources", {}).setdefault(key, {})
     if not plan["changed"] and plan["server_id"]:
         entry.update(base=plan["remote"], local_base=plan["local"])
+        if project.portable:
+            from .deployment import compare
+            entry.update(tracking_version=1, observed=plan["remote"], alignment=compare(entry, plan["local"], plan["remote"]))
         record_removals(entry, plan)
         project.save_state(state)
         return {"status": "unchanged", "server_id": plan["server_id"]}
     receipt_id = f"{now().replace(':', '-')}-{uuid.uuid4().hex[:8]}"
-    receipt_path = project.root / ".codeer/receipts" / f"{receipt_id}.json"
+    receipt_path = project.local_dir / "receipts" / f"{receipt_id}.json"
     receipt = {"id": receipt_id, "time": now(), "scope": plan.get("scope", project.target),
                "plan": plan, "status": "pending"}
     entry.update(status="pending", receipt=str(receipt_path.relative_to(project.root)))
@@ -89,8 +106,13 @@ def apply_change(project, plan, expected, mutation, readback):
         entry["scope"] = plan["scope"]
     save_json(receipt_path, receipt)
     project.save_state(state)
+    mutation_completed = False
     try:
         response = mutation(plan["payload"])
+        mutation_completed = True
+        if project.portable:
+            from .portable import logical_remote
+            response = logical_remote(project, response)
         receipt["response"] = response
         save_json(receipt_path, receipt)
         server_id = plan["server_id"] or response.get("id") or response.get("node_id")
@@ -107,12 +129,34 @@ def apply_change(project, plan, expected, mutation, readback):
             receipt["status"] = "applied"
             entry["base"] = actual
             entry["local_base"] = plan["local"]
+            entry.pop("decisions", None)
+            if project.portable:
+                from .deployment import compare
+                for field in plan.get("deferred_fields", []):
+                    entry.setdefault("decisions", {})[field] = {"local": fingerprint(plan["local"][field]), "remote": fingerprint(actual.get(field)), "time": now()}
+                entry.update(tracking_version=1, observed=actual, alignment=compare(entry, plan["local"], actual))
             record_removals(entry, plan)
         entry.update(status=receipt["status"], server_id=server_id)
     except BaseException as exc:
         # Even interruption and transport failure may follow a committed write.
-        receipt.update(status="outcome_unknown", error=str(exc))
+        receipt.update(status="outcome_unknown", error=type(exc).__name__ if project.portable else str(exc))
         entry["status"] = "outcome_unknown"
+        from .client import CodeerError
+        if isinstance(exc, CodeerError):
+            from .portable import redact
+            body = exc.body if isinstance(exc.body, dict) else {}
+            data = body.get("data") if isinstance(body.get("data"), dict) else {}
+            errors = data.get("errors") if isinstance(data.get("errors"), list) else []
+            # Preserve validation diagnostics, never echoed request inputs.
+            details = [{k: row[k] for k in ("field", "message", "type") if k in row}
+                       for row in errors if isinstance(row, dict)]
+            receipt["http_error"] = redact(project, {"status": exc.status, "message": exc.message,
+                                                     "validation_errors": details})
+            if not mutation_completed and exc.status == 422 and body.get("message") == "Invalid request payload" and details:
+                receipt["status"] = entry["status"] = "rejected"
+            if (not mutation_completed and key == "agent" and not plan["server_id"] and exc.status == 400
+                    and body.get("message") == "Tool validation failed: One or more knowledge node files are not in the workspace"):
+                receipt["status"] = entry["status"] = "rejected"
         raise
     finally:
         save_json(receipt_path, receipt)
@@ -128,6 +172,10 @@ def reconcile_entry(project, entry, actual):
     plan = receipt.get("plan", {})
     recovering = entry.get("status") in ("pending", "outcome_unknown", "readback_mismatch")
     matched = recovering and bool(plan) and payload_matches(plan, actual)
+    if project.portable and not matched:
+        entry["observed"] = actual
+        # An observation cannot resolve an unknown write or accept new content.
+        return
     entry.update(base=actual, local_base=plan.get("local", previous) if matched else previous,
                  status="imported_unvalidated")
     if matched:

@@ -6,22 +6,15 @@ development** section provides the directory overview; see
 [onboarding](../onboarding.md) for setup and first steps.
 Each project's own `README.md` holds its specific usage and context.
 
-`project.toml` is local configuration for one primary Agent, not a remote
+`project.toml` is portable configuration for one primary Agent, not a remote
 Codeer Project. Skill modes compose resource commands; there is no `codeer
 project`, `codeer build` or `codeer audit` command.
 
 ## Files and offline work
 
 ```toml
-schema_version = 1
+schema_version = 2
 name = "Support"
-[target]
-# Filled by pull/create; no credentials.
-agent_id = "<remote-agent-id>"
-api_base = "https://api.codeer.ai"
-workspace_id = "<workspace-id>"
-# Optional profile constraint. Selection remains in .codeer/profile.
-profile = "work"
 [paths]
 agent = "agent/settings.json"
 instructions = "agent/instructions.md"
@@ -36,8 +29,230 @@ without auth or a bound Agent. Init creates README, log, source index and
 documents entry, preserving existing content. Other directories appear on
 demand. Paths are relative to project root and must stay inside it. Override
 paths to adopt existing files; do not move/delete legacy data automatically.
-Only a literal `[target]` table with simple one-line basic strings supports
-comment-preserving automated binding; exotic TOML is rejected for manual review.
+Schema 2 has no `[target]` or personal profile. Schema 1 remains readable with its
+single target/state and unchanged revision algorithm. `init --legacy` explicitly
+initializes that compatibility format. `agent migrate --alias <name>` retains
+the original TOML under `.codeer/legacy/`, copies state/receipts, and selects a
+deployment; old receipts and evidence hashes remain unchanged. Migration does
+not turn environment IDs into logical dependencies or renew old audit/run proof.
+Only a literal legacy `[target]` section supports automated migration; exotic
+TOML is refused for manual review.
+Establish the legacy API/workspace binding and reconcile uncertain operations
+first if that identity is missing; migration refuses to invent it.
+
+## Deployments, clone and platform adoption
+
+Keep projects in your own repository, e.g. `projects/<stable-name>/`. Recommend a
+root README linking projects and common AGENTS maintenance rules; do not create a
+workspace registry, rewrite the root index or commit for the user automatically.
+Recommend `.codeer/` in the repository-root `.gitignore` too, protecting inherited
+profile selection at every level. Preserve authored rules; project init does not
+rewrite the parent repository's files.
+Each project is discovered independently from its nearest `project.toml`.
+
+Use an existing explicit environment, nearest parent/project `.codeer/profile`
+or global profile. `.codeer/` missing after clone is normal, not proof of missing
+credentials. Run `profile current` and `check`; only missing configuration calls
+for explicit `profile add <name>` (other platform: `--api-base`). Unselected
+profiles need `profile use`; an unknown name must be selected or added explicitly.
+Missing/rejected keys need the actual setting corrected and `check` repeated;
+environment overrides must be corrected/removed themselves. Network/timeouts/5xx
+mean connection unverified. Explicit permission errors differ from uncertain
+401/403 rejection; do not infer expiration from HTTP status alone. Never scan
+files for keys or persist environment credentials. Interactive `profile add`
+alone may save secure input to the user's config, with restricted permissions.
+
+```bash
+# Explicitly choose new deployment OR takeover; both configure only local state.
+codeer agent bind --alias dev --new
+# alternative: codeer agent bind --alias prod --agent <id>
+codeer agent use dev
+codeer --deployment prod status
+```
+
+Each alias uses `.codeer/deployments/<alias>/target.json`, `state.json`, `imports/`
+and `receipts/`. Alias/profile names are not platform identity. API/workspace/Agent
+must match actual scope. Profile/environment changes after a preview invalidate
+that preview. Content revision excludes deployment and personal profile; runs
+and releases still bind actual scope and exact remote content. Do not copy state
+from another computer. Shared production writes require operator coordination;
+there is no server CAS or concurrent-writer guarantee.
+
+`resources.json` contains originals and KB source selections:
+
+```json
+{
+  "schema_version": 1,
+  "attachments": {"manual": {"path": "sources/documents/manual.pdf"}},
+  "knowledge": {"faq": {"directory": "kb", "glob": "*.md"}}
+}
+```
+
+Agent/Case attachments use `attachment:manual`; knowledge tools use `kb:faq` or
+`kb:faq/faq.md`. Model/HTTP URL/credential values can use `env:VARIABLE` referencing
+an explicitly supplied environment variable. Sensitive HTTP auth/header values
+must use these references; resolved values stay at the HTTP boundary. Check
+available models in each deployment. Context/label environment IDs require
+explicit environment references, not committed platform IDs. Upload originals
+with `agent attachment --local-id manual --dry-run`, then the reviewed `--expect`;
+bytes are downloaded and checked after upload. Unknown upload identity blocks
+retry. KB upload must match its declared directory/glob/local ID. Its new node
+IDs are mapped locally. The API cannot replace existing KB file content in place.
+Create-only API omissions (`response_mode`/output policy) are listed as deferred;
+after create readback, review a second apply without changing portable content.
+
+After clone, map an existing attachment explicitly with `agent attachment
+--local-id manual --remote-id <uuid> --dry-run`, then the matching `--expect`.
+The ID must occur in the selected Agent/Eval and downloaded bytes must match the
+local original; no upload occurs. If identity/bytes cannot be proven, retain the
+gap. On an already deployed/takeover target, genuinely new attachments or KB
+uploads require explicit `--new`; missing mappings cannot create replacements.
+
+Takeover is explicit: pull records Draft/Published observations, then compare
+and decide with the same adoption core used for ongoing platform changes:
+
+```bash
+codeer agent pull
+codeer agent adopt --resource agent --fields description --remote --dry-run
+codeer agent adopt --resource agent --fields description --remote --expect <token>
+codeer agent adopt --resource agent --fields human_handoff --keep-local --dry-run
+# Repeat that reviewed choice with --expect <token>.
+codeer agent adopt --resource tester:tools --remote-id <uuid> --remote --dry-run
+codeer agent adopt --resource case:handoff --remote-id <uuid> --keep-local --dry-run
+codeer agent adopt --resource pairs:handoff --remote-id <case-uuid> --remote --dry-run
+```
+
+Never match names or case text. Map Testers before pair adoption. For a genuinely
+new Case/Tester on takeover, explicitly declare `--remote-id new --keep-local`
+and confirm its preview; missing state alone never authorizes creation. `eval
+pull` preserves existing design and observations, without silently mapping clone
+resources. KB takeover uses `kb bind --local-id faq --kb-id <id> --files <json>`
+where JSON maps each source path to an exact node ID. Review with `--keep-local`
+or `--remote-text` and `--expect`. Binding verifies original bytes using the
+conditioned download API. Text adoption is limited to text files whose saved
+text equals the downloaded original; other representations stay separate.
+
+Each independent field is `aligned`, `pending_apply` or `undecided`. Equality or
+verified adoption advances only that field's bases. Keeping local 30 against
+remote 14 retains a pending 30 proposal; it aligns only after successful apply
+and readback of 30. Adopting 14 updates local bytes, verifies them and aligns with
+zero remote mutations. Partial adoption preserves all other conflicts. Prompt,
+Rubric and arrays remain indivisible. An unresolved field blocks the resource's
+whole replacement payload; independent resources may proceed when their own
+dependencies are satisfied. Confirmation is tied to both current values; either
+side changing requires comparison again. `--reconcile` resolves interrupted
+operations only when readback proves the recorded expected payload; it cannot
+accept a conflicting platform edit or clear unknown results by observation alone.
+
+No-original-project imports can obtain settings/Eval, attachment bytes and referenced
+KB originals/text/FAQ through the resource-export APIs. Record missing-original,
+capability and permission gaps with source/time. Legacy `kb export` remains a
+UTF-8 text operation. Unavailable design rationale,
+confirmations and old local history cannot be reconstructed. Sub-Agent references
+are preserved for read-only diagnosis and block project deployment; do not recurse,
+remove them or offer remote-ID-only deployment. Imports are not complete backups,
+accepted business design, passing evaluation or publication authorization.
+
+Formal delivery uses `eval delivery --run-id <id> --release-id <id> --out-dir
+<fresh-directory>`, then `eval delivery --verify <directory>`. It exports selected
+run/results/traces, audit/confirmation evidence and release readback with hashes
+and exact IDs. Missing evidence remains incomplete; summaries cannot replace it.
+No `.codeer/`, other trials or all conversation history are exported. Share raw
+evidence under appropriate access controls; verification is offline integrity
+and identity, not live verification or proof of authenticity.
+
+### Portable KB text, originals and FAQ
+
+Use the single-file resource export for unchanged saved text, the complete FAQ
+collection, metadata and `export_revision`. It avoids mixing independently read
+text/FAQ and detects FAQ-only changes. Each file is consistent; walking a KB is
+not a cross-resource transaction. Do not replace this read with paginated FAQ
+queries or refreshed `/content` text when preserving FAQ coordinates.
+
+```bash
+codeer kb import --local-id manual --kb-id <root-or-file-id> --dry-run
+codeer kb import --local-id manual --kb-id <root-or-file-id> --expect <token>
+```
+
+Import writes originals under `sources/knowledge/manual/originals/`, an exact
+saved-text/FAQ definition at `kb/manual-faqs.json`, and provenance/download
+evidence in `sources/knowledge/manual/manifest.json`. Existing destinations are
+refused. Imported FAQ IDs are deployment mappings; portable FAQ values contain
+stable local IDs, questions and ranges. Agent import is observation, not accepted
+design or quality validation. Website crawl settings are excluded and recorded
+as `website_crawl_settings_excluded`; saved page text does not recreate crawling.
+
+A knowledge declaration can add `faq_file` and `manifest` relative paths:
+
+```json
+{"schema_version":1,"files":{"001-guide.pdf":{"content":"Exact saved text\n","faqs":{"opening-hours":{"question":"Opening hours?","ranges":[]}}}}}
+```
+
+This is the FAQ file's format. Questions are trimmed, nonempty and at most 100
+characters. Ranges use the existing API's one-based lines, zero-based columns,
+optional character offsets and text; saved CRLF/whitespace must remain unchanged.
+Original PDFs are never overwritten by text snapshots. Source IDs/revisions stay
+in the provenance manifest and local mappings, not portable FAQ values. Remote
+`export_revision` is an opaque deployment identity, not a portable content hash.
+
+After target KB upload/readiness or explicit `kb bind`, map each original path
+to a target node. FAQ synchronization compares the entire collection for each
+file. Use explicit IDs for existing target FAQ; never match questions/names:
+
+```bash
+codeer kb faq-sync --local-id manual --ids faq-ids.json --remote --dry-run
+# faq-ids.json: {"001-guide.pdf":{"opening-hours":123}}
+# Repeat with --expect <token> to adopt target text/FAQ locally; no remote writes.
+codeer kb faq-sync --local-id manual --keep-local --dry-run
+# Repeat with --expect <token> to preserve a pending local proposal.
+codeer kb faq-sync --local-id manual --keep-local --apply --dry-run
+# Repeat with --expect <token> only within authorization for those FAQ mutations.
+codeer kb faq-sync --local-id manual --reconcile
+```
+
+New target FAQ require a reviewed keep-local decision, then a separate apply.
+Apply requires exact target saved-text equality before recreating ranges; changed
+extraction is a review gap, never an automatic coordinate rewrite. Unmapped target
+FAQ block writes. Only explicitly mapped FAQ can be updated/deleted; removing a
+managed local definition previews deletion. Platform deletions are visible and
+may be adopted; missing IDs never silently create replacements. For deliberate
+new identities, provide a reviewed complete mapping with those entries omitted.
+
+Previews bind local bytes, mappings, current export revisions and connection.
+Successful readback alone advances bases; partial/unknown writes retain receipts.
+Known update/delete identities reconcile without another write. Unknown create
+identities block retry; after external investigation supply a complete `--ids`
+mapping with `--reconcile` to verify exact snapshot/content, without creating.
+Recovery uses recorded file/snapshot identities even if a newer local proposal
+removed the FAQ. It confirms only recorded operations: additional platform changes
+remain `conflict`/`undecided`, with the prior bases retained and a fresh explicit
+choice required. Batch readback also checks that only the reviewed FAQ changed.
+Direct file references reuse a covering KB's exact file mapping; a single-file
+import keeps its file reference distinct from the owning KB root.
+Automatically imported overlapping folders retain their root references and
+originals, while shared exact file IDs reuse one canonical file reference.
+Explicitly configured ambiguous aliases still require resolution.
+Reconciliation preserves newer local proposals as pending. Pure preview/read
+never advances bases or accepts design. Pending local FAQ or unresolved writes
+block run/publish for referenced managed KB. Run inputs and selected delivery
+include FAQ definitions/manifests; the run records complete observed FAQ/revisions.
+
+Original downloads use authenticated same-service endpoints with snapshot/revision
+conditions, staged bytes, response identity, size and available SHA-256 checks.
+`files:status` establishes readiness; snapshot identity comes from metadata,
+conditioned downloads and complete exports. KB binding rechecks the export
+revision before recording its baseline; status need not contain a snapshot ID.
+Null server digest is recorded as `no_server_digest`, not two-sided hash proof.
+409/interruption/mismatch cannot finalize a successful original. Missing export
+APIs report capability gaps; no internal-route or `source_url` fallback. Saved
+representations, text, media URLs and external references do not become uploaded
+originals automatically. Required missing originals prevent complete deployment.
+Import preserves available files/text/FAQ when another node is not ready or
+unavailable, recording per-node server reasons and marking the KB incomplete.
+An entirely unavailable KB leaves a gap receipt so the same local ID can be retried.
+Declared manifests are required run/delivery inputs; missing references invalidate
+both new runs and offline delivery checks. Collected paths resolve symlinks before
+checking project and machine-state boundaries.
 
 ### Agent design paths and existing projects
 
@@ -60,8 +275,8 @@ modules are new-project defaults; always substitute the selected path and its
 draft. Both must stay inside the project. Init preserves existing authored
 files; updating the CLI does not rename them or rewrite historical references.
 
-The older name was Behavior Contract. Its content responsibilities and project
-schema have not changed. Revision hashing retains its legacy field identity:
+The older name was Behavior Contract. Naming compatibility preserves its content
+responsibility. Revision hashing retains its legacy field identity:
 an upgrade, alias change, or rename of the design file with identical content
 alone does not invalidate audit/run/release evidence. Changes to content or
 other dependencies still do. If Eval source references point to a moved file,
@@ -79,9 +294,9 @@ are not accepted design and are not hashed as the established design file.
 | `agent/settings.json`, `agent/instructions.md` | Writable settings and the sole editable prompt; omit `system_prompt` from JSON when Instructions exists |
 | `evals/design.json` | Stable Case/Tester design, Rubrics, evidence requirements and pairs |
 | `reviews/` | Semantic audit, repair/Tester decisions, confirmation evidence, immutable observations |
-| `runs/<run-id>/`, `releases/<release-id>/` | Actual operation evidence; never overwrite a prior run |
-| `.codeer/` | Profile name, state, remote imports, ID mappings, sync bases and operation receipts |
-| `log.md` | Short dated reason, decision/status, evidence links and next unresolved step; never machine truth |
+| `runs/<run-id>/`, `releases/<UTC-timestamp>-<id>.json` | Actual operation evidence, including pending/unknown; legacy `releases/<id>/release.json` is also read without double counting |
+| `.codeer/` | Profile name and selected alias; each deployment owns target, mappings, bases, observations and receipts |
+| `logs/YYYY-MM.md` | Important reasons, status, evidence links and unresolved steps; continue an existing `log.md` without splitting/copying it |
 
 The builder follows the shared [discovery and source rules](agent-design.md#discover-and-ground-the-design)
 to maintain this design from user goals, clear instructions, designated source
@@ -100,8 +315,10 @@ or semantically verified by offline validation. A verified flag and an existing
 file are structural checks; audit must still inspect actual producer/delivery
 evidence and challenge Judge scores contradicted by tool traces.
 
-Init ignore defaults exclude local state, raw histories, runs, PDF and raw release
-evidence. Init appends these defaults after existing `.gitignore` rules, preserving
+New init ignore defaults exclude all `.codeer/`, raw histories, runs and releases;
+required PDF/attachment/KB originals remain eligible for controlled Git storage.
+Legacy ignore rules are preserved; review broad historical PDF rules explicitly
+before sharing needed originals. Init appends defaults after existing rules, preserving
 their content; repeating init without further edits leaves the file unchanged.
 Review confidentiality before sharing other sources/design; location
 does not grant publication rights. Legacy `.codeer/design/current/pinned`
@@ -127,12 +344,15 @@ codeer status
 Pull saves raw editable/Published/version observations separately from writable
 files, retains remote/shared identities, and never modifies existing local work.
 A repeated pull observes without advancing established sync bases. `--reconcile`
-explicitly accepts observed remote baselines after inspecting an interrupted
-receipt; local drafts remain intact. It advances the local checkpoint only when
+reads an interrupted operation's recorded identity; local drafts remain intact.
+Schema 2 advances bases only for proven expected content. The legacy reader
+retains its original remote-observation behavior. It advances the local checkpoint only when
 readback proves the receipt's payload, preserving proposals edited after that
 operation. Eval recovery includes known unassigned Testers. Unknown create identity cannot be recovered
 by guessing a matching name: identify it from actual server evidence first.
-Agent pull does not import KB/Eval; the skill coordinates those separate commands.
+The first portable Agent pull imports referenced KB originals/text/FAQ and attachments
+without overwriting existing definitions. Eval import remains separate. Legacy pull
+does not import KB/Eval. A repeated pull preserves local proposals and bases.
 Current KB/Rubric/Tester reads are not historical snapshots of an old Agent version.
 Record gaps in sources/reviews and append an import milestone to the log.
 
@@ -157,8 +377,8 @@ the case's `remove_tester_ids`. No transaction, server CAS or automatic rollback
 is promised. Successful resource receipts survive a later failure; unknown
 outcomes require reconciliation before retry.
 Successful apply and no-op synchronization store separate local and remote
-checkpoints. A web-only value retained remotely does not become a new local
-overwrite proposal on the next apply. Resource commands persist reviewed
+checkpoints. Schema 1 preserves web-only values remotely; schema 2 requires
+explicit adoption or keep-local decisions for changed remote fields. Resource commands persist reviewed
 proposals before writes so a partial failure cannot turn old authored values into
 rollback intent. Confirmed pair removals are idempotent; remote readdition needs
 review, and an explicitly accepted readdition clears the earlier removal marker.
@@ -216,7 +436,8 @@ synthetic example is a format illustration, not an accepted SOP:
 `meta` retains supported prior-state/conversation references; never invent a new
 backend context field. Keep source provenance outside API payload. Review
 Judge model omission versus explicit `null` (system default). IDs live in
-`.codeer/state.json` scoped to API base/Workspace/Agent. Renaming input retains
+the selected deployment's `state.json` (legacy `.codeer/state.json`) scoped to
+API base/Workspace/Agent. Renaming input retains
 the case; identical input may represent distinct initial conditions. Tester
 updates preview all accessible Workspace pair usage, including other Agents.
 One Tester can cover many cases; new Testers need a distinct evidence/judgment

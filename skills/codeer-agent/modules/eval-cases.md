@@ -556,7 +556,8 @@ is warranted).
 Use `codeer status` and inspect `runs/<run-id>/run.json` for planned, triggered,
 completed, skipped and passing pairs. Each run preserves its own inputs/results;
 never overwrite the preceding round. Keep only decision-useful batch narrative
-in `reviews/` and reasons/status/evidence links in `log.md`. A written summary
+in `reviews/` and reasons/status/evidence links in `logs/YYYY-MM.md` (or existing
+`log.md`). A written summary
 cannot turn a missing or unjudgeable pair into completed coverage.
 
 ### Full regression check

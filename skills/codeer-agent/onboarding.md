@@ -43,7 +43,10 @@ python -m pipx ensurepath
 
 Then restart the terminal and run `pipx install codeer-cli` again.
 
-Create a named CLI profile. The profile stores the selected profile name in the
+Reuse an already configured environment, nearest parent/project profile or
+global default; clone missing `.codeer/` does not imply missing credentials.
+Run `codeer profile current` and `codeer check`. If no usable configuration
+exists, explicitly create a named CLI profile. The profile stores its name in the
 project and keeps the API key in the user-level Codeer CLI config. The name
 `work` is only an example; users can choose any recognizable name, such as
 `codeer`, `prod`, `client-a`, or `support-agent`:
@@ -55,6 +58,26 @@ codeer check
 ```
 
 `codeer profile add` prompts for the API key without echoing it.
+It requires an interactive terminal and saves only after this explicit command.
+For another platform add `--api-base`. An existing but unselected profile needs
+`profile use`; missing/rejected keys need the corresponding setting updated.
+Correct environment overrides directly; changing a profile cannot override them.
+Network/timeouts/5xx mean connection unverified; permission errors and uncertain
+401/403 responses do not establish key expiration.
+
+New projects separate portable content from local deployment state:
+
+```bash
+codeer agent bind --alias dev --new
+# OR: codeer agent bind --alias prod --agent <id>
+codeer agent use dev
+```
+
+Profile names do not select deployment targets. Explicitly map existing resources
+and resolve differences using [deployment adoption](reference/project.md#deployments-clone-and-platform-adoption).
+Keep needed originals in the project; `.codeer/`, raw histories and ordinary
+runs/releases remain local. Operators coordinate shared production writes;
+clone cannot recover another person's pending operations or local history.
 
 Workspace and organization scope come from the workspace API-key virtual user's
 profile. The CLI does not use `--workspace`, `--org`, `CODEER_WORKSPACE_ID`, or

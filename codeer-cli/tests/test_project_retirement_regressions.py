@@ -59,7 +59,7 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
         original = "# Existing repository rules\n.venv/\n!runs/"  # No final newline.
         (root / ".gitignore").write_text(original)
         subprocess.run(["git", "init", "-q", str(root)], check=True)
-        self.assertEqual(self.cli("init", str(root))[0], 0)
+        self.assertEqual(self.cli("init", str(root), "--legacy")[0], 0)
         first = (root / ".gitignore").read_bytes()
         self.assertTrue(first.decode().startswith(original + "\n"))
         private = [".codeer/state.json", "sources/history/import/raw.json", "runs/example/run.json", "releases/example/raw-response.json", "sources/documents/sop.pdf"]

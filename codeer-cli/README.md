@@ -92,6 +92,34 @@ Code. These filesystem commands do not install account-level Cowork skills.
 
 ## Local Agent projects
 
+Agent create/update preflight accepts at most three suggested questions, each
+at most 200 characters. A structured API validation 422 received before a
+mutation is acknowledged is recorded as `rejected`, with safe validation
+details; timeouts, unstructured errors, and readback failures remain
+`outcome_unknown`. A rejected request still requires a fresh preview before retry.
+
+For older receipts that lost the 422 details, `agent recover-rejected-create`
+supports only the investigated maximum-three-question create rejection. It
+requires explicit operator evidence containing `schema_version: 1`, the original
+`receipt_sha256`, exact `scope` and `request_token`, observed `http_status: 422`,
+`message: "Invalid request payload"`, `operator_attested_validation_rejection: true`,
+and a project-relative `verification` report. The old request must contain more
+than three suggested questions, the new settings must be valid, and a same-name
+Agent must not exist. Listing absence alone is insufficient evidence. Review
+with `codeer agent recover-rejected-create --evidence reviews/rejection.json --dry-run`,
+then apply that exact preview with `--expect <token>`. Recovery performs only
+server reads and a local state update, preserves the original receipt bytes,
+writes a separate recovery receipt, and never retries creation itself. Known
+server IDs, response-bearing receipts, other scopes and transient failures
+are refused; use their existing identity-based reconciliation workflows.
+
+The same recovery command also accepts a recorded pre-create HTTP 400 with the
+exact backend message `Tool validation failed: One or more knowledge node files
+are not in the workspace`; the evidence must match the receipt's retained HTTP
+error. This validation happens before Agent creation. Select KB file nodes,
+using `kb:<local-id>/<filename>` references, rather than the KB folder itself.
+Other HTTP 400 messages remain uncertain and are not cleared by this path.
+
 The following project commands are implemented in this checkout. This change
 does not publish a new PyPI release; use the development install until a release
 includes them. Initialization, status and structural validation work offline:
@@ -103,9 +131,12 @@ codeer status
 codeer validate
 ```
 
-`project.toml` binds one main Agent and supports custom paths. Child directories
-discover it upward. API base, workspace, profile and explicit Agent mismatches
-are rejected. Use global `--outside-project` only for an intentional standalone
+`project.toml` describes one main Agent and supports custom paths. New schema 2
+stores each deployment under `.codeer/deployments/<alias>/`; schema 1's target
+and original revision reader remain supported. Child directories
+discover it upward. API base, workspace and explicit Agent mismatches are
+rejected; profile/connection changes invalidate previews, and legacy profile
+constraints remain checked. Use global `--outside-project` only for an intentional standalone
 operation. `status --refresh` explicitly queries remote configuration; offline
 status reports the last observation time and cannot assert live remote validity.
 Init preserves existing `.gitignore` content and appends private-output defaults
@@ -125,7 +156,8 @@ instructions are recorded with their basis without another document approval.
 Unclear intent or conflicting sources still require a decision. The builder
 keeps established decisions in
 `design/agent-design.md`, pending decisions in its `.draft.md` counterpart,
-and important milestones/reasons in `log.md`. The single prompt authority is
+and important milestones/reasons in `logs/YYYY-MM.md` (continue existing
+`log.md`). The single prompt authority is
 `agent/instructions.md`; omit `system_prompt` from `agent/settings.json`.
 Structured Eval design lives in `evals/design.json`. Important understanding and
 proposals are saved during discovery, so a new conversation can resume them.
@@ -145,6 +177,8 @@ to content or dependent Eval references still require renewed validation. See
 To adopt an existing Agent without overwriting local work:
 
 ```bash
+codeer agent bind --alias prod --agent <id>
+codeer agent use prod
 codeer agent pull --agent <id>
 codeer eval pull
 codeer agent diff --local
@@ -648,6 +682,40 @@ codeer kb node-delete --node-id <node-id> --dry-run
 
 `node-delete` deletes the target node and all descendants. Review the dry-run
 output before rerunning without `--dry-run`.
+
+## Portable KB originals and FAQ
+
+In a schema 2 project, `codeer kb import --local-id manual --kb-id <id>` saves
+originals, exact saved text and complete FAQ, with a provenance/integrity manifest.
+Run `--dry-run`, then repeat with the reviewed `--expect <token>`. The first
+portable `agent pull` also imports referenced KB resources when no Agent definition
+exists. Existing definitions and originals are preserved. `kb export` remains
+the separate legacy text export.
+
+Knowledge definitions may declare a `faq_file` and `manifest` path in
+`resources.json`. For the format and complete workflow, see
+[portable KB/FAQ](../skills/codeer-agent/reference/project.md#portable-kb-text-originals-and-faq).
+After target KB upload/binding, use `kb faq-sync --local-id manual --keep-local`
+with preview/expect to keep a pending proposal; then preview/expect the same command
+with `--apply` to rebuild. `--remote` adopts target text/FAQ locally without remote
+writes. Existing target FAQ need explicit `--ids` mappings; questions are never
+matched. Target saved text must match before recreating ranges. Reconcile known
+interrupted operations with `--reconcile`; unknown creates need investigated IDs,
+never a blind retry. Recovery uses the recorded identities even if newer local
+proposals remove a FAQ. Unrelated platform changes remain undecided and do not
+advance recovery bases; compare and choose again before applying.
+
+The CLI uses conditioned same-service resource downloads and the single-file
+text/FAQ export, staging and checking bytes before saving. Export API absence,
+missing originals and permission failures remain explicit gaps; no `source_url`
+fallback is used. A missing server digest is recorded separately from verified
+hashes. Website crawl settings are excluded and recorded as a gap. Export
+revisions identify environment observations; portable definitions use local hashes.
+Partial imports retain available files and per-resource gaps. Direct file
+references reuse covering folder mappings when available. FAQ definitions/manifests
+enter immutable run inputs and selected delivery bundles; declared files must
+exist, and resolved input paths must remain outside deployment state and inside
+the project. Offline bundle verification checks those declared dependencies too.
 
 ## Context Object FAQ
 

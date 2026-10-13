@@ -167,7 +167,7 @@ class AdditionalReviewTests(EvidenceFixture, unittest.TestCase):
         before = len([m for m, _, _ in self.api.calls if m != "GET"])
         self.assertEqual(self.cli("agent", "publish", "--history", "h1", "--reconcile")[0], 0)
         self.assertEqual(len([m for m, _, _ in self.api.calls if m != "GET"]), before)
-        stored = read_json(next((project.root / "releases").glob("*/release.json")))
+        stored = read_json(project.release_paths()[0])
         self.assertEqual(stored["status"], "reconciled_observation")
         self.assertEqual(stored["actual_history_id"], release["actual_history_id"])
         self.assertEqual(self.cli("agent", "publish", "--history", "h1", "--dry-run")[0], 0)
@@ -181,7 +181,7 @@ class AdditionalReviewTests(EvidenceFixture, unittest.TestCase):
         self.assertIn("reconcile", self.cli("status")[1]["next_step"])
         self.api.agent["publish_history_id"] = "h1"
         self.assertEqual(self.cli("agent", "publish", "--history", "h1", "--reconcile")[0], 0)
-        stored = read_json(next((project.root / "releases").glob("*/release.json")))
+        stored = read_json(project.release_paths()[0])
         self.assertEqual(stored["status"], "published_reconciled")
         self.assertEqual(stored["actual_history_id"], release["actual_history_id"])
         self.assertEqual(stored["reconciliation"]["actual_history_id"], "h1")

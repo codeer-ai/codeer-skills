@@ -13,8 +13,16 @@ Skill modes are conversation routes, not CLI command names.
 codeer init customer-project
 codeer status
 codeer validate
+codeer agent bind --alias prod --agent <id>
+codeer agent use prod
 codeer agent pull --agent <id>
 codeer eval pull
+codeer kb import --local-id manual --kb-id <id> --dry-run
+codeer kb import --local-id manual --kb-id <id> --expect <reviewed-token>
+codeer kb faq-sync --local-id manual --remote --dry-run
+codeer kb faq-sync --local-id manual --keep-local --dry-run
+codeer kb faq-sync --local-id manual --keep-local --apply --dry-run
+codeer kb faq-sync --local-id manual --reconcile
 codeer agent diff --local
 codeer agent apply --dry-run
 codeer agent apply --expect <reviewed-token>
@@ -41,7 +49,8 @@ resource use outside a project. Use stable project design in a bound project.
 Local authored design and remote observations have separate authorities; see
 [project.md](project.md). Do not delete local settings after apply: they are the
 editable source for the next iteration. Do not overwrite original sources or
-prior run/release evidence. `.codeer/state.json` owns scoped stable IDs and sync
+prior run/release evidence. `.codeer/deployments/<alias>/state.json` (legacy
+`.codeer/state.json`) owns scoped stable IDs and sync
 bases. A descriptive batch summary may live in `reviews/`, but completed and
 passed status comes from exact run evidence, never a hand-written score table.
 
@@ -53,6 +62,11 @@ passed status comes from exact run evidence, never a hand-written score table.
 | `codeer model list` | List active cloud LLM models; use `--type text` for agent models |
 | `codeer agent list` | List agents in workspace |
 | `codeer agent get` | Get editable agent details; `--history <UUID>` reads an exact version snapshot |
+| `codeer agent bind/use/migrate` | Explicit new/takeover deployment setup, selection or legacy migration; no remote mutations |
+| `codeer agent adopt` | Preview and adopt selected remote fields or retain local proposals; no remote mutations |
+| `codeer agent attachment` | Upload a declared original with byte readback; unknown identity blocks retries |
+| `codeer kb bind` | Explicit source-file → node-ID mapping and text adoption; preserves original files |
+| `codeer eval delivery` | Selected formal evidence export or offline `--verify`; excludes deployment state |
 | `codeer agent apply` | Create or update agent (always creates a new DRAFT version) |
 | `codeer agent diff` | Show diff between versions |
 | `codeer agent versions` | List version metadata; use `get --history` for snapshot content |

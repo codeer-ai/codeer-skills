@@ -264,6 +264,8 @@ codeer validate
 這三個命令不需要憑證或網路。接手既有 Agent 時，先選擇正確 profile，再執行：
 
 ```bash
+codeer agent bind --alias prod --agent <id>
+codeer agent use prod
 codeer agent pull --agent <id>
 codeer eval pull
 codeer agent diff --local
@@ -272,7 +274,7 @@ codeer agent diff --local
 一個本機專案對應一個主要 Agent，不會建立遠端 Project。原始 SOP／PDF 放在
 `sources/documents/`，以 `sources/index.md` 記錄來源；整理後的 KB 放在 `kb/`。
 coding agent 將已確定的設計決策放在 `design/agent-design.md`，待確認提案放在
-`design/agent-design.draft.md`。`log.md` 簡記重要理由、狀態與證據連結。
+`design/agent-design.draft.md`。`logs/YYYY-MM.md` 簡記重要理由、狀態與證據連結；既有 `log.md` 繼續使用，不自動拆檔。
 Prompt 的唯一編輯來源是 `agent/instructions.md`，其他設定放在
 `agent/settings.json`；穩定 Tester／Case／Rubric 配對放在 `evals/design.json`。
 
@@ -296,6 +298,26 @@ token 只辨識內容，不代表授權。本機／網頁衝突與結果不明�
 格式、舊專案接手方式及 API 限制請見
 [專案契約](../../skills/codeer-agent/reference/project.md)。原始 History／AI Draft
 匯出留在 `sources/history/<collection-id>/` 私有目錄；候選測試保留來源，經審查才套用。
+
+### 可攜專案、Clone 與平台修改接回
+
+Agent 專案放在自己的管理 repo，例如 `projects/<stable-name>/`；root README 可提供索引，共同 AGENTS 保存維護規則。Repo root 的 ignore 也加 `.codeer/`，保護繼承的 profile 選取；project init 保留父目錄檔案。新 `project.toml` 採 schema 2，不保存目標或個人 profile。舊 schema 1 及原 hash 仍可讀取；明確執行 `agent migrate --alias <name>` 才備份原件並改用本機部署追蹤。遷移不會更新舊驗證證據，也不會自動解析環境 ID。
+
+Clone 後沒有 `.codeer/` 是正常狀態。先沿用已明確設定的環境變數、最近父目錄／專案 profile 或全域預設，以 `profile current`、`check` 核對。只有缺設定才明確執行 `profile add <name>`，其他平台加 `--api-base`；未選取則用 `profile use`。缺失／遭拒的 key 應修正實際設定來源；切換 profile 不會消除環境覆蓋。互動式 add 才安全保存輸入至受限權限的使用者設定，不自動蒐集／保存 key。網路中斷、逾時或 5xx 表示尚無法驗證連線；權限不足與原因未明的 401／403 都不等於 key 過期。
+
+新建部署使用 `agent bind --alias dev --new`，接手既有部署則用 `--agent <id>`；以 `agent use <alias>` 或全域 `--deployment <alias>` 選取。每個部署各有 target、映射、基準及回執，profile 名稱不是部署身分。共同正式部署由操作者協調交接；不保證同時寫入安全，也不匯入前任 state。
+
+在 `resources.json` 宣告必要原件與 KB 來源。Agent／Case 附件使用 `attachment:<local-id>`，知識工具使用 `kb:<local-id>[/path]`，環境值／憑證使用明確的 `env:<VARIABLE>`，只在 HTTP 邊界解析，不提交憑證。以 `agent attachment` 上傳原件，KB 則依宣告的 local ID／目錄／glob 上傳；都先預覽，再用已核對的 `--expect`。必要 PDF／附件可受控進 Git／儲存；新專案不加廣泛 PDF ignore，原始客服對話、一般 run／release 留本機。
+
+可攜匯入透過 resource export API 保存 KB 原件、未改寫文字及完整 FAQ。`kb import --local-id <id> --kb-id <id>` 先預覽再用 expect，分別保存原件、FAQ 定義與來源／完整性證據。目標 KB 上傳或綁定後，`kb faq-sync --remote` 可採納平台 FAQ 至本機；`--keep-local` 保存待套用提案，再另外預覽並確認 `--apply` 才重建。既有 FAQ 必須明確映射 ID，重建文字範圍前須核對目標文字一致；未知新增身分會阻擋重試。調查後明確提供 ID，可恢復原紀錄的操作，即使較新的本機提案已移除該 FAQ。恢復不會採納其他平台變動，須重新比較並決定。部分 KB 匯入會保留可取得檔案並逐項記錄缺口；宣告的 FAQ／manifest 必須齊備，才能通過驗證與交付。網站爬取設定先排除並記錄缺口。API 或原件缺失仍保留缺口，不用文字或來源 URL 代替已核對原件。詳見 [KB／FAQ 流程](../../skills/codeer-agent/reference/project.md#portable-kb-text-originals-and-faq)。
+
+平台有人修改時先 pull 觀察，再以 `agent adopt --resource agent --fields description --remote --dry-run` 預覽，重複相同命令加 `--expect <token>` 才採納。`--keep-local` 保留本地提案為待套用；Case／Tester／配對明確指定 ID，不依名稱配對。`kb bind` 可核對來源檔與 node ID，並採納文字快照。已對齊、待套用與尚未決定分開保存；採納不寫平台，未決欄位阻擋整份資源更新。任一側改變即須重做預覽；結果不明先恢復，不推送另一環境。
+
+接手既有附件使用 `agent attachment --local-id <id> --remote-id <uuid>`，先預覽，再用 expect 核對下載 bytes 與本地原件，不重新上傳。已部署／接手的目標若要建立新附件或 KB，須明確加 `--new`；缺少映射不能當成重建理由。
+
+Release 採唯一平面 JSON 檔，保留 pending／unknown／讀回狀態，也能讀舊目錄。正式交付使用 `eval delivery --run-id <id> --release-id <id> --out-dir <新目錄>`，再以 `eval delivery --verify <目錄>` 讀回檢查。保存確切 result IDs、目標／內容指紋及必要 audit／結果／trace／發布證據；缺檔仍為不完整，摘要不能取代證據。不匯出 `.codeer/` 或其他試跑；原始證據需受控分享。此檢查證明離線完整性與身分核對，不是即時平台驗證。
+
+沒有原專案時，匯入的是現況：可下載的附件會核對 bytes，URL 過期／原件不可取仍列缺口；KB export 是 Markdown，不是原始 PDF。設計理由、需求確認與前任本機歷史不能反推。子 Agent 引用保留供唯讀診斷，阻擋專案部署；不遞迴建立或刪除引用。這類匯入不代表完整備份、接受業務規則或品質通過；既有 KB 內容也沒有原地替換 API。
 
 ## Codeer Agent Skill 會怎麼和你協作？
 
@@ -323,18 +345,16 @@ pipx ensurepath
 
 ### `codeer check` 顯示 401 / 403
 
-API key 可能過期、被撤銷或權限不足。請重新建立 Admin workspace key 並更新
-profile。
+401／403 不能單獨判定過期，也不能區分憑證遭拒與權限不足。先核對設定來源、API／workspace 及權限；確認 key 無效後，才明確用 `codeer profile add <name>` 更新相應 profile，再 check。若 `CODEER_API_KEY`／`CODEER_API_BASE` 正在覆蓋 profile，須修正或移除變數，單純切換 profile 無法修復。網路中斷、逾時或 5xx 只代表連線尚未驗證，保留原設定並檢查服務。
 
 ```bash
-codeer profile add work
-codeer profile use work
+codeer profile current
 codeer check
 ```
 
 ### 看到錯的 workspace
 
-目前 profile 使用了另一個 workspace 的 API key。改用正確 profile 後再執行：
+先核對 API base 與實際 key 的 workspace；修正環境覆蓋或選擇正確 workspace 的 profile，再 check。不自動改綁部署：
 
 ```bash
 codeer check

@@ -47,7 +47,7 @@ class ProjectTests(unittest.TestCase):
             self.assertFalse((self.root / "design").exists())
 
     def test_binding_retains_comments_and_existing_paths(self):
-        self.cli("init")
+        self.cli("init", "--legacy")
         p = self.root / "project.toml"
         p.write_text(p.read_text() + 'agent = "old/settings.json" # keep path\n')
         project = discover()
@@ -67,7 +67,7 @@ class ProjectTests(unittest.TestCase):
                 self.assertEqual(self.cli("status")[0], 2)
 
     def test_agent_mismatch_blocks_before_client_and_explicit_escape_works(self):
-        self.cli("init")
+        self.cli("init", "--legacy")
         discover().bind(agent_id="a")
         with patch("codeer_cli.cli.CodeerClient.from_env", side_effect=AssertionError("client")):
             self.assertEqual(self.cli("agent", "get", "other")[0], 2)
@@ -77,7 +77,7 @@ class ProjectTests(unittest.TestCase):
             self.assertEqual(self.cli("--outside-project", "agent", "get", "other")[0], 0)
 
     def test_scope_rejects_other_base_and_workspace(self):
-        self.cli("init")
+        self.cli("init", "--legacy")
         project = discover()
         project.bind(api_base="https://one", workspace_id="w")
         fake = unittest.mock.Mock(base_url="https://two")

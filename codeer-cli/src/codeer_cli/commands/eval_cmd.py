@@ -120,6 +120,7 @@ def register(subparsers):
     p.add_argument("--dry-run", action="store_true",
                    help="Print intended deletion without writing server state.")
     p.add_argument("--out", default=None)
+    p.add_argument("--expect", help="Reviewed portable-project deletion token")
     p.set_defaults(func=run_case_delete)
 
     # codeer eval evaluators
@@ -206,6 +207,13 @@ def register(subparsers):
     p.add_argument("--evaluators", default=None, help="Comma-separated evaluator UUIDs")
     p.add_argument("--out-dir", default=".codeer/eval_table")
     p.set_defaults(func=run_export)
+
+    p = sub.add_parser("delivery", help="Export or verify selected formal evidence offline; excludes deployment state")
+    p.add_argument("--run-id")
+    p.add_argument("--release-id")
+    p.add_argument("--out-dir")
+    p.add_argument("--verify", help="Verify an existing delivery bundle")
+    p.set_defaults(func=run_delivery, no_client=True)
 
     # codeer eval reconcile
     p = sub.add_parser("reconcile", help="Audit local manifest vs server eval suite (read-only)")
@@ -549,7 +557,7 @@ def run_case_update(args, client) -> int:
 def run_case_delete(args, client) -> int:
     if getattr(args, "project", None):
         from ..project_eval import delete_case
-        result = delete_case(args.project, client, args.case_id, dry_run=args.dry_run)
+        result = delete_case(args.project, client, args.case_id, dry_run=args.dry_run, expected=args.expect)
         if args.dry_run:
             result["case_id"] = args.case_id
             result["current"] = _case_summary(strip_noisy_fields(result["current"]), full=True)
@@ -1482,6 +1490,20 @@ def _resolve_case_label_ids(case: dict, labels_by_name: dict[str, dict]) -> tupl
             raise ValueError(f"case '{case.get('label')}' references unknown label '{name}'")
         resolved_ids.append(str(label["id"]))
     return _dedupe_preserve_order(resolved_ids), label_names
+
+
+def run_delivery(args, client=None):
+    from ..delivery import export, verify
+    if args.verify:
+        if args.run_id or args.release_id or args.out_dir:
+            raise ValueError("--verify cannot be combined with export arguments")
+        result = verify(args.verify)
+    else:
+        if not args.project or not args.run_id or not args.out_dir:
+            raise ValueError("Delivery export requires a project, --run-id and --out-dir")
+        result = export(args.project, args.run_id, args.release_id, args.out_dir)
+    print_json(result)
+    return 0 if result["complete"] else 1
 
 
 def run_cases_apply(args, client) -> int:

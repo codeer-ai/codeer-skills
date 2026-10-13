@@ -61,6 +61,7 @@ Use --out <path> for large raw artifacts; stdout defaults to compact summaries.
 """,
     )
     parser.add_argument("--outside-project", action="store_true", help="Explicitly operate outside the discovered project binding")
+    parser.add_argument("--deployment", help="Select a local project deployment alias for this operation")
     sub = parser.add_subparsers(dest="group")
     from .commands import project as project_cmd
     project_cmd.register(sub)
@@ -113,12 +114,22 @@ Use --out <path> for large raw artifacts; stdout defaults to compact summaries.
 
     try:
         project = None if args.outside_project else discover()
+        if args.deployment:
+            if not project:
+                raise ProjectError("--deployment requires a project")
+            project.select(args.deployment)
+        if project and args.group == "agent" and getattr(args, "action", None) == "bind":
+            if args.deployment and args.deployment != args.alias:
+                raise ProjectError("--deployment conflicts with --alias")
+            project.select(args.alias)
         args.project = project
         if project and not getattr(args, "no_client", False):
             expected = project.target.get("agent_id")
             for field in ("agent", "agent_id"):
                 if hasattr(args, field):
                     explicit = getattr(args, field)
+                    if project.portable and args.group == "agent" and getattr(args, "action", None) == "apply" and explicit and not expected:
+                        raise ProjectError("Explicit Agent requires takeover configuration with agent bind --agent <id>; a new deployment cannot ignore it")
                     if expected and explicit and explicit != expected:
                         raise ProjectError("Agent differs from project binding; use --outside-project for a separate operation")
                     if not explicit:
@@ -137,6 +148,8 @@ Use --out <path> for large raw artifacts; stdout defaults to compact summaries.
         try:
             client = CodeerClient.from_env()
         except AuthError as e:
+            from .setup import diagnostic
+            detail = diagnostic(e)
             if args.group == "check":
                 if getattr(args, "json", False):
                     print(json.dumps({
@@ -145,28 +158,39 @@ Use --out <path> for large raw artifacts; stdout defaults to compact summaries.
                             "ok": False,
                             "error": str(e),
                         },
-                        "next_step": "Configure CODEER_API_KEY or a codeer profile",
+                        "connection": detail,
+                        "next_step": detail["next_step"],
                     }, ensure_ascii=False, indent=2))
                     return 1
                 print(f"FAIL  Auth: {e}", file=sys.stderr)
-                print("      Configure CODEER_API_KEY or a codeer profile", file=sys.stderr)
+                print(detail["next_step"], file=sys.stderr)
                 return 1
             print(f"auth error: {e}", file=sys.stderr)
+            print(detail["next_step"], file=sys.stderr)
+            return 2
+        except (ValueError, OSError) as e:
+            print(f"configuration error: {e}", file=sys.stderr)
             return 2
 
     try:
-        if project and client is not None:
+        if project and client is not None and args.group != "check":
             project.check_scope(client)
+        if project and client is not None and args.group == "check" and project.target.get("agent_id"):
+            client.agent_id = project.target["agent_id"]
         return args.func(args, client)
     except HistoryExportError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
     except AuthError as e:
+        from .setup import diagnostic
         print(f"auth: {e}", file=sys.stderr)
+        print(diagnostic(e)["next_step"], file=sys.stderr)
         return 3
     except CodeerError as e:
+        from .setup import diagnostic
         print(f"error: {e}", file=sys.stderr)
-        if e.body:
+        print(diagnostic(e)["next_step"], file=sys.stderr)
+        if e.body and not (project and project.portable):
             print(json.dumps(e.body, ensure_ascii=False, indent=2, default=str), file=sys.stderr)
         return 1
     except (ProjectError, OSError, ValueError) as e:

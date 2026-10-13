@@ -178,7 +178,8 @@ and a concise reference in the design; do not manufacture an approval record.
 Save pending proposals with the recommendation, evidence, behavior impact and
 unresolved question. Keep the existing rule until an explicit replacement or
 confirmation resolves the change; then update the current rule and preserve the
-prior decision in review/log evidence. Important milestones go in `log.md` with
+prior decision in review/log evidence. Important milestones go in `logs/YYYY-MM.md`
+(continue an existing `log.md`) with
 their state and evidence link. Unresolved decisions stay in the draft; the
 established design may reference their gaps without making assumptions binding.
 

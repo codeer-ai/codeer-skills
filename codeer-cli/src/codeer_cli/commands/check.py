@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sys
 
-from ..client import AuthError, CodeerError
+from ..client import CodeerError
 
 
 def register(subparsers):
@@ -24,23 +24,18 @@ def run(args, client) -> int:
 
     try:
         me = client.get_me()
-    except AuthError:
-        if args.json:
-            report["status"] = "fail"
-            report["auth"]["error"] = "API key missing, invalid, expired, or revoked (401/403)"
-            report["next_step"] = "Create an admin workspace API key and export CODEER_API_KEY before running codeer"
-            print(json.dumps(report, ensure_ascii=False, indent=2))
-            return 1
-        print("FAIL  Auth: API key missing, invalid, expired, or revoked (401/403)", file=sys.stderr)
-        print("      Create an admin workspace API key and export CODEER_API_KEY before running codeer", file=sys.stderr)
-        return 1
     except CodeerError as e:
+        from ..setup import diagnostic
+        detail = diagnostic(e)
         if args.json:
             report["status"] = "fail"
             report["auth"]["error"] = str(e)
+            report["connection"] = detail
+            report["next_step"] = detail["next_step"]
             print(json.dumps(report, ensure_ascii=False, indent=2))
             return 1
         print(f"FAIL  Auth: {e}", file=sys.stderr)
+        print(detail["next_step"], file=sys.stderr)
         return 1
 
     profile = me.get("profile", {})
@@ -51,8 +46,14 @@ def run(args, client) -> int:
 
     try:
         ws_id, org_id = client.resolve_scope()
-    except CodeerError as e:
+        if getattr(args, "project", None):
+            args.project.check_scope(client)
+            report["deployment"] = {"configured": bool(args.project.target), "target": args.project.target}
+            if not args.project.target:
+                report["next_step"] = "Connection verified; explicitly choose agent bind --alias <name> --new or --agent <id>"
+    except (CodeerError, ValueError) as e:
         errors.append(f"FAIL  Scope: {e.message if hasattr(e, 'message') else str(e)}")
+        report["next_step"] = "Verify effective API/workspace and deployment target; correct environment overrides or select the intended profile. Do not rebind the deployment automatically"
         ws_id, org_id = None, None
 
     if ws_id:

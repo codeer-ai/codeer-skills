@@ -2,6 +2,12 @@
 
 From scope alignment through KB upload and agent creation.
 
+For portable import, original-byte verification, complete saved text/FAQ and
+cross-environment FAQ rebuilding, follow
+[portable KB text, originals and FAQ](../reference/project.md#portable-kb-text-originals-and-faq).
+Use the integrated single-file export for the FAQ coordinate basis and revision;
+website crawl settings are excluded and remain a recorded gap.
+
 Before designing or changing the agent payload, read
 [agent-settings.md](agent-settings.md). Design the target state before the
 textual diff; do not treat the system prompt as the default home for every

@@ -22,16 +22,27 @@ Find `project.toml` from the current directory upward. Resolve Agent design thro
 the [new/legacy path rules](reference/project.md#agent-design-paths-and-existing-projects)
 before saving; module paths are defaults, not instructions to move existing files.
 Read the configured sources index, applicable accepted design, pending proposals and recent
-`log.md` entries; inspect actual receipts/runs behind status claims. Use
+`logs/YYYY-MM.md` entries (continue existing `log.md`); inspect actual receipts/runs behind status claims. Use
 `codeer status` and `codeer validate` offline. The log explains reasons and past
 milestones; structured evidence determines current machine state.
 
 For a new development directory use `codeer init <directory>` without credentials.
-An existing Agent starts with read-only `agent pull --agent <id>`, then relevant
+For schema 2, verify connection, explicitly configure `agent bind --alias <name>
+--agent <id>` and select it with `agent use <name>` (or global `--deployment`).
+An existing Agent then starts with read-only `agent pull`, then relevant
 KB exports and `eval pull`. Import preserves IDs and local work; it does not
 approve behavior or recreate shared resources. Missing historical Agent design does
 not block scoped diagnosis or a confirmed repair. Read
 [project mechanics](reference/project.md) for paths, adoption and evidence.
+
+For “someone changed this on the platform; bring it back,” use the selected
+deployment's pull/compare/adopt flow. Present Draft/Published and local differences;
+carry forward explicit field choices, ask only unresolved material choices,
+and preserve unselected proposals. Adoption writes local content only, never
+another deployment. Clone without state requires explicit resource IDs and
+alignment decisions; names/profile labels are not identity. Sub-Agent references
+remain read-only and block project deployment. Mark missing originals and
+unavailable history; an import is not a complete backup.
 
 Without a project, perform bounded local design or existing resource reads
 directly; initialization is not required for a question. Explain when a requested
@@ -70,6 +81,11 @@ parents retain canonical writes and mutations.
 
 ## Shared boundaries
 
+Portable KB import/redeployment includes originals, exact saved text and complete
+FAQ through resource export; follow [the KB/FAQ contract](reference/project.md#portable-kb-text-originals-and-faq).
+Rebuild FAQ only after target text/range verification. Website crawl settings
+are excluded; preserve the gap. Unavailable APIs never authorize URL fallbacks.
+
 Show concrete target, scope, effect and diff before mutations. Carry forward
 explicit authorization for the same operation or bounded batch; ask only for a
 new material scope, business decision or effect. Publish needs separate
@@ -84,7 +100,8 @@ Resolve scope mismatches explicitly; never silently switch customer targets.
 Save important pending proposals. Accepted behavior belongs in Agent design;
 implementation in settings/KB; Tester/Rubric decisions in Eval design. Preserve
 confirmation source, exact reviewed content and scope in `reviews/`; append
-short reasons, status and evidence links to `log.md` without copying full
+short reasons, status and evidence links to the current `logs/YYYY-MM.md`
+(or existing `log.md`) without copying full
 settings/results. Imported behavior is not accepted business policy. Revise the
 Agent design only when intended behavior changes or is materially ambiguous.
 

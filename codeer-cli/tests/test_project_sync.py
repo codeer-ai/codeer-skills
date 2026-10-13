@@ -199,7 +199,7 @@ class ProjectFixture:
         os.chdir(self.root)
         self.addCleanup(os.chdir, old)
         self.api = API()
-        self.cli("init")
+        self.cli("init", "--legacy")
 
     def cli(self, *args):
         output = io.StringIO()
