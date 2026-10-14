@@ -18,6 +18,10 @@ cases, not to decide the customer behavior they should test.
 Use `evals/cases.draft.md` for this human-reviewed design
 draft. It may preserve unresolved evaluator or runtime-evidence decisions that
 cannot yet be represented in the apply-ready JSON manifest.
+Keep these candidates in the draft until their pair admission is reviewed;
+the configured `evals/design.json` is the current admitted set, not a speculative
+portfolio. Report authored drafts separately from complete Eval design using
+[completion meanings](../workflows/lifecycle.md#completion-meanings).
 For an existing Agent, also inspect its current effective settings and relevant
 production or eval evidence.
 
@@ -261,10 +265,22 @@ pretend that an unresolved evaluator ID or runtime evidence shape is final.
 In a local project, follow [the stable design format](../reference/project.md#complete-evaluation-design).
 Complete: select/design Tester → required evidence producer/delivery →
 Case/Rubric → pairs → review. Save `evals/design.json` before remote changes.
+Inspect supported templates and evidence contracts before finalizing affected
+details; no Agent ID is needed to inspect an existing Tester. Convert only
+admitted pairs into the configured manifest. Keep deferred requirements visible
+in the draft and acceptance coverage discussion; do not silently remove existing
+managed pairs, reduce accepted scope or switch to another manifest to clear a
+gate. An existing unresolved manifest needs a reviewed correction, not fabricated
+verification flags. Group shared contract gaps by Tester/variable with affected
+pairs; repeated references are not independent defects.
 Use `codeer validate`, then preview `codeer eval cases-apply --dry-run` and
 apply the confirmed diff with `--expect <token>`. `codeer eval pull` imports
 IDs without overwriting local design. Missing Testers, pairs or observable
 required evidence stay unresolved and do not count as executable coverage.
+For a build's first remote apply, also complete or reuse the
+[full local alignment review](static-audit.md#local-alignment-before-first-apply).
+New or changed cases affect their source/design/implementation relationships;
+they do not require repeating unchanged covered portions of that review.
 
 The input-based `evals/legacy-cases.json` procedure below remains for commands
 **outside a project**. It is not the stable project format; do not bypass

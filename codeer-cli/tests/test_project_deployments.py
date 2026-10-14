@@ -213,6 +213,30 @@ class DeploymentTests(unittest.TestCase):
             with self.assertRaisesRegex(ProjectError, "stale"):
                 adopt(project, client, plan, plan["token"])
 
+    def test_created_agent_unbound_receipt_adopts_only_the_exact_bound_identity(self):
+        project = self.bind()
+        self.local_agent(llm_model="old-model")
+        with self.api.client() as client:
+            scope = project.check_scope(client)
+            state = project.state()
+            entry = {"server_id": "a", "scope": {**scope, "agent_id": None}, "status": "applied"}
+            state["resources"]["agent"] = copy.deepcopy(entry)
+            project.save_state(state)
+            plan = adoption_plan(project, client, "agent", fields=["llm_model"], choice="remote")
+            before_prompt = (self.root / "agent/instructions.md").read_bytes()
+            calls_before = len(self.api.calls)
+            result = adopt(project, client, plan, plan["token"])
+            self.assertEqual(result["remote_mutations"], 0)
+            self.assertEqual((self.root / "agent/instructions.md").read_bytes(), before_prompt)
+            self.assertFalse(any(method in ("POST", "PATCH", "DELETE") for method, _, _ in self.api.calls[calls_before:]))
+            for change in ({"server_id": "foreign-agent"}, {"scope": {**scope, "agent_id": "foreign-agent"}}, {"scope": {**scope, "agent_id": None, "workspace_id": "foreign-workspace"}}, {"scope": {**scope, "agent_id": None, "api_base": "https://foreign.invalid"}}):
+                with self.subTest(change=change):
+                    state = project.state()
+                    state["resources"]["agent"] = {**copy.deepcopy(entry), **change}
+                    project.save_state(state)
+                    with self.assertRaisesRegex(ProjectError, "scope mismatch"):
+                        adoption_plan(project, client, "agent", fields=["llm_model"], choice="remote")
+
     def test_unknown_agent_write_reconciles_only_matching_payload(self):
         self.bind(new=True)
         self.local_agent()

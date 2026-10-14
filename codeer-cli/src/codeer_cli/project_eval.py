@@ -41,12 +41,28 @@ def references(design):
 
 def validate_design(design, state=None, root=None):
     issues = []
+    design_issues = []
+    evidence_issues = []
+    gaps = {}
+
+    def result(pair_count=0):
+        operations = [f"unreconciled: {k}" for k, v in (state or {}).get("resources", {}).items()
+                      if v.get("status") in ("pending", "outcome_unknown", "readback_mismatch")]
+        return {"design_complete": not issues and not design_issues and not evidence_issues,
+                "apply_ready": not issues and not design_issues and not evidence_issues and not operations,
+                "pair_count": pair_count, "structural_issues": issues, "evidence_issues": evidence_issues,
+                "design_issues": design_issues,
+                "operation_issues": operations, "evidence_gaps": list(gaps.values()),
+                "unresolved": issues + design_issues + evidence_issues + operations}
+
     if not isinstance(design, dict) or design.get("schema_version") != 1:
-        return {"design_complete": False, "apply_ready": False, "unresolved": ["Eval design requires schema_version 1"]}
+        issues.append("Eval design requires schema_version 1")
+        return result()
     testers = design.get("testers", [])
     cases = design.get("cases", [])
     if not isinstance(testers, list) or not isinstance(cases, list):
-        return {"design_complete": False, "apply_ready": False, "unresolved": ["testers and cases must be arrays"]}
+        issues.append("testers and cases must be arrays")
+        return result()
     indexes = {}
     for kind, rows in (("tester", testers), ("case", cases)):
         index = {}
@@ -106,12 +122,22 @@ def validate_design(design, state=None, root=None):
             for variable in required:
                 item = evidence.get(variable, {})
                 template = tester.get("system_prompt_template")
+                reasons = []
                 if not isinstance(template, str) or ("{" + variable + "}") not in template:
-                    issues.append(f"{cid}/{tid}: template cannot see {variable}")
+                    reasons.append("template cannot see variable")
+                    evidence_issues.append(f"{cid}/{tid}: template cannot see {variable}")
                 if item.get("availability") != "verified" or not item.get("verification") or not item.get("producer"):
-                    issues.append(f"{cid}/{tid}: unverified producer/delivery of {variable}")
+                    reasons.append("unverified producer/delivery")
+                    evidence_issues.append(f"{cid}/{tid}: unverified producer/delivery of {variable}")
+                if reasons:
+                    gap = gaps.setdefault((tid, variable), {"tester": tid, "variable": variable,
+                                                           "reasons": [], "affected_pairs": []})
+                    gap["reasons"] = sorted(set(gap["reasons"] + reasons))
+                    pair_ref = {"case": cid, "tester": tid}
+                    if pair_ref not in gap["affected_pairs"]:
+                        gap["affected_pairs"].append(pair_ref)
     if not cases:
-        issues.append("No cases designed")
+        design_issues.append("No cases designed")
     if root is not None:
         for reference in references(design):
             if reference.startswith(("https://", "http://")):
@@ -123,9 +149,7 @@ def validate_design(design, state=None, root=None):
     for cid in indexes["case"]:
         if resources.get(f"case:{cid}", {}).get("status") == "retired":
             issues.append(f"case {cid}: retired; remove this Case from the design (use a new local_id for an intentional new Case)")
-    unresolved_operations = [k for k, v in resources.items() if v.get("status") in ("pending", "outcome_unknown", "readback_mismatch")]
-    return {"design_complete": not issues, "apply_ready": not issues and not unresolved_operations,
-            "pair_count": pair_count, "unresolved": issues + [f"unreconciled: {k}" for k in unresolved_operations]}
+    return result(pair_count)
 
 
 def pull(project, client, *, reconcile=False):

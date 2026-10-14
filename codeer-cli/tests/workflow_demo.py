@@ -6,6 +6,7 @@ import shutil
 from test_project_workflow import WorkflowTests
 from test_project_deployments import DeploymentTests
 from test_project_resource_exports import ResourceExportTests
+from test_project_guidance import GuidanceTests
 
 
 def main():
@@ -18,7 +19,9 @@ def main():
                               ("existing-agent", WorkflowTests, "test_existing_agent_web_conflict_and_history_candidates"),
                               ("portable-deployments", DeploymentTests, "test_complete_portable_eval_release_delivery_and_environment_isolation"),
                               ("platform-resume", DeploymentTests, "test_platform_resume_fixture"),
-                              ("kb-faq-portability", ResourceExportTests, "test_faq_resume_fixture")):
+                              ("kb-faq-portability", ResourceExportTests, "test_faq_resume_fixture"),
+                              ("unverified-contracts", GuidanceTests, "test_unverified_contracts_resume_fixture"),
+                              ("execution-errors", GuidanceTests, "test_execution_errors_resume_fixture")):
         destination = output / name
         if destination.exists():
             parser.error(f"Use a fresh output directory; exists: {destination}")

@@ -2,6 +2,72 @@
 
 Read for a cross-module build, repair or production-feedback journey. For a local question, read only its owning module. Project mechanics and evidence use [project.md](../reference/project.md).
 
+## Choose the next action from evidence
+
+For a build, resume or next-step request, recover the user's current outcome,
+scope and authorization first. Read the relevant established design and draft,
+source index, implementation, case drafts and configured manifest; inspect the
+receipts, audit and exact runs supporting progress claims. Use `codeer status`
+and `codeer validate` for machine-checkable facts. The log explains rationale;
+neither prose nor file presence establishes completion.
+
+Choose the earliest missing prerequisite for the requested action, rather than
+restarting the whole build or assigning one global stage to every scenario:
+
+| Evidence / missing prerequisite | Next action | Completion condition |
+| --- | --- | --- |
+| Unfinished resource, publication or run operation | Inspect its receipt/results and reconcile recorded identities | Known outcomes; unknown creates/triggers investigated before retry |
+| Structural errors | Repair the named files/references | Structural checks pass; semantic and evidence checks remain separate |
+| Website content not yet available for local review | Obtain a bounded read-only snapshot/export through available capabilities; identify missing access/content if unavailable | Actual source content and provenance are saved; no crawler target is created to bypass acquisition |
+| Local build artifacts without a covering, current local alignment review | Review sources, design, KB, Instructions and acceptance cases before the first remote apply | Covered relationships are aligned or have explicit scoped decisions; reviewed identities/findings are recorded |
+| Established behavior and case drafts, but unknown Tester/Tool evidence contracts | Inspect supported capabilities/templates and actual producer/delivery; review candidate pairs | Supported pairs are admitted; unresolved candidates and affected requirements remain explicit |
+| Reviewed local configuration without deployment readback | Resolve explicit mappings, preview authorized changes, apply and read back | Agent/KB/Eval match reviewed content and referenced KB is READY |
+| Applied content without a current pre-eval audit | Audit the exact version, dependencies and intended pairs | Current semantic clearance covers the intended run |
+| Matching audit without a baseline | Recheck live prerequisites and execute within authorization | Exact run records intended, completed, skipped and unresolved pairs separately |
+| Run execution errors or missing evidence | Inspect exact results and execution dependencies | Evidenced fault resolved; current version/audit checked before retry |
+| Quality failures with usable runtime evidence | Diagnose, propose the affected repair and regression | Reviewed repair, matching readback and renewed affected verification |
+| Passing, unchanged run with missing/invalid audit before publication | Review and renew audit for the exact version/pairs; retain existing run/results | Current audit and acceptance coverage are established; rerun only if new findings change configuration or require missing coverage |
+| Passing run | Check confirmed acceptance coverage and exact publish target | Acceptance evidence is complete; publication separately authorized |
+
+Several rows may apply to different units. State the affected scope and continue
+independent authorized work; a deferred handoff capability does not prevent
+authoring factual-answer cases. Do not silently reduce accepted scope or call a
+limited run the complete acceptance baseline. Capability reads are separate
+from remote writes; an offline-only request stays offline, and a missing target
+is clarified when a target-specific operation actually needs it.
+
+Use `status.next_action` as a starting point, then check its evidence and missing
+prerequisite against the actual artifacts and task. Offline status knows only
+recorded observations, not live readiness, business decisions or a root cause.
+An `error` outcome does not establish poor answer quality or expired SSO; verify
+the error evidence before naming a cause. Mixed runs may need execution repair
+and quality diagnosis for different pairs. Preserve exact IDs and receipts.
+
+At start/resume and a meaningful handoff, briefly state established progress,
+the missing prerequisite and affected scope, the next action and what finishes
+it. Continue already-authorized work without asking again. A completed bounded
+request ends at its scope with a concrete handoff. Repeat a review only for new
+content, new evidence, a material unresolved finding or invalidated clearance;
+name that trigger and retain unaffected conclusions. Do not keep expanding
+cases or redesigning the Agent when the missing prerequisite is a capability,
+deployment or execution dependency. Keep records in existing artifacts/logs;
+do not create a second workflow-state document.
+
+### Completion meanings
+
+| Report | What it establishes |
+| --- | --- |
+| Behavior/case draft authored | Input, intended behavior and prohibited outcomes are reviewable; Tester/evidence decisions may remain unresolved |
+| Eval design complete | Tester suitability, Case/Rubric, pairs and necessary evidence producer/delivery contracts have been reviewed; no unresolved requirement is counted as executable coverage |
+| Apply-ready | The reviewed content also passes format, mapping/dependency and operation prerequisites; it is not applied yet |
+| Run-ready | Matching readback, referenced KB readiness and current exact-version/pair audit permit execution |
+| Executed / accepted | Actual run outcomes are recorded / confirmed acceptance is covered and passing; neither implies publication |
+
+Contract verification from supported code/templates is distinct from observing
+actual runtime delivery. CLI `design_complete` checks declared contracts and
+references; a flag or report file cannot perform semantic review. Missing server
+IDs do not prevent local design; unknown evidence contracts keep that part a draft.
+
 ## Build and production improvement journeys
 
 These journeys compose the eight skill modes; they are not the implementation
@@ -109,7 +175,10 @@ admission and progressive-detail rules.
 | 2 | **shared design discovery** → **consultative-guidance** *(query-led guidance only)* | Distill established intent and unresolved choices; guide the user through material gaps using concrete recommendations; persist decisions and proposals as work proceeds without a whole-document approval ritual |
 | 3 | **query-distribution** *(optional; may run before Step 2)* | Only when an active decision requires demand evidence—for example, selecting the core scenario or allocating a broader portfolio → perform the minimum analysis; persist accepted CSV artifacts only when a reusable demand or allocation model is needed |
 | 4 | **eval-portfolio** *(when portfolio or evaluator architecture needs review)* → **eval-cases** | Select the minimum decision-useful portfolio and evaluator coverage, then design and review end-to-end acceptance for the agreed scope; use optional distribution evidence only when available and relevant → preserve intended behavior and observable success in `evals/cases.draft.md` before an `agent_id` exists |
-| 5 | **agent-settings → kb-and-agent** | Translate the accepted design into Agent Settings, KB, Tools, handoff, and the first full DRAFT Agent; use optional supported demand evidence only for decisions it can justify |
+| 4a | **eval-cases → project capabilities** | Before finalizing affected Tester templates/Rubrics/pairs, inspect available templates and actual evidence contracts; preserve unknown Tool/multi-turn decisions in the draft. Existing Testers can be inspected before Agent creation; contract-dependent details may need the deployed DRAFT readback in Step 6 |
+| 5 | **agent-settings → kb-and-agent** | Prepare local Instructions, settings, KB, Tools and handoff from the established design; website KB starts from read-only saved content, not crawler creation; keep capability assumptions explicit |
+| 5a | **static-audit: local alignment** | Before any first remote resource write, review sources ↔ design ↔ KB ↔ Instructions ↔ acceptance cases; reuse covered unchanged findings and resolve affected mismatches |
+| 5b | **owning apply modules** | Preview/apply authorized resources only after the local alignment prerequisite; for website-backed KB follow [crawler creation and content readback](../modules/kb-and-agent.md#website-backed-kb-creation), review actual-content differences, then read back the first full DRAFT and KB readiness |
 | 6 | **eval-cases** | Read the DRAFT, Tools, and evaluator templates → resolve intended pairs through the Pair Admission Gate → review and apply stable `evals/design.json`; unresolved pairs stay local and do not count as coverage. `evals/legacy-cases.json` is only for standalone legacy operations |
 | 7 | **static-audit** | Read-only design/scenario ↔ eval, design ↔ implementation, and eval ↔ observable-runtime preflight gate; a full audit may use the three independent alignment lanes; include distribution ↔ portfolio only when an accepted distribution exists |
 | 8 | **eval-cases → regression-triage → eval-debug → repair-planner** | Run and automatically pin the first full baseline for the agreed scope → organize baseline result clusters → diagnose non-perfect dynamic evidence → plan and review any repair |
@@ -121,6 +190,11 @@ core scenario and behavior path against the draft cases. When an accepted Query
 Distribution exists and is being used, also review it against the draft case
 portfolio. This local-only review does not require server state and is not a
 full Static Audit clearance.
+Once local KB/Instructions and acceptance artifacts exist, use
+[local alignment before first apply](../modules/static-audit.md#local-alignment-before-first-apply).
+The earlier design/case check may supply part of its coverage; only new or
+changed relationships need additional review. Local reports do not replace the
+deployed-version audit in Step 7.
 
 When a material acceptance case requires authentic prior conversation state,
 remember that `codeer history create` and `codeer history send` use a published

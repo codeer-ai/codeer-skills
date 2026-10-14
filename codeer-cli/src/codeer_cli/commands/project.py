@@ -14,6 +14,7 @@ def register(sub):
     p.set_defaults(func=run_init, no_client=True)
     p = sub.add_parser("status", help="Read local evidence; --refresh explicitly queries remote")
     p.add_argument("--refresh", action="store_true")
+    p.add_argument("--full", action="store_true", help="Include per-pair evidence issues and complete recorded run details")
     p.set_defaults(func=run_status, no_client=True)
     p = sub.add_parser("validate", help="Validate local structure and references (offline)")
     p.set_defaults(func=run_validate, no_client=True)
@@ -46,6 +47,9 @@ def run_init(args, client=None):
             "Use `codeer status` and `codeer validate` offline. Requests such as 'Build an Agent from "
             "this SOP' or 'Diagnose only this failed handoff' route to the appropriate skill workflow. "
             "Existing Agents start with `agent pull --agent <id>`; import KB/Eval separately.\n\n"
+            "Status reports an evidence-based next_action with completion_condition; it does not grant authorization or live clearance. "
+            "Validate separates structural, evidence-contract and operation issues. Keep unresolved case/Tester candidates in the Markdown draft; "
+            "only admitted pairs enter the configured Eval manifest. Preserve deferred acceptance requirements.\n\n"
             "Builder-maintained design basis: `design/agent-design.md`; pending proposals: "
             "`design/agent-design.draft.md`; acceptance narrative: `design/acceptance.md`; "
             "machine acceptance scope: `design/acceptance.json`. Editable settings: `agent/settings.json`; "
@@ -122,13 +126,25 @@ def run_status(args, client=None):
             project.save_state(state)
     result = project.status()
     # Status is compact; raw run results remain in runs/.
-    if result["latest_run"]:
+    if not args.full and result["eval_design"]:
+        def compact_gap(gap):
+            return {k: v for k, v in gap.items() if k != "affected_pairs"} | {"affected_pair_count": len(gap["affected_pairs"])}
+        gaps = result["eval_design"]["evidence_gaps"]
+        result["evidence_issue_count"] = len(result.pop("evidence_issues"))
+        result["eval_design"] = {k: v for k, v in result["eval_design"].items()
+                                 if k in ("design_complete", "apply_ready", "pair_count")}
+        result["eval_design"]["evidence_gaps"] = [compact_gap(g) for g in gaps]
+        if result["next_action"]["code"] == "verify_evidence_contracts":
+            result["next_action"]["evidence"] = result["eval_design"]["evidence_gaps"]
+    if result["latest_run"] and not args.full:
         result["latest_run"] = {k: result["latest_run"].get(k) for k in ("id", "history_id", "status", "counts", "revision", "local_stale", "remote_stale_at_last_query", "comparison")}
     print_json(result)
     return 0
 
 
 def run_validate(args, client=None):
-    issues = (args.project or required()).validate()
-    print_json({"structurally_valid": not issues, "issues": issues, "semantic_audit": "not performed"})
+    validation = (args.project or required()).validation()
+    issues = validation["structural_issues"] + validation["design_issues"] + validation["evidence_issues"] + validation["operation_issues"]
+    print_json({"structurally_valid": not validation["structural_issues"], "issues": issues,
+                **validation, "semantic_audit": "not performed"})
     return 1 if issues else 0

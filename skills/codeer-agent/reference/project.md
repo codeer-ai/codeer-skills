@@ -329,6 +329,15 @@ ambiguous and must never auto-map by name/input.
 
 ## Scope, import and apply
 
+A build's first remote resource write, including KB upload, requires the
+[local alignment review](../modules/static-audit.md#local-alignment-before-first-apply)
+across sources, design, KB, Instructions and acceptance cases. Its report in
+`reviews/` records scope, reviewed identities, findings and dispositions. Reuse
+unchanged covered inputs on resume; changes require only the affected relations
+to be checked and linked to retained conclusions. This is a skill-level semantic
+prerequisite, not something `validate`, preview tokens or the offline status
+recommendation can certify. It does not replace later readback/audit/Eval.
+
 Explicit Agent arguments, environment Agent, bound profile, API base and
 Workspace must agree. A different operation requires an explicit
 `codeer --outside-project …` invocation; this does not rebind the project or
@@ -410,8 +419,13 @@ upload response cannot establish file membership and stays blocked for recovery.
 ## Complete evaluation design
 
 Choose/review the Tester first, identify evidence producer and actual delivery,
-then design Case/Rubric and pair them. Drafts need no server IDs. The following
-synthetic example is a format illustration, not an accepted SOP:
+then design Case/Rubric and pair them. Drafts need no server IDs.
+Keep unresolved candidates in the Markdown draft; the configured manifest holds
+admitted pairs. Use the shared [completion meanings](../workflows/lifecycle.md#completion-meanings):
+authoring is not complete Eval design, and declared evidence verification is
+not observed runtime delivery. Existing unresolved manifests must be corrected
+through review without silently dropping managed pairs or acceptance requirements.
+The following synthetic example is a format illustration, not an accepted SOP:
 
 ```json
 {
@@ -443,6 +457,32 @@ updates preview all accessible Workspace pair usage, including other Agents.
 One Tester can cover many cases; new Testers need a distinct evidence/judgment
 reason. Validate reports unresolved references/evidence; it cannot approve SOP
 semantics or prove that a producer really supplies the claimed evidence.
+
+`codeer validate` separates `structural_issues`, `design_issues`, `evidence_issues` and
+`operation_issues`, preserving the combined `issues` and nonzero exit for unresolved
+content. `eval_design.evidence_gaps` groups each Tester/variable's reasons and
+affected pairs; the full per-pair `unresolved` remains available. A structurally
+valid manifest may still have `design_complete: false` / `apply_ready: false`.
+These machine checks never replace semantic review or waive existing gates.
+`codeer status` summarizes shared gaps with affected-pair counts and returns
+`next_action` (evidence, action, completion condition and limits); `next_step`
+retains the action text. `status --full` includes per-pair issues and identities
+plus the full recorded run; `validate` retains all unresolved details.
+Advice is derived from recorded operations, changes, audit and runs, not a manual
+phase field. Offline status does not check live dependencies or infer an execution
+error's root cause. Check the artifacts and current task before acting.
+For an unchanged passing run awaiting publication, `renew_audit` identifies
+missing/invalid current audit evidence. Retain the run/results and renew the
+semantic clearance; audit evidence repair alone does not require another Eval.
+Status checks the same confirmed acceptance scope as publication, falling back
+to the latest run's planned pairs when acceptance is not yet confirmed. The
+`audit.valid_for_acceptance_at_last_query` and
+`valid_for_latest_run_at_last_query` fields distinguish these scopes from
+`valid_at_last_remote_query` (all snapshot pairs); exploratory pairs outside
+confirmed acceptance do not force audit renewal. All remain cached checks.
+Configuration changes, new findings or missing coverage still follow existing
+stale/run/publication gates. An already verified release remains an observation
+entry rather than a request to publish again.
 
 Existing `case-update`, `evaluator-create/update`, `rubrics-apply` and `reconcile`
 share mappings, differences and receipts in project mode. Tester creation needs

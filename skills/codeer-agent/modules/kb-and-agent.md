@@ -59,6 +59,10 @@ discovery methods. Once relevant decisions are established, use
 set locally. These steps happen before KB upload, Agent Settings design, or
 Agent creation so intended customer behavior—not the first prompt draft—defines
 what the first Agent must satisfy.
+Before finalizing capability-dependent settings or Eval pairs, use the
+[continuation rules](../workflows/lifecycle.md#choose-the-next-action-from-evidence)
+to inspect available Tool/Tester contracts. Unknown capabilities stay explicit
+in drafts; they do not justify repeatedly rewriting established behavior or KB.
 
 Use [query-distribution.md](query-distribution.md) before or after the design
 only when a named demand, weighted portfolio, capacity, hot-path, or drift
@@ -91,22 +95,48 @@ choices do not require a separate approval ritual.
 
 ### Content preparation
 
-1. Crawl or write `kb/*.md` files. Keep filenames descriptive — the agent
+1. Prepare local `kb/*.md` files from the source content. Keep filenames descriptive — the agent
    sees filenames via `list_kb_files`.
-2. Consider crawler settings if fetching from web sources.
-   Use `codeer kb crawl-create --url ... --folder-name ... --dry-run`
-   for website-backed KB folders. Use `--include-path` / `--exclude-path`
-   with quoted clean path patterns for scope control; `*` is supported as a
-   wildcard, and plain paths match that path plus children. After approval,
-   create the target, then monitor with `codeer kb crawl-state --folder-id ...`
-   and inspect failures with `codeer kb crawl-failures --job-id ...`.
+2. For website sources, first obtain the relevant content **read-only** through
+   an available browser/HTTP reader or a supplied export. Preserve the original
+   snapshot under sources, with URL, retrieval time/version, authority and scope
+   in the source index; curate the local KB and behavior/case drafts from it.
+   If content cannot be read (access, rendering or tool limitations), state the
+   missing content/capability and request a usable export or authorized read
+   access. Do not create a Codeer crawler target to bypass this prerequisite,
+   invent source facts, or claim a five-artifact review is complete.
 3. Postprocess files if needed:
    - Split large files at logical boundaries (headings, topics)
    - Merge tiny files that belong together
    - Add clear headings for better chunk boundaries
    - Remove noisy footer/boilerplate content that pollutes retrieval
 
+### Website-backed KB creation
+
+The order is read-only source acquisition → local curation/design/cases →
+[full local alignment review](static-audit.md#local-alignment-before-first-apply)
+→ authorized crawler creation → actual-content readback. `crawl-create` writes
+server resources; it is not a read-only fetch or a substitute for local review.
+
+Once the review covers the intended source/material, preview the website-backed
+folder with `codeer kb crawl-create --url ... --folder-name ... --dry-run`.
+Use quoted `--include-path` / `--exclude-path` patterns to preserve the reviewed
+scope (`*` is supported; plain paths include children). Carry forward existing
+authorization for that reviewed operation; create only within its scope.
+Monitor with `codeer kb crawl-state --folder-id ...` and inspect failures with
+`codeer kb crawl-failures --job-id ...`. Read/export the actual saved KB content
+through supported CLI reads before attaching it to the Agent or treating it as
+verified, and verify referenced files reach READY. Job completion or READY alone
+does not establish content equality. If it differs from the reviewed snapshot, retain the original and
+review the affected source/KB/Instructions/case relationships; unchanged covered
+conclusions remain reusable. Missing readback is a gap, not successful alignment.
+
 ### Upload
+
+Before a build's first resource write, complete or reuse the covering
+[local alignment review](static-audit.md#local-alignment-before-first-apply).
+KB upload is already a remote mutation; do not postpone this review until
+after Agent creation. A dry-run or CLI validation cannot perform it.
 
 In a project, use a stable local ID and review the preview before upload:
 

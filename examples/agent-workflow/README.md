@@ -4,6 +4,12 @@ For source-to-design interaction and interrupted discovery, use the separate
 [discovery and resume scenarios](discovery.md). They exercise the skill with
 raw material and natural-language requests; the CLI journeys below start with
 synthetic design/confirmation artifacts and do not measure discovery quality.
+For progression from authored material or an execution-blocked run, use the
+[continuation scenarios](continuation.md), including fresh-conversation checks.
+For the first-apply semantic prerequisite and reuse of unchanged findings, use
+the [local alignment scenarios](local-alignment.md).
+For read-only website acquisition before crawler creation, unavailable content,
+and changed-content readback, use the [website-source scenarios](website-source.md).
 
 Run from the development checkout with a fresh output directory:
 
@@ -13,7 +19,7 @@ uv run python tests/workflow_demo.py --out-dir /tmp/codeer-workflow-demo
 ```
 
 This uses the real CLI parser and `httpx.MockTransport`, without credentials,
-network requests or real customer resources. It retains five inspectable projects:
+network requests or real customer resources. It retains seven inspectable projects:
 
 - `new-agent/`: offline design, preview/create Draft, one shared tool Tester and
   two Case/Rubric pairs, synthetic acceptance/audit, failed run, reviewed repair,
@@ -34,6 +40,14 @@ network requests or real customer resources. It retains five inspectable project
 - `platform-resume/`: schema 2 Draft h1/Published h0 observations, explicitly
   adopted platform description and an undecided local/platform prompt conflict.
   No platform mutation; use this for the natural-language resume scenario.
+- `unverified-contracts/`: synthetic support-project continuation with existing
+  source/KB/Instructions and 52 authored candidates / 71 proposed pairs. Eight
+  unverified shared contracts produce 238 per-pair references. Validation stays
+  nonzero, apply/run remain blocked, and status groups the contracts. It preserves
+  an unresolved existing manifest to exercise diagnosis, not recommended authoring.
+- `execution-errors/`: Agent/Eval readback, current pre-eval audit and an exact
+  run with execution errors. Error outcomes are distinct from quality failures;
+  no particular infrastructure cause is established by the fixture.
 
 Start a fresh chat with the installed skill and one project directory. Ask it to
 identify the target, accepted versus proposed decisions, applied versus verified

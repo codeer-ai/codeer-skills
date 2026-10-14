@@ -140,6 +140,15 @@ pending decisions for you, including before discovery is complete. You need not
 learn “Agent design,” fill a template or approve a clear instruction again
 just to record it. The commands below support that workflow.
 
+On continuation, it identifies established progress, the missing prerequisite,
+the next action and its completion condition from project artifacts and evidence.
+Case drafts can retain unknown capabilities; only admitted pairs enter the
+configured Eval manifest. `codeer status` gives offline advice with grouped
+contract gaps (`--full` for details); `validate` separates structural errors,
+incomplete design, unverified evidence contracts and unfinished operations.
+Execution errors lead to dependency diagnosis before quality judgments. Existing
+acceptance scope and apply/run/publication gates remain in force.
+
 ```bash
 codeer init ./support-agent
 cd support-agent

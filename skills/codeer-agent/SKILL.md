@@ -25,6 +25,11 @@ Read the configured sources index, applicable accepted design, pending proposals
 `logs/YYYY-MM.md` entries (continue existing `log.md`); inspect actual receipts/runs behind status claims. Use
 `codeer status` and `codeer validate` offline. The log explains reasons and past
 milestones; structured evidence determines current machine state.
+For a build or a request to continue/choose the next step, use the
+[evidence-based continuation rules](workflows/lifecycle.md#choose-the-next-action-from-evidence).
+Report established progress, the actual missing prerequisite, the concrete next
+action and its completion condition. Status advice is offline evidence, not
+semantic acceptance or new authorization; inspect the relevant artifacts.
 
 For a new development directory use `codeer init <directory>` without credentials.
 For schema 2, verify connection, explicitly configure `agent bind --alias <name>
@@ -58,7 +63,7 @@ mutation scope.
 | Mode / equivalent request | Read | Inputs → output / completion | Server effect |
 | --- | --- | --- | --- |
 | `build` / design an Agent from this SOP | [design discovery](reference/agent-design.md), [settings](modules/agent-settings.md), [KB/Agent](modules/kb-and-agent.md) | Sources and goals → grounded design basis and open decisions, local Instructions/settings/KB and acceptance design | Local drafts; apply separately |
-| `cases` / turn this failure into a test | [cases](modules/eval-cases.md); [portfolio](modules/eval-portfolio.md) for architecture/coverage review | Source/behavior → choose/design Tester, evidence producer/delivery, Case, Rubric, pairs, review; save `evals/design.json` and report | Local design; apply separately |
+| `cases` / turn this failure into a test | [cases](modules/eval-cases.md); [portfolio](modules/eval-portfolio.md) for architecture/coverage review | Source/behavior → Tester, evidence, Case/Rubric, pairs, review; unresolved candidates stay in the draft, admitted pairs enter configured `evals/design.json` | Local design; apply separately |
 | `audit` / check only this case | [static audit](modules/static-audit.md), [Agent design](reference/agent-design.md) | Scoped configuration → findings in `reviews/`; full pre-eval clearance binds snapshot, revision, history, covered pairs | Read-only diagnosis |
 | `apply` / apply these confirmed changes | [project](reference/project.md), owning module | Reviewed diff and existing confirmation → receipts, readback, remaining gaps; report partial outcomes | Only confirmed KB/Agent/Tester/case/pair batch |
 | `eval` / test this exact draft | [cases execution](modules/eval-cases.md), [project evidence](reference/project.md) | Valid audit, exact history, selected pairs → `runs/<run-id>/` inputs/results; completed differs from passed | Authorized trigger only; no repairs |
@@ -68,7 +73,8 @@ mutation scope.
 
 Cases are design-complete only when Tester suitability, per-case requirements,
 pairing and evidence are reviewed. Distinguish design-complete, apply-ready and
-unresolved. Input/Rubric JSON, a template mentioning `{tool_steps}`, or a reply
+unresolved using the [completion meanings](workflows/lifecycle.md#completion-meanings).
+Authoring a draft is not complete Eval design. Input/Rubric JSON, a template mentioning `{tool_steps}`, or a reply
 saying “transferred” does not establish tool evidence. One common tool Tester
 can serve many cases with different Rubrics.
 
@@ -92,6 +98,10 @@ new material scope, business decision or effect. Publish needs separate
 authorization. A dry-run token binds the reviewed diff; it is not user approval.
 Reads need no confirmation, including reads implemented as POST.
 
+Before a build's first remote resource write, including KB upload, complete or
+reuse the [full local alignment review](modules/static-audit.md#local-alignment-before-first-apply).
+It compares sources, established design, KB, Instructions and acceptance cases;
+unchanged, covered inputs reuse recorded findings rather than restarting review.
 Local design precedes confirmed apply; readback/KB readiness and semantic audit
 precede Eval. Audit diagnoses, eval measures, improve proposes; none silently
 applies or publishes. Preserve unknown outcomes and reconcile before retry.

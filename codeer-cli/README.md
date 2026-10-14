@@ -92,6 +92,16 @@ Code. These filesystem commands do not install account-level Cowork skills.
 
 ## Local Agent projects
 
+Local Agent project continuation uses `codeer status` for recorded evidence and
+an actionable `next_action` with a completion condition. It groups shared
+Tester/variable gaps by affected-pair count; `status --full` includes identities
+and full run details. `codeer validate` preserves combined `issues` and nonzero
+exit for unresolved content, while separating `structural_issues`, `design_issues`,
+`evidence_issues` and `operation_issues`. Structural validity is not complete
+Eval design or apply/run readiness. Unresolved candidates stay in case drafts;
+only admitted pairs enter the configured manifest. These checks do not perform
+semantic review, verify live state or authorize mutations.
+
 Agent create/update preflight accepts at most three suggested questions, each
 at most 200 characters. A structured API validation 422 received before a
 mutation is acknowledged is recorded as `rejected`, with safe validation

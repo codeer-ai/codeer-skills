@@ -326,9 +326,8 @@ def run(project, client, args):
     return {"id": run_id, "history_id": history_id, "status": record["status"], "counts": record.get("counts"), "path": str(path)}
 
 
-def publication_plan(project, client, history_id):
-    anchor = snapshot(project, client, history_id)
-    ensure_ready(project, anchor)
+def confirmed_acceptance(project):
+    """Resolve the same confirmed local scope for publication and offline advice."""
     acceptance = read_json(project.path("acceptance"))
     if not isinstance(acceptance, dict) or not acceptance.get("pairs") or not acceptance.get("confirmation"):
         raise ProjectError("Define confirmed acceptance.json with stable case/tester pairs before publication")
@@ -343,6 +342,13 @@ def publication_plan(project, client, history_id):
     pairs = [{"case_id": resources.get(f"case:{p['case']}", {}).get("server_id"), "evaluator_id": resources.get(f"tester:{p['tester']}", {}).get("server_id")} for p in acceptance["pairs"]]
     if any(None in pair_key(p) for p in pairs) or len({pair_key(p) for p in pairs}) != len(pairs):
         raise ProjectError("Unknown or duplicate acceptance pair IDs")
+    return acceptance, pairs
+
+
+def publication_plan(project, client, history_id):
+    anchor = snapshot(project, client, history_id)
+    ensure_ready(project, anchor)
+    acceptance, pairs = confirmed_acceptance(project)
     audit = valid_audit(project, anchor, pairs)
     wanted = {pair_key(p) for p in pairs}
     selected = None

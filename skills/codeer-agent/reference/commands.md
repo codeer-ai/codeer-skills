@@ -12,6 +12,7 @@ Skill modes are conversation routes, not CLI command names.
 ```bash
 codeer init customer-project
 codeer status
+codeer status --full  # Per-pair contract gaps and complete recorded run
 codeer validate
 codeer agent bind --alias prod --agent <id>
 codeer agent use prod

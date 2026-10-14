@@ -240,7 +240,9 @@ def adoption_plan(project, client, key, *, remote_id=None, fields=None, choice=N
         raise ProjectError("Resolve the recorded operation before adoption; adoption is not reconciliation")
     if entry.get("scope"):
         from .project import scope_matches
-        if not scope_matches({k: v for k, v in entry["scope"].items() if k != "profile"}, scope):
+        # Create receipts retain an unbound scope after the deployment is bound.
+        created_agent_bound = key == "agent" and entry.get("server_id") == sid == scope.get("agent_id") and bool(sid)
+        if not scope_matches({k: v for k, v in entry["scope"].items() if k != "profile"}, scope, allow_unbound_agent=created_agent_bound):
             raise ProjectError("Resource mapping scope mismatch")
     comparison = compare(entry, local, remote) if remote is not None else {"$resource": {"state": "undecided", "local": local, "remote": None}}
     selected = fields or list(comparison)

@@ -20,6 +20,13 @@ For a project pre-eval clearance, use `codeer eval snapshot` and save the small
 beside the readable report. The report format remains flexible; metadata binds
 the actual reviewed revision, exact history, remote dependencies and pairs.
 A local or single-object diagnosis need not produce passing gate metadata.
+Before publication, a passing run with unchanged version/configuration/results
+may remain valid while its audit report or metadata is missing/invalid. Review
+and renew the exact-version/pair audit rather than rerunning Eval solely to
+repair that evidence. Preserve the original run and result IDs. If renewed
+review exposes a material change or missing coverage, use the affected repair
+and regression path; do not merely relabel a blocked audit as passing. A current
+covering audit needs no duplicate review just because publication is next.
 
 ---
 
@@ -34,12 +41,11 @@ Run a full audit:
 - before a full regression for the agreed scope or publish decision; and
 - whenever local manifests and server state may have drifted.
 
-Before implementation, this module may also perform a local-only scoped review
-of the Agent design's core scenario and behavior path against the draft
-cases. When an accepted Query Distribution exists and informs the portfolio,
-include it as well. Server target pinning and runtime checks are not applicable
-to that limited review. State the limited scope explicitly; it is not a full
-Static Audit clearance.
+Before implementation, review the Agent design's core scenario and behavior
+path against draft cases as described in the lifecycle. Before a build's first
+remote resource write, complete the full local alignment review below. An
+earlier scoped design/case review contributes only its recorded coverage; it
+does not cover later KB or Instructions automatically.
 
 Run a scoped audit when the user asks about one rubric, evaluator, case,
 assignment, source relationship, or other bounded static concern. A scoped
@@ -64,6 +70,64 @@ identify genuinely missing design evidence and limit only affected conclusions.
 Do not run an eval or mutate server state as part of this module. Use registered
 `codeer` read commands only. If required state cannot be read, record the gap in
 `unresolved_questions`; do not guess.
+
+---
+
+## Local alignment before first apply
+
+Once the build's local material is reviewable, compare the following **before
+the first remote resource mutation**, including KB/attachment uploads and
+Agent/Tester/Case creation or updates. Capability reads and dry-run previews
+may precede this review; their success is not semantic alignment.
+For website-backed KB, obtain and preserve source content through available
+read-only means first, then curate and review the local material. Crawler
+creation is a remote mutation and follows this review; unavailable source
+access stays a prerequisite gap. After crawling, compare actual saved content
+with the reviewed snapshot and recheck only affected relationships. Follow
+[website-backed KB creation](kb-and-agent.md#website-backed-kb-creation).
+
+| Relationship | Check |
+| --- | --- |
+| Sources → established design | Applicable authority, version, conditions and exceptions support the intended behavior; conflicts and inferences are explicitly unresolved rather than accepted policy |
+| Sources/design → KB | Facts and important conditions survived extraction/curation; provenance is traceable, obsolete/conflicting content is handled, and scope has no material omissions or invented claims |
+| Design/KB → Instructions and local settings | Behavior, boundaries, routing and capability assumptions agree; essential control rules are resident, detailed facts remain canonical, and unknown actions are not promised |
+| Sources/design/KB/Instructions → acceptance cases and Rubrics | Tests cover intended behavior and material boundaries, use applicable facts and permit equivalent correct answers; they do not invent policy or require unavailable actions/evidence |
+
+Inspect all five artifact classes: sources, established design, KB,
+Instructions and acceptance cases, including draft cases when no admitted
+manifest exists. Include settings, Tester/evidence proposals or source indexes
+when needed to interpret those relationships. If a class is absent, record why
+it is irrelevant or which conclusion cannot yet be made; missing material is
+not a passing review. Unresolved capabilities/business choices stay visible
+with their affected scope. Findings affecting the proposed first apply must be
+resolved, or the user must explicitly decide the material scope/tradeoff;
+never silently shrink acceptance or declare the whole build aligned.
+
+Save the review in existing `reviews/` and link a concise log milestone. Keep
+its scope, actual reviewed paths and content fingerprints (or immutable
+revisions), decisive findings, dispositions and remaining gaps reviewable.
+Use a suitable report format, not a new mandatory schema or phase-state file.
+After an authorized local correction, verify affected relationships and record
+the corrected input identities; an old finding marked resolved alone is not
+proof. Audit still does not authorize edits: route repairs through their owner
+and preserve already-established user authorization.
+
+On resume, inspect the report and compare the **current relevant input set**,
+content identities, authority and unresolved findings with its coverage. Reuse
+covered, unchanged conclusions; do not rerun the same full semantic review or
+ask for another approval merely because the conversation changed. A new
+relevant source/file, changed policy, KB, Instructions, case/Rubric, dependency
+or material finding requires review of the affected relationships. Retain the
+unaffected conclusions and record an addendum/current identities; expand only
+as far as the change propagates. Missing identities or incomplete scope require
+the smallest review needed to close that gap, not an unsupported claim of reuse.
+Report what was reused, what was newly checked and what remains unresolved.
+
+This is a local semantic prerequisite, **not** deployment readback, live
+readiness, exact-version pre-eval clearance or a runtime test. Do not create
+passing `.audit.json` metadata with invented server IDs for it. An existing
+Agent's bounded repair/review keeps its requested scope; this build gate does
+not retroactively force reconstruction of unrelated legacy material.
 
 ---
 

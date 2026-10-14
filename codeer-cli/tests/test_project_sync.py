@@ -113,7 +113,7 @@ class API:
                     if self.run_mode == "missing_evidence":
                         row.pop("reasoning_steps")
                     if self.run_mode == "error":
-                        row["status"] = "failed"
+                        row.update(status="failed", score=None, output=None, reasoning_steps=[])
                     if self.run_mode == "failed":
                         row["score"] = 0.0
                     if self.run_mode == "pending":

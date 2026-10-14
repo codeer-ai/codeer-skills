@@ -266,7 +266,7 @@ class Project:
             return fingerprint({"files": files})
         return fingerprint({"target": self.target, "files": files})
 
-    def validate(self):
+    def validation(self):
         issues = []
         if self.portable:
             from .portable import definitions, content_files
@@ -290,10 +290,21 @@ class Project:
             elif "system_prompt" in settings and self.path("instructions").exists():
                 issues.append("Instructions have two editable authorities; remove system_prompt from settings.json")
         design = read_json(self.path("evals"))
+        evaluation = None
         if design is not None:
             from .project_eval import validate_design
-            issues.extend(validate_design(design, self.state(), self.root).get("unresolved", []))
-        return issues
+            evaluation = validate_design(design, self.state(), self.root)
+            issues.extend(evaluation["structural_issues"])
+        return {"structural_issues": issues,
+                "design_issues": evaluation["design_issues"] if evaluation else [],
+                "evidence_issues": evaluation["evidence_issues"] if evaluation else [],
+                "operation_issues": evaluation["operation_issues"] if evaluation else [],
+                "eval_design": evaluation}
+
+    def validate(self):
+        # Keep every existing mutation gate strict; classification is for guidance.
+        result = self.validation()
+        return result["structural_issues"] + result["design_issues"] + result["evidence_issues"] + result["operation_issues"]
 
     def owns_scope(self, scope):
         if not self.portable:
@@ -316,7 +327,8 @@ class Project:
     def status(self):
         state = self.state()
         revision = self.revision()
-        issues = self.validate()
+        validation = self.validation()
+        issues = validation["structural_issues"] + validation["design_issues"] + validation["evidence_issues"] + validation["operation_issues"]
         audits = sorted((self.root / "reviews").glob("*.audit.json"))
         audit = read_json(audits[-1]) if audits else None
         runs = sorted(p for p in (self.root / "runs").glob("*/run.json") if self.owns_scope(read_json(p).get("snapshot", {}).get("scope")))
@@ -379,7 +391,7 @@ class Project:
                 if any(tid not in entry.get("removed_ids", []) for tid in case.get("remove_tester_ids", [])):
                     local_changes.append(key)
         cached = state.get("last_anchor", {})
-        from .evidence import audit_matches
+        from .evidence import audit_matches, confirmed_acceptance
         wanted = cached.get("snapshot", {}).get("pairs", [])
         audit_local = any(audit_matches(self, read_json(path), {**cached, "revision": revision}, wanted, remote=False) for path in audits)
         audit_cached = any(audit_matches(self, read_json(path), {**cached, "revision": revision}, wanted) for path in audits)
@@ -388,6 +400,18 @@ class Project:
             if audit_matches(self, candidate, {**cached, "revision": revision}, wanted, remote=audit_cached):
                 audit = candidate
                 break
+        audit_run = None
+        audit_acceptance = None
+        if run and run.get("status") == "passed":
+            audit_run = any(audit_matches(self, read_json(path), {**cached, "revision": revision},
+                                          run.get("planned_pairs", [])) for path in audits)
+            try:
+                _, acceptance_pairs = confirmed_acceptance(self)
+            except (ProjectError, KeyError, TypeError):
+                pass  # Unconfirmed/malformed scope still needs acceptance review.
+            else:
+                audit_acceptance = any(audit_matches(self, read_json(path), {**cached, "revision": revision},
+                                                     acceptance_pairs) for path in audits)
         if run:
             run = {**run, "local_stale": run.get("revision") != revision,
                    "remote_stale_at_last_query": bool(cached and cached.get("remote_fingerprint") != run.get("remote_fingerprint"))}
@@ -405,30 +429,22 @@ class Project:
         release_matches_run = bool(release and run and all(
             release.get("plan", {}).get(k) == run.get(k)
             for k in ("history_id", "revision", "remote_fingerprint")))
-        if issues:
-            next_step = "Resolve structural issues before apply or validation clearance."
-        elif any(v.get("status") in ("pending", "outcome_unknown", "readback_mismatch") for v in state.get("resources", {}).values()):
-            next_step = "Inspect unfinished resource receipts and reconcile known identities before another write; do not repeat unknown creates."
-        elif local_changes:
-            next_step = "Review local proposals and compare current remote changes before apply."
-        elif release and release.get("status") in ("pending", "outcome_unknown", "readback_mismatch"):
-            next_step = "Previous publication is unresolved; inspect its receipt and run agent publish --reconcile before retrying."
-        elif release_matches_run and release.get("status") in ("published", "published_reconciled") and run.get("status") == "passed" and not run["local_stale"] and not run["remote_stale_at_last_query"]:
-            next_step = "Recorded release readback is complete; observe production feedback when requested. Live remote state is not checked."
-        elif run and run.get("status") == "passed" and not run["local_stale"] and not run["remote_stale_at_last_query"]:
-            next_step = "Review semantic evidence and confirmed acceptance coverage; publish only within explicit authorization."
-        else:
-            next_step = "Review sources, unresolved decisions and current evidence. Imported state is not acceptance."
-        return {
+        result = {
             "project": self.config["name"], "target": self.target,
             "deployment": self.deployment,
             "last_remote_query": state.get("queried_at"),
-            "revision": revision, "structural_issues": issues,
+            "revision": revision, **validation,
             "local_changes": sorted(set(local_changes)),
             "resources": {k: {"server_id": v.get("server_id"), "status": v.get("status"), **({"comparison_at_last_query": comparisons.get(k, v.get("alignment"))} if self.portable else {})} for k, v in state.get("resources", {}).items()},
             "audit": {"local_revision_valid": audit_local, "valid_at_last_remote_query": audit_cached,
+                      "valid_for_latest_run_at_last_query": audit_run,
+                      "valid_for_acceptance_at_last_query": audit_acceptance,
                       "checked_pair_scope": wanted,
                       "live_remote_validity": "not checked by offline status", "record": audit},
             "latest_run": run, "latest_release": release,
-            "next_step": next_step,
         }
+        from .guidance import next_action
+        result["next_action"] = next_action(result, release_matches_run=release_matches_run,
+                                            referenced_kb=set(cached.get("snapshot", {}).get("kb", {})))
+        result["next_step"] = result["next_action"]["action"]
+        return result
