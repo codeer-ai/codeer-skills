@@ -41,6 +41,10 @@ def register(subparsers):
     p.add_argument("--out", required=True)
     p.set_defaults(func=run_snapshot, requires_agent=True)
 
+    p = sub.add_parser("inspect-run", help="Inspect saved run evidence offline without rewriting historical results")
+    p.add_argument("--run-id", required=True)
+    p.set_defaults(func=run_inspect, no_client=True)
+
     # codeer eval list
     p = sub.add_parser(
         "list",
@@ -315,6 +319,14 @@ def run_snapshot(args, client) -> int:
     write_json(args.out, result)
     print_json({"revision": result["revision"], "remote_fingerprint": result["remote_fingerprint"], "history_id": args.history,
                 "pair_count": len(result["snapshot"]["pairs"]), "out": args.out})
+    return 0
+
+
+def run_inspect(args, client=None) -> int:
+    from ..evidence import inspect_run
+    if not args.project:
+        raise ValueError("eval inspect-run requires a project")
+    print_json(inspect_run(args.project, args.run_id))
     return 0
 
 

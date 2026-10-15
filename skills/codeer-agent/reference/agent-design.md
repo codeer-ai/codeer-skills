@@ -18,6 +18,10 @@ and KB; per-case criteria belong in Eval design. See [project.md](project.md).
 
 ## Discover and ground the design
 
+Use the [collaboration and gap guidance](collaboration.md): distinguish missing
+questions, missing policy and missing runtime evidence, state unaffected work
+and recommend the next action. A generic “need more data” is not sufficient.
+
 Start from the request, available source material and existing decisions. For a
 bounded repair, recover only the basis relevant to that repair; do not restart
 discovery or require a complete document. For a new Agent, develop a useful

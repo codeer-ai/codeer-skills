@@ -34,5 +34,31 @@ and missing units before making a whole-system or population-level claim.
 The module-specific sections below define safe work units for History, Static
 Audit, Eval Debug, version-aware triage, and Eval-portfolio optimization.
 
+## Case-development workers
+
+Separate complementary brainstorming, independent challenge and optional holdout
+evaluation. They answer different questions; more workers or a different model
+does not itself establish independence.
+
+For a broad first design, give complementary workers the same compact packet:
+accepted users/tasks/outcomes, authoritative source versions, confirmed decisions,
+missing policy/capabilities and existing coverage. Divide by meaningful task or
+decision boundary, not arbitrary case quotas. Workers return candidate situations,
+expected-handling basis, distinct failure consequence and evidence gaps without
+seeing each other's candidates. The parent deduplicates and writes canonical
+Case/Rubric/Tester artifacts. Prefer handoffs over permanent worker reports.
+
+For a material new boundary or grading change, use a fresh-context challenger.
+Give source facts and accepted requirements first, then candidate tests; withhold
+author defenses, preferred diagnoses and desired scores. Ask what wrong behavior
+could pass, what valid response could fail, and which requirement is missing.
+Resolve disagreements from sources, never votes. A worker with the parent's full
+chat is not context-isolated. Small edits or unavailable workers may be handled
+sequentially; disclose the limit instead of inventing an independent review.
+
+An optional holdout must be designated before repair and hidden from the repair
+worker, not just generated in another conversation. See
+[portfolio holdouts](../modules/eval-portfolio.md#optional-held-out-acceptance).
+
 ---
 

@@ -438,10 +438,16 @@ codeer eval export --agent <agent_id> --version <evaluated_version_number> \
 Resolve `<evaluated_version_number>` from the run's `published_history_id`,
 even if a newer DRAFT or published version now exists. Verify version, selection,
 and result IDs using [eval-cases.md](eval-cases.md#step-3--static-preflight-and-full-sweep).
-Automatically copy the original `reviews/observations/eval_results.json`, any matched
-export, and the exact Agent/version, evaluator-template, and judge-model context
-to `reviews/evidence/<date>-pre-change/` before changing the Agent. If this run is
-used as a comparison, pinning is required and needs no optional pin prompt.
+Before changing the Agent, pin original result IDs and exact Agent/version,
+Tester and judge context using the
+[batch evidence rules](../reference/project.md#batch-reviews-and-project-entry).
+Link `passed`, `failed` or `stale` project runs with their raw-file SHA-256;
+for other statuses save one original `run.json` byte snapshot and hash before
+diagnosis, repair or refresh, since export can overwrite the canonical record.
+For standalone observations or missing supporting artifacts, save the necessary
+original results and matched export under `reviews/evidence/<date>-pre-change/`.
+Preserve existing archives and reuse verified unchanged pins. Comparison evidence
+must be fixed, but needs neither whole-tree copies nor an optional pin prompt.
 
 The audit must verify the exact version, sources, settings, cases, rubrics,
 evaluators, and assignments. New reproduction cases should fail; protection

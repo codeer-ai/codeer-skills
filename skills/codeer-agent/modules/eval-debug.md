@@ -28,6 +28,12 @@ Surface non-perfect results to the user before changing anything. Also inspect
 selected perfect scores when needed: a false pass can reveal a coverage gap.
 Missing evidence lowers confidence; it does not license a guessed diagnosis.
 
+For project evidence-contract classification gaps, use offline
+`codeer eval inspect-run --run-id <id>` to inspect bound static versus dynamic
+evidence. Its derived states are not semantic verdicts or replacement run results.
+Explain findings using [collaboration guidance](../reference/collaboration.md)
+and the [Eval feedback contract](../workflows/lifecycle.md#eval-feedback-and-next-action).
+
 ---
 
 ## Failure-cluster orchestration
@@ -44,8 +50,12 @@ family, handoff boundary, or evaluator visibility problem. Do not cluster only
 by topic, numeric score, or similar evaluator wording. Do not assign one worker
 per case unless a unique high-consequence trace requires independent review.
 
-The parent must pin the complete run evidence and static anchors before
-delegation. Give each worker the relevant cases and traces, the accepted
+The parent must pin the captured run evidence and static anchors before
+delegation using the
+[batch evidence rules](../reference/project.md#batch-reviews-and-project-entry).
+For first-baseline or pre-change comparisons, do this before diagnosis as well.
+Preserve a partial observation as partial; an updateable run path is not a fixed
+pin. Give each worker the relevant cases and traces, the accepted
 Agent design, exact Agent/version and KB snapshot, evaluator template and
 judge fingerprint, plus selected passing controls or successful contrasts.
 Withhold a proposed repair or preferred owner when independent diagnosis is the

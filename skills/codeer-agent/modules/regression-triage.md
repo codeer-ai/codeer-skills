@@ -11,6 +11,12 @@ additional run, or authorize a change. Send every non-perfect dynamic result to
 [eval-debug.md](eval-debug.md). Send accepted causal findings that warrant a
 change to [repair-planner.md](repair-planner.md).
 
+For a normal Eval request this handoff is part of the result-feedback journey,
+not another mode the user must discover. Report important failures, missing
+evidence and selected PASS controls before recommending a fix. Use the existing
+batch review; do not create a report per result or confuse a changed Judge with
+Agent improvement.
+
 ---
 
 ## When to use
@@ -43,6 +49,11 @@ Read or recover the prior and current evidence packets:
 - generated responses, completion state, Tool and retrieval traces, evaluator
   scores and reasons, and planned-versus-completed pair counts; and
 - the pinned baseline or focused pre-change export used as the comparison.
+
+Verify the comparison's recorded raw-file SHA-256 before reuse, following
+[batch evidence rules](../reference/project.md#batch-reviews-and-project-entry).
+If it changed, recover the original pin or report the comparison unavailable;
+do not silently replace it with a refreshed canonical run.
 
 Do not compare labels, aggregate scores, or "latest" objects without resolving
 them to exact versions and pairs. Missing prior evidence permits current-run

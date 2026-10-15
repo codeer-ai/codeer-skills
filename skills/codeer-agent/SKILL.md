@@ -9,6 +9,11 @@ Use the installed `codeer` CLI for Codeer server operations. Skill modes are
 conversation entry points, not CLI commands. Read only the modules relevant to
 the current outcome. Preserve a requested local scope and existing decisions.
 
+Read the compact [platform basics](reference/platform-basics.md) and
+[collaboration rules](reference/collaboration.md) at entry. Explain behavior,
+consequences and a recommended next step in the user's working language;
+project-document and customer-facing Agent languages may differ.
+
 Users can start with sources and an ordinary description of the Agent they
 want; they need not know mode names or “Agent design.” You own discovery
 and the design record. Follow the shared [design discovery and source rules](reference/agent-design.md#discover-and-ground-the-design):
@@ -66,7 +71,7 @@ mutation scope.
 | `cases` / turn this failure into a test | [cases](modules/eval-cases.md); [portfolio](modules/eval-portfolio.md) for architecture/coverage review | Source/behavior → Tester, evidence, Case/Rubric, pairs, review; unresolved candidates stay in the draft, admitted pairs enter configured `evals/design.json` | Local design; apply separately |
 | `audit` / check only this case | [static audit](modules/static-audit.md), [Agent design](reference/agent-design.md) | Scoped configuration → findings in `reviews/`; full pre-eval clearance binds snapshot, revision, history, covered pairs | Read-only diagnosis |
 | `apply` / apply these confirmed changes | [project](reference/project.md), owning module | Reviewed diff and existing confirmation → receipts, readback, remaining gaps; report partial outcomes | Only confirmed KB/Agent/Tester/case/pair batch |
-| `eval` / test this exact draft | [cases execution](modules/eval-cases.md), [project evidence](reference/project.md) | Valid audit, exact history, selected pairs → `runs/<run-id>/` inputs/results; completed differs from passed | Authorized trigger only; no repairs |
+| `eval` / test this exact draft | [cases execution](modules/eval-cases.md), [project evidence](reference/project.md), [debug](modules/eval-debug.md) | Valid audit, exact history, selected pairs → run evidence, results and bounded initial diagnosis; completed differs from passed | Authorized trigger only; no repairs |
 | `improve` / explain and fix these failures | [debug](modules/eval-debug.md), [repair](modules/repair-planner.md); [triage](modules/regression-triage.md) for comparable runs | Dynamic evidence or sufficient static findings → cause/uncertainty, local repair diff, affected regression plan | Diagnose/design; confirmed apply separately |
 | `publish` / publish the accepted version | [publish](modules/kb-and-agent.md), [project evidence](reference/project.md) | Confirmed acceptance set, current audit/run, exact history → preview, separately authorized publish/readback/release | Explicit publication only |
 | `observe` / analyze histories or AI Draft | [history](modules/history.md) | Population/horizon and raw source → de-identified candidates in `reviews/` with provenance, owner and reproduction/protection scope | Reads; no automatic case or prompt changes |

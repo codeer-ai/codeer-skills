@@ -6,6 +6,12 @@ change. It turns findings into a coherent target state, reviewable diffs, and a
 proportionate verification plan. It does not treat the closest symptom as the
 owner and does not apply a change merely because it can propose one.
 
+Explain the concrete behavior change, why the evidenced owner should change,
+which correct behavior must remain and the smallest useful verification. Carry
+findings forward in the existing batch report instead of inventing another
+proposal authority. If the cause remains uncertain, propose the discriminating
+check before a speculative Instructions repair.
+
 Planning is read-only. Before any later server mutation, follow the skill's
 mutation and diff guardrails, use the module that owns the affected component,
 show the complete diff, and carry forward authorization for that reviewed scope;

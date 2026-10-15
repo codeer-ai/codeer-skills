@@ -315,6 +315,66 @@ or semantically verified by offline validation. A verified flag and an existing
 file are structural checks; audit must still inspect actual producer/delivery
 evidence and challenge Judge scores contradicted by tool traces.
 
+### Batch reviews and project entry
+
+Use the project README as navigation to goals, primary artifacts, unresolved
+decisions and the latest material batch/run, not another hand-maintained status
+database. Actual receipts/runs take precedence over stale prose. Existing authored
+README and configured/legacy paths remain in use; no reinitialization is needed.
+Extension analysis is welcome when it states purpose, source and relationship to
+the primary artifact. Derive admitted Case/Rubric reading copies from the configured
+manifest when needed; only unresolved proposals remain separately editable drafts.
+
+For a material batch use `reviews/batches/<batch-id>/report.md` for findings,
+decisions, scope and evidence links, with necessary attachments alongside it.
+Continue an existing relevant report within the batch. Do not create a report for
+every command, ordinary query or unchanged validation; the monthly log links
+milestones. Workers return findings to the parent instead of independent files.
+Keep confirmation source and the exact reviewed content recoverable.
+
+Active audit metadata may live at `reviews/*.audit.json` (legacy) or
+`reviews/batches/<batch-id>/*.audit.json`. Both use the same matching rules in
+status, run and publish. Other nested archives, especially `reviews/evidence/`,
+are historical observations and do not grant active clearance. Reports may be
+linked inside the project; fingerprints and scope still determine validity.
+Do not relocate old evidence or rewrite its references as an upgrade side effect.
+
+Pin first-baseline evidence before diagnosis or repair, and any focused run used
+as a pre-change comparison. An existing `runs/<id>/` is not necessarily fixed:
+`eval export --run-id` can resume and overwrite its `run.json` unless the recorded
+status is `passed`, `failed` or `stale`. This rule applies to legacy and new runs;
+having answers or a `finished_at` timestamp does not make an `incomplete` run fixed.
+
+- For `passed`, `failed` or `stale`, link the existing run and record its raw-file
+  SHA-256 in the batch report; do not duplicate the run tree.
+- For `incomplete`, `triggering`, `polling`, `outcome_unknown` or an unrecognized
+  status, first read the original `run.json` bytes once, compute their SHA-256 and
+  save those same bytes at a fresh path such as
+  `reviews/batches/<batch-id>/baseline/<run-id>-<sha256>.json`. Do not reserialize
+  or overwrite them. Reuse an existing pin only after verifying identical bytes
+  and hash. Later observations belong at separate paths, not over this baseline.
+- In the existing batch report, link the evidence and record its SHA-256, run,
+  history and result IDs, recorded status and comparison purpose. A pinned partial
+  observation is still partial, not acceptance or a completed baseline. Check
+  the hash on resume before relying on the comparison.
+
+The JSON preserves its captured snapshot, results and context; retain referenced
+inputs in their original run directory and copy only missing or mutable supporting
+evidence needed by the diagnosis. Generic `--out` paths may be reused by later
+runs and are not pins. Saving a pin makes no network call, changes no canonical
+run or recovery receipt, and does not change publication clearance. Unchanged
+reads need no new pin or report. Formal delivery still needs a self-contained,
+verified bundle. Preserve existing archives and `.codeer/` recovery receipts.
+
+`codeer status --human` is opt-in readable offline guidance; default JSON remains
+unchanged. `codeer eval inspect-run --run-id <id>` reads captured evidence offline,
+showing recorded outcomes separately from derived evidence interpretation with
+source hash. It does not refresh, rewrite, rerun, accept or authorize publication.
+New runs (evidence contract 2) resolve input/rubric from the bound snapshot and
+output/tool_steps from results; wrong version/pair/result IDs or snapshot bytes
+cannot supply static evidence. Legacy run/export classification remains intact;
+use inspect-run for a separately attributable interpretation of old evidence.
+
 New init ignore defaults exclude all `.codeer/`, raw histories, runs and releases;
 required PDF/attachment/KB originals remain eligible for controlled Git storage.
 Legacy ignore rules are preserved; review broad historical PDF rules explicitly
@@ -531,7 +591,8 @@ snapshot IDs and FAQ dependencies, including `knowledge_base.knowledge_node_ids`
 and `tabular_data.knowledge_node_id`. Both shapes participate in readiness,
 managed source freshness and run/publication evidence. Perform semantic audit using the relevant
 module. A local design review is not remote clearance. Save the readable report
-and `reviews/<id>.audit.json`:
+and `reviews/<id>.audit.json` (legacy) or
+`reviews/batches/<batch-id>/<id>.audit.json` using the same schema:
 
 ```json
 {

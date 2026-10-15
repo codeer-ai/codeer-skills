@@ -55,6 +55,9 @@ do not create a second workflow-state document.
 
 ### Completion meanings
 
+Use [collaboration guidance](../reference/collaboration.md) to explain these
+distinctions through concrete outcomes, rather than repeating internal labels.
+
 | Report | What it establishes |
 | --- | --- |
 | Behavior/case draft authored | Input, intended behavior and prohibited outcomes are reviewable; Tester/evidence decisions may remain unresolved |
@@ -67,6 +70,30 @@ Contract verification from supported code/templates is distinct from observing
 actual runtime delivery. CLI `design_complete` checks declared contracts and
 references; a flag or report file cannot perform semantic review. Missing server
 IDs do not prevent local design; unknown evidence contracts keep that part a draft.
+
+## Eval feedback and next action
+
+An ordinary request to test an Agent includes a result summary and bounded
+initial diagnosis after results become available. Read the actual responses,
+rubrics, source facts and decisive traces through [Eval Debug](../modules/eval-debug.md),
+with triage for comparable or substantial runs. Respect requests to execute or
+export only and retain bounded scope. No new repair, run or publication is
+authorized by this transition.
+
+Explain execution/completion separately from answer quality, evidence gaps and
+Judge errors. For material findings give the observed behavior and consequence,
+strongest supported mechanism, remaining alternatives, recommended repair owner
+and smallest verification. Missing policy, curation omission, unreached source,
+misuse of retrieved facts, misgrading and execution defects need different fixes.
+Correct evidence retrieved with a wrong answer is not by itself proof that
+Instructions caused it. Inspect full settings and conflicts; name the smallest
+discriminating check if uncertain. Inspect useful PASS controls too.
+
+Hand proposals to Repair Planner within existing authorization. Do not paste
+each failed answer into Instructions, silently weaken tests or rerun until scores
+improve. Fixed-response Judge checks differ from new Agent generations. End the
+bounded task with a recommendation and completion condition, not unexplained
+scores or a demand that users choose another mode.
 
 ## Build and production improvement journeys
 
@@ -209,8 +236,13 @@ inline prior-turn replay from Codeer.
 The **first baseline** is the first actual eval run against the complete first
 DRAFT Agent after the reviewed cases have been applied and Static Audit has
 passed. Local case design is not a baseline. Preserve this run as the
-pre-repair comparison point by automatically copying the results and their
-exact version/evaluator context to `reviews/evidence/`. Pin any focused pre-change
+pre-repair comparison point by pinning its exact run/result identities and
+exact version/evaluator context using [batch evidence rules](../reference/project.md#batch-reviews-and-project-entry).
+Only `passed`, `failed` or `stale` run records stay fixed during export: link them
+with their raw-file SHA-256. For other statuses, save one original `run.json` byte
+snapshot and hash before diagnosis, repair or refresh; export may overwrite the
+canonical record. Reuse verified pins and do not duplicate the whole run tree.
+Pin any focused pre-change
 eval used as a comparison as well. Match exports to the run's version and
 result IDs; see [eval-cases.md](../modules/eval-cases.md). Other debug or batch
 results remain optional to pin. If the evaluator template or judge model

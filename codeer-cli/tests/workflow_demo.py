@@ -7,6 +7,7 @@ from test_project_workflow import WorkflowTests
 from test_project_deployments import DeploymentTests
 from test_project_resource_exports import ResourceExportTests
 from test_project_guidance import GuidanceTests
+from test_project_guided import GuidedProjectTests
 
 
 def main():
@@ -21,7 +22,10 @@ def main():
                               ("platform-resume", DeploymentTests, "test_platform_resume_fixture"),
                               ("kb-faq-portability", ResourceExportTests, "test_faq_resume_fixture"),
                               ("unverified-contracts", GuidanceTests, "test_unverified_contracts_resume_fixture"),
-                              ("execution-errors", GuidanceTests, "test_execution_errors_resume_fixture")):
+                              ("execution-errors", GuidanceTests, "test_execution_errors_resume_fixture"),
+                              ("guided-existing", GuidedProjectTests, "test_existing_clone_batch_audit_status_run_publish_and_readonly_resume"),
+                              ("partial-baseline", GuidedProjectTests, "test_partial_baseline_pin_survives_resume_export_without_changing_original_project"),
+                              ("static-context", GuidedProjectTests, "test_static_context_is_exact_snapshot_evidence_and_historical_inspection_is_readonly")):
         destination = output / name
         if destination.exists():
             parser.error(f"Use a fresh output directory; exists: {destination}")

@@ -26,6 +26,23 @@ and shared project files.
 
 ## What You Can Do With This Skill
 
+Use your preferred collaboration language; it can differ from the Agent's customer
+language. The builder explains known behavior, concrete gaps and a recommended
+next action. Cases combine authoritative facts, real questions and labeled
+synthetic/public analogies; other companies' policies do not become yours.
+Useful worker perspectives are optional, not required for every change.
+
+A normal test request includes results and initial diagnosis. Missing sources,
+retrieval, Instructions, grading and execution gaps need different fixes. You can
+request export only or bounded diagnosis. Suggestions grant no new apply/publish
+authorization. Existing projects continue with configured files and evidence;
+`codeer status --human` and `codeer eval inspect-run --run-id <id>` offer offline
+guidance/inspection without reinitialization or bulk migration.
+For baseline comparisons, fixed `passed`/`failed`/`stale` runs use a link and
+raw-file SHA-256. Other run records may change during export: the builder saves
+one original JSON byte snapshot and hash before diagnosis or repair, reusing
+verified pins. It does not copy whole run trees or rewrite historical evidence.
+
 - Plan and create an Agent v0 from a folder of KB, product docs, SOPs, or other
   source files.
 - Select or design a Tester, verify evidence delivery, then design cases,

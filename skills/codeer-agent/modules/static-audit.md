@@ -103,7 +103,8 @@ with their affected scope. Findings affecting the proposed first apply must be
 resolved, or the user must explicitly decide the material scope/tradeoff;
 never silently shrink acceptance or declare the whole build aligned.
 
-Save the review in existing `reviews/` and link a concise log milestone. Keep
+Save the review using [batch review rules](../reference/project.md#batch-reviews-and-project-entry)
+in existing `reviews/` and link a concise log milestone. Keep
 its scope, actual reviewed paths and content fingerprints (or immutable
 revisions), decisive findings, dispositions and remaining gaps reviewable.
 Use a suitable report format, not a new mandatory schema or phase-state file.

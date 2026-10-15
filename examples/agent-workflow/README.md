@@ -10,6 +10,8 @@ For the first-apply semantic prerequisite and reuse of unchanged findings, use
 the [local alignment scenarios](local-alignment.md).
 For read-only website acquisition before crawler creation, unavailable content,
 and changed-content readback, use the [website-source scenarios](website-source.md).
+For multi-angle cases, independent challenge, plain-language feedback and legacy
+compatibility, use [guided development scenarios](guided-development.md).
 
 Run from the development checkout with a fresh output directory:
 
@@ -19,7 +21,7 @@ uv run python tests/workflow_demo.py --out-dir /tmp/codeer-workflow-demo
 ```
 
 This uses the real CLI parser and `httpx.MockTransport`, without credentials,
-network requests or real customer resources. It retains seven inspectable projects:
+network requests or real customer resources. It retains ten inspectable projects:
 
 - `new-agent/`: offline design, preview/create Draft, one shared tool Tester and
   two Case/Rubric pairs, synthetic acceptance/audit, failed run, reviewed repair,
@@ -48,6 +50,20 @@ network requests or real customer resources. It retains seven inspectable projec
 - `execution-errors/`: Agent/Eval readback, current pre-eval audit and an exact
   run with execution errors. Error outcomes are distinct from quality failures;
   no particular infrastructure cause is established by the fixture.
+- `guided-existing/`: a copy of a synthetic existing project, batch audit,
+  readable offline resume, mock run/publication and verified delivery. The
+  final report is intentionally changed to demonstrate stale audit rejection;
+  the original synthetic project remains unchanged.
+- `partial-baseline/`: a synthetic existing-project copy with finished answers
+  but missing evidence. A single original JSON byte snapshot plus SHA-256 survives
+  a later same-run export changing the canonical status from `incomplete` to `stale`.
+  Unchanged resume reuses the pin, no new Eval is triggered, publication remains
+  blocked, and the source project stays unchanged. Fixed `passed` runs instead
+  retain their canonical bytes through export and can be linked without a copy.
+- `static-context/`: input/rubric from the exact snapshot and output from bound
+  results. The saved run is deliberately relabeled with the legacy unjudgeable
+  state; `eval inspect-run` gives a separate derived interpretation without
+  rewriting it. Swapped legitimate results and omitted rows are counterexamples.
 
 Start a fresh chat with the installed skill and one project directory. Ask it to
 identify the target, accepted versus proposed decisions, applied versus verified

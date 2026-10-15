@@ -12,6 +12,10 @@ It may be used after Scope Alignment to inform core-scenario selection, after a
 Agent design to allocate broader coverage, or during History Analysis when
 production evidence may have changed a previously accepted model.
 
+Case authors may use the public research playbook directly for plausible question
+patterns without constructing this distribution. Such analogies do not establish
+customer policy or real traffic frequency; follow [case discovery](eval-cases.md#find-candidates-from-multiple-angles).
+
 The Query Distribution is descriptive. The Agent design consolidates
 established intent under the shared
 [source rules](../reference/agent-design.md#discover-and-ground-the-design);

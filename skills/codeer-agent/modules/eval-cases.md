@@ -44,6 +44,39 @@ Preview tokens identify content and do not grant approval.
 
 ## Step 1 — Select minimum-sufficient scenario coverage
 
+### Find candidates from multiple angles
+
+Minimum-sufficient means distinct decision coverage, not only repeating SOP
+questions. First inspect user intent, task/journey state, missing or contradictory
+information, nearby policy thresholds, old-policy claims, cross-source reasoning,
+prior disclosure and material tool-success/failure/unknown branches. Select angles
+that change correct handling; do not multiply every task by every angle.
+
+Use authoritative customer material to establish expected behavior; use actual
+questions/feedback to discover friction, without adopting old replies as policy.
+When real questions are sparse, synthesize labeled situations and perform bounded
+public research when available and in scope. The
+[public research playbook](../reference/query-distribution/public-web-research-playbook.md)
+can be used directly without building Query Distribution. Comparable help centers
+and forums can suggest questions or boundaries, not this customer's prices,
+refund rules or demand frequencies. Record URL/access date, what was observed,
+whether it is analogy/synthetic/first-party and the authoritative basis of the
+expected handling. Paraphrase examples; do not redistribute a customer corpus.
+Unavailable browsing is a stated limit, never a fabricated citation.
+
+For each candidate explain the situation, expected next move and its source,
+distinct failure consequence and required observable evidence. Then deduplicate
+and author only the selected cases. If policy is absent, test honest uncertainty
+only when supported; explicitly retain the unmet substantive-answer requirement.
+If the goal is ambiguous, recommend a concrete outcome and ask its owner rather
+than deriving the answer from the current prompt. See
+[gap guidance](../reference/collaboration.md#discover-useful-gaps).
+
+For broad design use [case-development workers](../reference/coordination.md#case-development-workers)
+when they add complementary perspectives. Small changes do not require delegation.
+
+### Review accepted coverage
+
 Inspect the accepted scope, Agent design, and source material. When an
 Agent already exists, also inspect its settings, system prompt, KBs, and Tools,
 but do not let the current implementation silently redefine accepted behavior.
@@ -393,10 +426,16 @@ selection as well. An export can select newer results from a rerun even on the
 same version; retain the original run's `--out` artifact and do not replace it
 with mismatched results.
 
-After the first baseline completes, automatically copy the original run results
-and any verified export plus exact Agent/version, evaluator-template, and
-judge-model context to `reviews/evidence/<date>-first-baseline/` before diagnosis
-or dynamic repair.
+Before first-baseline diagnosis or repair, pin the exact run/result IDs and
+Agent/version, Tester and judge context using the
+[batch evidence rules](../reference/project.md#batch-reviews-and-project-entry).
+Link a `passed`, `failed` or `stale` project run with its raw-file SHA-256. Other
+statuses can still be overwritten by `eval export --run-id`: save one original
+`run.json` byte snapshot and hash before diagnosis, repair or refresh; never
+overwrite that pin. Reuse verified unchanged pins rather than copying the whole
+tree. Preserve missing supporting outputs or verified exports only when needed.
+Existing `reviews/evidence/` archives remain readable and untouched.
+Baseline preservation is not an unseen holdout.
 
 Then use **regression-triage** for baseline result clustering without claiming a
 prior-version effect, and hand every non-perfect score to **eval-debug**.

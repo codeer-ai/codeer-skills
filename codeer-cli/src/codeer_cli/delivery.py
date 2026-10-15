@@ -59,7 +59,9 @@ def verify(directory):
         if (not wanted or run.get("status") != "passed" or len(allowed) != len(set(allowed))
                 or {r.get("id") for r in rows} != set(allowed) or len(rows) != len(allowed) or actual != wanted
                 or any(r.get("agent_history_id") != run.get("history_id") for r in rows)
-                or any(classify(r, requirements.get((r.get("case_id") or r.get("evaluation_case_id"), r.get("evaluator_id")), []), thresholds.get((r.get("case_id") or r.get("evaluation_case_id"), r.get("evaluator_id")), 1)) != "passed" for r in rows)):
+                or any(pair_key(o) != (o["result"].get("case_id") or o["result"].get("evaluation_case_id"), o["result"].get("evaluator_id"))
+                       for o in run.get("results", []) if o.get("result"))
+                or any(classify(r, requirements.get((r.get("case_id") or r.get("evaluation_case_id"), r.get("evaluator_id")), []), thresholds.get((r.get("case_id") or r.get("evaluation_case_id"), r.get("evaluator_id")), 1), run=run if run.get("evidence_contract_version") == 2 else None) != "passed" for r in rows)):
             gaps.append("Run lacks complete exact-ID passing results/evidence")
     else:
         gaps.append("Run is missing")

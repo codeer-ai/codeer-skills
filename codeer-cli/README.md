@@ -92,6 +92,32 @@ Code. These filesystem commands do not install account-level Cowork skills.
 
 ## Local Agent projects
 
+Use `codeer status --human` for readable offline guidance; default JSON and exit
+codes are unchanged. Init creates compact navigation, preserving authored README
+and configured/legacy paths. Existing projects need no reinitialization.
+
+Active audit metadata may remain in `reviews/*.audit.json` or use
+`reviews/batches/<batch-id>/*.audit.json`, with its report beside it. Status, run
+and publish share discovery and validity; historical copies in
+`reviews/evidence/` grant no active clearance. Routine reads create no reviews.
+
+Project `eval export --run-id` leaves canonical `passed`, `failed` and `stale`
+records unchanged, but can update other statuses while resuming evidence. Before
+diagnosis or repair, link fixed records with their raw-file SHA-256; preserve one
+original JSON byte snapshot and hash for still-updateable records. Reuse verified
+pins without overwriting them or copying whole run trees. This changes no CLI
+schema, resume behavior or publication gate; see the
+[batch evidence rules](../skills/codeer-agent/reference/project.md#batch-reviews-and-project-entry).
+
+`codeer eval inspect-run --run-id <id>` makes no network calls or writes. It shows
+original status/states, derived evidence states, snapshot/result/missing origins
+and source SHA-256. It does not judge answer quality or permit publication.
+New runs record `evidence_contract_version: 2`: input/rubric can come from the
+exact fingerprinted snapshot; output/tool_steps come from the bound result.
+Version, pair and triggered-result IDs must match. Legacy run/export classification
+retains its original contract; inspection gives a separate interpretation without
+rewriting it. Formal delivery still requires exact identity and file integrity.
+
 Local Agent project continuation uses `codeer status` for recorded evidence and
 an actionable `next_action` with a completion condition. It groups shared
 Tester/variable gaps by affected-pair count; `status --full` includes identities

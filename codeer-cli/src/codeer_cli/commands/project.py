@@ -15,6 +15,7 @@ def register(sub):
     p = sub.add_parser("status", help="Read local evidence; --refresh explicitly queries remote")
     p.add_argument("--refresh", action="store_true")
     p.add_argument("--full", action="store_true", help="Include per-pair evidence issues and complete recorded run details")
+    p.add_argument("--human", action="store_true", help="Show a readable summary; default JSON output is unchanged")
     p.set_defaults(func=run_status, no_client=True)
     p = sub.add_parser("validate", help="Validate local structure and references (offline)")
     p.set_defaults(func=run_validate, no_client=True)
@@ -27,45 +28,53 @@ def required():
     return project
 
 
+def project_readme(*, legacy):
+    log = "log.md" if legacy else "logs/YYYY-MM.md (continue an existing log.md)"
+    return f"""# Agent development project
+
+Describe the people, tasks and outcomes this Agent should support. The coding
+agent reads your sources, explains gaps and recommends the next step. Use your
+working language; the Agent's customer language may differ.
+
+## Start here
+
+- `project.toml`: project identity and configured paths; existing paths win.
+- `sources/index.md`: originals, applicable versions, authority and gaps.
+- `design/agent-design.md` and sibling `.draft.md`: established behavior / open decisions.
+- `agent/instructions.md`, `agent/settings.json`, `kb/`: implementation; one editable prompt.
+- `evals/cases.draft.md`: unresolved candidates; `evals/design.json`: admitted cases and judgments.
+- `reviews/batches/<batch-id>/report.md`: material findings, decisions and evidence links.
+- `{log}`: concise milestones; `runs/<id>/`: exact test evidence.
+
+These files grow with the work; init does not create a finished Agent. Reuse
+configured and legacy design/review paths. Additional analysis is welcome when
+its purpose and relationship to the primary files are clear. Generated reading
+copies are not another editable authority. Keep current status out of multiple
+hand-maintained tables; inspect the recorded evidence behind old prose.
+
+## Continue
+
+Run `codeer status --human` for offline guidance and `codeer validate` for
+structure; default `codeer status` remains JSON. Tell the coding agent to build,
+test or diagnose in ordinary language. It should explain progress, missing
+prerequisites, the recommended next action and what finishes it. A normal test
+request includes results and initial diagnosis; you can request export only.
+
+Preserve originals and local `.codeer/` mappings/recovery receipts. Do not commit
+credentials or raw customer histories. Skill project documentation owns full
+setup, deployment and evidence rules. Inspect the actual CLI/skill revision;
+updating tools does not deploy an Agent or approve new operations. Show reviewed
+diffs before remote writes, reuse existing authorization and authorize publication
+separately. Existing projects need no reinitialization or bulk migration.
+"""
+
+
 def run_init(args, client=None):
     root = Path(args.directory).resolve()
     root.mkdir(parents=True, exist_ok=True)
     files = {
         "project.toml": f'schema_version = 1\nname = {json.dumps(args.name or root.name)}\n\n[target]\n# Bound by agent pull/apply after scope verification. No credentials here.\n\n[paths]\n# Override paths to adopt existing local files without moving them.\n',
-        "README.md": (
-            "# Agent development project\n\n"
-            "Tell the coding agent your goals and where the source material is. It reads first, "
-            "summarizes intended behavior, recommends choices and asks only material unresolved questions. "
-            "It maintains the design and pending decisions for you as discovery proceeds. You need not "
-            "learn internal mode names or fill an Agent design template. Clear instructions can be "
-            "recorded with their basis without another document approval; conflicts and new material "
-            "choices still need a decision. Design decisions do not authorize remote writes or publication.\n\n"
-            "Original SOP/PDF files belong in `sources/documents/`; the builder lists paths or URLs, "
-            "purpose, version, authority and gaps in `sources/index.md`. Keep originals; extracted text "
-            "is a separate derivative. Curated upload content belongs in `kb/`. Raw histories/AI Draft "
-            "exports belong in `sources/history/<collection-id>/`.\n\n"
-            "Use `codeer status` and `codeer validate` offline. Requests such as 'Build an Agent from "
-            "this SOP' or 'Diagnose only this failed handoff' route to the appropriate skill workflow. "
-            "Existing Agents start with `agent pull --agent <id>`; import KB/Eval separately.\n\n"
-            "Status reports an evidence-based next_action with completion_condition; it does not grant authorization or live clearance. "
-            "Validate separates structural, evidence-contract and operation issues. Keep unresolved case/Tester candidates in the Markdown draft; "
-            "only admitted pairs enter the configured Eval manifest. Preserve deferred acceptance requirements.\n\n"
-            "Builder-maintained design basis: `design/agent-design.md`; pending proposals: "
-            "`design/agent-design.draft.md`; acceptance narrative: `design/acceptance.md`; "
-            "machine acceptance scope: `design/acceptance.json`. Editable settings: `agent/settings.json`; "
-            "the only prompt authority is `agent/instructions.md`. Eval design: `evals/design.json`. "
-            "Reviews hold source/instruction evidence, proposals and scope-bound confirmations. "
-            "Each run/release has its own evidence directory.\n\n"
-            "These are new-project defaults. Use `[paths].design` for another design file; "
-            "legacy `[paths].contract` remains supported. Without an explicit setting, an existing "
-            "`design/behavior-contract.md` or `.draft.md` keeps the old pair in use. If both naming "
-            "pairs exist, select the intended source with `[paths].design`. Pending proposals use "
-            "the selected file's sibling `<stem>.draft.md`. Do not create a second design authority "
-            "or move existing files just to follow the new name.\n\n"
-            "Append important reasons and outcomes to `log.md`, linking actual reviews/runs/releases. "
-            "Status derives from structured evidence, not this log. Unknown business decisions require "
-            "confirmation; imports are not acceptance.\n"
-        ),
+        "README.md": project_readme(legacy=True),
         "log.md": "# Decision and change log\n\nAppend dated proposals, confirmations, apply and verification outcomes with reasons and evidence links. Do not record secrets or every command.\n",
         "sources/index.md": "# Source index\n\n| Source path or URL | Purpose | Version/date | Authority | Derivative/KB | Gaps |\n| --- | --- | --- | --- | --- | --- |\n",
         ".gitignore": ".codeer/\nsources/history/\nruns/\nreleases/*/raw*\n*.pdf\n",
@@ -79,15 +88,7 @@ def run_init(args, client=None):
         # Continue an authored legacy log rather than creating a second authority.
         if not (root / "log.md").exists() and not any((root / "logs").glob("*.md")):
             files[f"logs/{now()[:7]}.md"] = "# Decisions and milestones\n\nRecord important proposals, confirmations, applied changes, verification and unresolved work with evidence links. Never record secrets or every command.\n"
-        files["README.md"] = files["README.md"].replace("Each run/release has its own evidence directory.", "Eval evidence uses runs/<id>/; release receipts use unique releases/<timestamp>-<id>.json files.").replace("Append important reasons and outcomes to `log.md`", "Append important reasons and outcomes to `logs/YYYY-MM.md` (continue an existing `log.md`)")
-        files["README.md"] += (
-            "\nKeep this project in your own repository, e.g. `projects/<stable-name>/`. A repository README can link projects; shared AGENTS can document maintenance rules. Add `.codeer/` to the repository-root ignore too, protecting inherited profile selection. Init preserves parent files. No workspace registry is needed.\n\n"
-            "Clone preserves portable content; `.codeer/` and ordinary runs/releases stay local. Keep required PDF/attachment originals in Git or controlled storage with verifiable bytes. Never commit credentials or raw customer histories.\n\n"
-            "Connection: `codeer profile current`, then `codeer check`. Existing parent/global profiles or explicit environment variables can be reused. If missing, explicitly run `codeer profile add <name>` (non-default platform: `--api-base`); if unselected, use `codeer profile use <name>`. Correct environment overrides directly. Network failure means connection unverified.\n\n"
-            "Explicitly configure `codeer agent bind --alias dev --new` or `--agent <id>`, then `codeer agent use dev`. Use global `--deployment <alias>` for one operation. Each deployment has separate target, resource mappings, bases and receipts. Targets are not committed.\n\n"
-            "Declare originals/KB in `resources.json` (schema_version 1, attachments and knowledge objects keyed by stable local IDs). Settings reference `attachment:<id>`, `kb:<id>[/path]`, or `env:<VARIABLE>` for environment values/credentials. Upload attachments with `agent attachment --local-id <id> --dry-run` and KB with the matching local ID/directory/glob; apply only the reviewed --expect token.\n\n"
-            "For takeover, pull observations and use `agent adopt --resource agent --keep-local|--remote --dry-run`, then the same command with --expect. Map case/tester/pairs IDs explicitly with --remote-id; never match by name. Declare a genuinely new case/tester with --remote-id new and --keep-local. Aligned, pending_apply and undecided content are distinct; unresolved fields block resource writes. Adoption performs no remote writes and is not business acceptance.\n"
-        )
+        files["README.md"] = project_readme(legacy=False)
     created, updated = [], []
     for name, content in files.items():
         path = root / name
@@ -138,7 +139,18 @@ def run_status(args, client=None):
             result["next_action"]["evidence"] = result["eval_design"]["evidence_gaps"]
     if result["latest_run"] and not args.full:
         result["latest_run"] = {k: result["latest_run"].get(k) for k in ("id", "history_id", "status", "counts", "revision", "local_stale", "remote_stale_at_last_query", "comparison")}
-    print_json(result)
+    if args.human:
+        print(f"Project: {result['project']} (deployment: {result.get('deployment') or 'unselected'})")
+        print(f"Offline evidence; last remote query: {result.get('last_remote_query') or 'none'}")
+        run = result.get("latest_run")
+        print(f"Latest run: {run['id']} — {run['status']} {run.get('counts') or {}}" if run else "Latest run: none recorded")
+        issues = sum(len(result.get(k, [])) for k in ("structural_issues", "design_issues", "operation_issues"))
+        print(f"Local issues: {issues}; evidence issues: {result.get('evidence_issue_count', len(result.get('evidence_issues', [])))}")
+        print(f"Next: {result['next_action']['action']}")
+        print(f"Done when: {result['next_action']['completion_condition']}")
+        print("This summary does not check live readiness or approve changes.")
+    else:
+        print_json(result)
     return 0
 
 

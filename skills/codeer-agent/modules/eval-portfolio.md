@@ -189,6 +189,22 @@ evidence.
 
 ---
 
+## Optional held-out acceptance
+
+Development cases guide improvement; stable regression cases protect previously
+correct behavior. For consequential delivery, a small independently sourced
+holdout can add evidence of generalization beyond directly repaired questions.
+Designate it before repair, record who can see it, and keep its exact inputs and
+answer-specific checks out of the repair worker's context. The Agent still needs
+access to all applicable business policy; withholding test wording must not make
+the task impossible. Once a failure is exposed and used for repair, retain it as
+development/regression material and refresh holdout coverage as needed.
+
+This is optional, not a new fixed quota or mandatory suite for every customer.
+Baseline archives protect history, not secrecy. Multiple synthetic authors or
+different models do not guarantee independence. Report important factual/action
+errors, evidence gaps and coverage slices separately from aggregate scores.
+
 ## Parallel portfolio review
 
 The parent Agent may delegate the whole bounded review to one read-only

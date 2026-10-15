@@ -133,6 +133,32 @@ Make sure:
 
 ## Local Agent development
 
+The skill carries [platform basics](skills/codeer-agent/reference/platform-basics.md)
+and [collaboration guidance](skills/codeer-agent/reference/collaboration.md).
+It explains established behavior, concrete gaps, a recommendation and the next
+completion condition in your working language. A normal Eval request includes
+results and initial diagnosis; export-only requests remain bounded. Missing
+policy, curation, retrieval, response and grading/execution problems need
+different fixes.
+
+Projects share navigation and editing responsibilities; KB structure and extra
+analysis may differ. Material batches use one main report under
+`reviews/batches/<batch-id>/`; unchanged checks do not produce more reports.
+Existing projects need no reinitialization or bulk migration. Configured paths,
+legacy reviews/logs and historical evidence remain readable and untouched.
+Baseline evidence links include the raw-file SHA-256. Runs outside `passed`,
+`failed` or `stale` may still be updated by export: save one original JSON byte
+snapshot before diagnosis or repair, and reuse verified pins. See the
+[batch evidence rules](skills/codeer-agent/reference/project.md#batch-reviews-and-project-entry).
+
+```bash
+codeer status --human                  # Optional readable offline guidance
+codeer eval inspect-run --run-id <id>  # Read-only saved-evidence interpretation
+```
+
+Default status JSON is unchanged. Inspection does not rewrite, accept or rerun
+old results. See [batch evidence](skills/codeer-agent/reference/project.md#batch-reviews-and-project-entry).
+
 Tell the coding agent your goals and provide source files or links. It reads
 the material, summarizes intended behavior, recommends how to resolve gaps and
 asks only questions that change the design. It maintains the design basis and

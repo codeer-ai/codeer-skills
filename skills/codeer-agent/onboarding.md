@@ -10,6 +10,11 @@ commits.
 
 ## Recommended setup
 
+The builder follows [platform basics](reference/platform-basics.md) and
+[collaboration guidance](reference/collaboration.md). Tell it your goal in your
+working language; it explains established behavior, material gaps and the next
+action. That language need not be the Agent's customer language.
+
 Start by telling the coding agent what you want and where the source material
 is, for example: “Use these SOPs to build a support Agent; it may look up orders
 but refund decisions belong to staff.” The builder reads the material, explains

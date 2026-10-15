@@ -111,7 +111,7 @@ def audit_matches(project, audit, anchor, pairs, *, remote=True):
 
 
 def valid_audit(project, anchor, pairs):
-    for path in sorted((project.root / "reviews").glob("*.audit.json"), reverse=True):
+    for path in reversed(project.audit_paths()):
         audit = read_json(path)
         if audit_matches(project, audit, anchor, pairs):
             return {"path": str(path.relative_to(project.root)), "fingerprint": fingerprint(audit)}
@@ -210,18 +210,51 @@ def thresholds(project):
     return result
 
 
-def classify(row, required, minimum_score=1.0):
+def bound_result(row, run):
+    """A captured snapshot and trigger, not a score, establish result identity."""
+    if not row or not run:
+        return False
+    saved = run.get("snapshot", {})
+    key = (row.get("case_id") or row.get("evaluation_case_id"), row.get("evaluator_id"))
+    allowed = {rid for trigger in run.get("triggers", [])
+               for rid in trigger.get("response", {}).get("created_results", [])}
+    if (not run.get("history_id") or saved.get("history_id") != run["history_id"]
+            or row.get("agent_history_id") != run["history_id"] or row.get("id") not in allowed
+            or fingerprint(saved) != run.get("remote_fingerprint")
+            or key not in {pair_key(p) for p in run.get("planned_pairs", [])}):
+        return False
+    return True
+
+
+def static_context(row, run):
+    """Resolve Judge context only from the matching, captured run snapshot."""
+    if not bound_result(row, run):
+        return {}
+    saved = run["snapshot"]
+    key = (row.get("case_id") or row.get("evaluation_case_id"), row.get("evaluator_id"))
+    case = saved.get("cases", {}).get(key[0], {})
+    pairs = [p for p in saved.get("pairs", []) if pair_key(p) == key]
+    if not case or len(pairs) != 1:
+        return {}
+    return {"input": case.get("input"), "rubric": pairs[0].get("rubric")}
+
+
+def classify(row, required, minimum_score=1.0, *, run=None):
     if not row:
         return "missing"
+    if run is not None and not bound_result(row, run):
+        return "unjudgeable"
     status = str(row.get("status", "")).lower()
     if status in ("failed", "error", "cancelled", "canceled"):
         return "error"
     if status not in ("finished", "completed", "success"):
         return "missing"
+    context = static_context(row, run) if any(v in ("input", "rubric") for v in required) else {}
     for variable in required:
         # Empty reasoning_steps is observable absence of calls, unlike missing data.
         field = {"tool_steps": "reasoning_steps", "output": "output"}.get(variable)
-        if not field or row.get(field) is None:
+        value = row.get(field) if field else context.get(variable)
+        if value is None:
             return "unjudgeable"
     score = row.get("score")
     if not isinstance(score, (int, float)) or isinstance(score, bool) or not 0 <= score <= 1:
@@ -249,7 +282,7 @@ def run(project, client, args):
     audit = valid_audit(project, anchor, pairs)
     run_id = f"{now().replace(':', '-')}-{uuid.uuid4().hex[:8]}"
     path = project.root / "runs" / run_id / "run.json"
-    record = {"schema_version": 1, "id": run_id, "started_at": now(), "history_id": history_id,
+    record = {"schema_version": 1, "evidence_contract_version": 2, "id": run_id, "started_at": now(), "history_id": history_id,
               **anchor, "audit": audit, "planned_pairs": pairs, "triggers": [], "results": [], "status": "triggering"}
     if project.portable:
         from .portable import input_paths
@@ -303,7 +336,7 @@ def run(project, client, args):
                     if key in rows and rows[key].get("id") != row.get("id"):
                         anomalies.append("duplicate_pair_results")
                     rows[key] = row
-            outcomes = [{"case_id": p["case_id"], "evaluator_id": p["evaluator_id"], "minimum_score": minimum_scores.get(pair_key(p), 1.0), "state": "skipped" if pair_key(p) in skipped else classify(rows.get(pair_key(p)), requirements.get(pair_key(p), []), minimum_scores.get(pair_key(p), 1.0)), "result": rows.get(pair_key(p))} for p in pairs]
+            outcomes = [{"case_id": p["case_id"], "evaluator_id": p["evaluator_id"], "minimum_score": minimum_scores.get(pair_key(p), 1.0), "state": "skipped" if pair_key(p) in skipped else classify(rows.get(pair_key(p)), requirements.get(pair_key(p), []), minimum_scores.get(pair_key(p), 1.0), run=record), "result": rows.get(pair_key(p))} for p in pairs]
             record.update(results=outcomes, counts=dict(Counter(r["state"] for r in outcomes)), result_ids=sorted(allowed), anomalies=sorted(set(anomalies)))
             save_json(path, record)
             if all(r["state"] != "missing" for r in outcomes) or time.monotonic() >= deadline:
@@ -451,7 +484,7 @@ def export_run(project, client, run_id, out_dir):
             rows[key] = row
     requirements = {pair_key(p): p["variables"] for p in record.get("evidence_requirements", [])}
     minimum_scores = {pair_key(p): p["value"] for p in record.get("minimum_scores", [])}
-    outcomes = [{"case_id": p["case_id"], "evaluator_id": p["evaluator_id"], "minimum_score": minimum_scores.get(pair_key(p), 1.0), "state": "skipped" if pair_key(p) in skipped else classify(rows.get(pair_key(p)), requirements.get(pair_key(p), []), minimum_scores.get(pair_key(p), 1.0)), "result": rows.get(pair_key(p))} for p in record["planned_pairs"]]
+    outcomes = [{"case_id": p["case_id"], "evaluator_id": p["evaluator_id"], "minimum_score": minimum_scores.get(pair_key(p), 1.0), "state": "skipped" if pair_key(p) in skipped else classify(rows.get(pair_key(p)), requirements.get(pair_key(p), []), minimum_scores.get(pair_key(p), 1.0), run=record if record.get("evidence_contract_version") == 2 else None), "result": rows.get(pair_key(p))} for p in record["planned_pairs"]]
     exact = bool(allowed) and len(allowed) == len(outcomes) - len(skipped) and {r["result"]["id"] for r in outcomes if r["result"]} == allowed
     status = "passed" if exact and not anomalies and all(r["state"] == "passed" for r in outcomes) else "incomplete" if not exact or any(r["state"] in ("missing", "unjudgeable", "skipped") for r in outcomes) else "failed"
     if anchor["remote_fingerprint"] != record["remote_fingerprint"] or anchor["revision"] != record["revision"]:
@@ -469,3 +502,41 @@ def export_run(project, client, run_id, out_dir):
     save_json(export_path, record)
     return {"id": run_id, "status": status, "counts": record["counts"], "path": str(path),
             "export_path": str(export_path), "record_updated": update_record}
+
+
+def inspect_run(project, run_id):
+    """Offline derived evidence interpretation; never rewrite or accept a run."""
+    import hashlib
+    path = (project.root / "runs" / run_id / "run.json").resolve()
+    if path.parent.parent != (project.root / "runs").resolve():
+        raise ProjectError("Invalid run ID")
+    record = read_json(path)
+    if not record or not project.owns_scope(record.get("snapshot", {}).get("scope")):
+        raise ProjectError("Unknown run or run belongs to another deployment")
+    required = {pair_key(p): p["variables"] for p in record.get("evidence_requirements", [])}
+    thresholds_by_pair = {pair_key(p): p["value"] for p in record.get("minimum_scores", [])}
+    outcomes = []
+    recorded = {}
+    for outcome in record.get("results", []):
+        recorded.setdefault(pair_key(outcome), []).append(outcome)
+    for pair in record.get("planned_pairs", []):
+        key = pair_key(pair)
+        matches = recorded.get(key, [])
+        outcome = matches[0] if len(matches) == 1 else {"state": "missing"}
+        row = outcome.get("result")
+        pair_mismatch = bool(row and (row.get("case_id") or row.get("evaluation_case_id"), row.get("evaluator_id")) != key)
+        if pair_mismatch:
+            row = None
+        variables = required.get(key, [])
+        state = ("unjudgeable" if len(matches) > 1 or pair_mismatch else "skipped" if outcome["state"] == "skipped" else
+                 classify(row, variables, thresholds_by_pair.get(key, 1.0), run=record))
+        context = static_context(row, record)
+        sources = {v: ("snapshot" if context.get(v) is not None and v in ("input", "rubric") else
+                       "result" if row and row.get({"output": "output", "tool_steps": "reasoning_steps"}.get(v)) is not None else
+                       "missing") for v in variables}
+        outcomes.append({"case_id": key[0], "evaluator_id": key[1], "result_id": row.get("id") if row else None,
+                         "recorded_state": outcome["state"], "derived_state": state, "evidence_sources": sources})
+    return {"id": run_id, "history_id": record["history_id"], "recorded_status": record["status"],
+            "source_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "derived_counts": dict(Counter(o["derived_state"] for o in outcomes)), "pairs": outcomes,
+            "limits": "Offline evidence interpretation only; no semantic judgment, live check, run rewrite or publication clearance."}

@@ -550,6 +550,14 @@ may already have created the turn.
 
 ## `codeer eval run` flags
 
+Project runs pin exact version, pair and trigger-result identities. New evidence
+contract 2 runs can resolve input/rubric from their fingerprinted snapshot;
+output/tool_steps remain dynamic result evidence. Legacy records are not upgraded
+in place. Offline `codeer eval inspect-run --run-id <id>` reports recorded and
+derived evidence states with the source hash, without network calls, writes,
+quality judgment or publication clearance. `codeer status --human` is optional
+readable offline guidance; default status JSON remains the machine interface.
+
 | Flag | Type | Default | Purpose |
 | --- | --- | --- | --- |
 | `--agent` | string | **required** | Agent ID |

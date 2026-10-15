@@ -324,12 +324,18 @@ class Project:
             unique[identity] = path
         return sorted(unique.values(), key=lambda p: read_json(p).get("time", str(p)))
 
+    def audit_paths(self):
+        """Active legacy and batch reviews; archived snapshots grant no clearance."""
+        reviews = self.root / "reviews"
+        paths = [*reviews.glob("*.audit.json"), *reviews.glob("batches/*/*.audit.json")]
+        return sorted(p for p in paths if p.resolve().is_relative_to(self.root) and p.is_file())
+
     def status(self):
         state = self.state()
         revision = self.revision()
         validation = self.validation()
         issues = validation["structural_issues"] + validation["design_issues"] + validation["evidence_issues"] + validation["operation_issues"]
-        audits = sorted((self.root / "reviews").glob("*.audit.json"))
+        audits = self.audit_paths()
         audit = read_json(audits[-1]) if audits else None
         runs = sorted(p for p in (self.root / "runs").glob("*/run.json") if self.owns_scope(read_json(p).get("snapshot", {}).get("scope")))
         run = read_json(runs[-1]) if runs else None
