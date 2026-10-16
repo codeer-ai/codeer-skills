@@ -431,6 +431,13 @@ every command, ordinary query or unchanged validation; the monthly log links
 milestones. Workers return findings to the parent instead of independent files.
 Keep confirmation source and the exact reviewed content recoverable.
 
+For per-run conclusions, readable reports, necessary customer questionnaires
+and returned answers, follow [assessment and clarification](../modules/eval-review.md).
+Do not append follow-up findings to a report fingerprinted by an audit or fixed
+delivery: keep it intact and continue in a sibling document with current
+README/log navigation. Preserving old bytes does not establish that a contradicted
+semantic conclusion remains valid for the next gated operation.
+
 Active audit metadata may live at `reviews/*.audit.json` (legacy) or
 `reviews/batches/<batch-id>/*.audit.json`. Both use the same matching rules in
 status, run and publish. Other nested archives, especially `reviews/evidence/`,

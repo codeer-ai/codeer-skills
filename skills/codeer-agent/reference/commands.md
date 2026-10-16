@@ -108,7 +108,7 @@ passed status comes from exact run evidence, never a hand-written score table.
 | `codeer eval evaluator-create` | Create an evaluator, optionally with a judge model override |
 | `codeer eval evaluator-update` | Update an evaluator or reset its judge model to the system default |
 | `codeer eval run` | Trigger assigned case/evaluator pairs, poll, print non-perfect analysis |
-| `codeer eval export` | Full eval table export (CSV + JSON + summary MD) |
+| `codeer eval export` | Project `--run-id`: JSON run export; Agent/version path: CSV + JSON + summary MD |
 | `codeer eval cases-apply` | Bulk-create/update eval cases with per-evaluator rubrics |
 | `codeer eval rubrics` | Read assigned per-(case, evaluator) rubrics |
 | `codeer eval rubrics-apply` | Apply rubric edits (pairs with `eval rubrics`) |
@@ -588,13 +588,22 @@ and grouped by evaluator. Do not call legacy internal trigger endpoints from
 the public CLI.
 
 For an audited baseline or comparison, resolve discovery to an explicit
-`--history <agent_history_id>` before running. Export the same version with
+`--history <agent_history_id>` before running. For a project run, use
+`codeer eval export --run-id <run_id> --out-dir <directory>` to refresh/export
+the captured exact result IDs as `<run_id>.json`. This is a server read, not
+offline inspection or table export; it does not produce CSV/summary Markdown.
+For current contract-2 runs, canonical `passed`/`failed`/`stale` bytes remain
+unchanged; other statuses may be updated. Follow the
+[batch evidence rules](project.md#batch-reviews-and-project-entry) before refresh.
+
+The separate table-export path can read a specified Agent version with
 `codeer eval export --agent <agent_id> --version <evaluated_version_number>
 --out-dir reviews/observations/eval_table/`, preserving focused `--cases` and
 `--evaluators` selections when used. Verify the export's history ID and result
 IDs against the original `eval run --out` artifact before pinning. Neither
 default-latest nor `--published` identifies an immutable prior run; even the
-same version can have newer results after a rerun.
+same version can have newer results after a rerun. This path produces CSV, JSON
+and mechanical summary Markdown; these are not semantic assessment reports.
 
 ---
 

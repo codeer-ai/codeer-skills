@@ -12,6 +12,11 @@ findings forward in the existing batch report instead of inventing another
 proposal authority. If the cause remains uncertain, propose the discriminating
 check before a speculative Instructions repair.
 
+For customer information or acceptance decisions still missing, use
+[assessment and clarification](eval-review.md). Carry returned answers through
+its source/authority checks before planning repairs; a filled questionnaire is
+not remote mutation authorization.
+
 Planning is read-only. Before any later server mutation, follow the skill's
 mutation and diff guardrails, use the module that owns the affected component,
 show the complete diff, and carry forward authorization for that reviewed scope;

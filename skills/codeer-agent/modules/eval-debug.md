@@ -6,6 +6,11 @@ diagnoses the strongest supported causal mechanism and produces evidence-backed
 findings. It does not design or apply the correction. Send findings that need a
 change to [repair-planner.md](repair-planner.md).
 
+Deliver findings through [assessment and clarification](eval-review.md): readable
+batch conclusions, concrete standard-discussion items and only necessary business
+questions. That workflow owns report presentation and customer replies; this
+module owns the evidence-based diagnosis.
+
 If no dynamic evidence exists yet, use [static-audit.md](static-audit.md)
 instead. Do not mix a whole-system preflight into the diagnosis of one run.
 

@@ -95,6 +95,12 @@ improve. Fixed-response Judge checks differ from new Agent generations. End the
 bounded task with a recommendation and completion condition, not unexplained
 scores or a demand that users choose another mode.
 
+Use [assessment, reports and clarification](../modules/eval-review.md) to record
+each newly assessed run in its batch, recommend improvements and draft only
+necessary customer questions. Pause affected tuning when standards need
+discussion; preserve fingerprinted audit reports and carry replies back to the
+owning sources/design/runtime/eval artifacts within existing authorization.
+
 ## Build and production improvement journeys
 
 These journeys compose the eight skill modes; they are not the implementation

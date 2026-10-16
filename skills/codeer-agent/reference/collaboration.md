@@ -41,6 +41,11 @@ behavior, scope, authority or material tradeoffs. Retain explicit decisions and
 recommend useful choices for unresolved ones. Users need not approve internal
 templates or repeat instructions.
 
+For a necessary customer-facing clarification draft, use
+[assessment and clarification](../modules/eval-review.md): show a recognizable
+question and actual answer before asking for the missing fact. Keep curation,
+Judge and implementation work internal; reuse accepted scope and decisions.
+
 ## Carry the journey forward
 
 Source analysis ends with established intent, concrete gaps and a recommendation.
