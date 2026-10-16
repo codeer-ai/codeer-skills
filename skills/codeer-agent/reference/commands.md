@@ -14,8 +14,10 @@ codeer init customer-project
 codeer status
 codeer status --full  # Per-pair contract gaps and complete recorded run
 codeer validate
-codeer agent bind --alias prod --agent <id>
-codeer agent use prod
+codeer agent bind prod-customer-a-main --agent <id>
+codeer agent use prod-customer-a-main
+codeer agent bindings
+codeer --binding prod-customer-a-main --profile prod-a check
 codeer agent pull --agent <id>
 codeer eval pull
 codeer kb import --local-id manual --kb-id <id> --dry-run
@@ -63,7 +65,13 @@ passed status comes from exact run evidence, never a hand-written score table.
 | `codeer model list` | List active cloud LLM models; use `--type text` for agent models |
 | `codeer agent list` | List agents in workspace |
 | `codeer agent get` | Get editable agent details; `--history <UUID>` reads an exact version snapshot |
-| `codeer agent bind/use/migrate` | Explicit new/takeover deployment setup, selection or legacy migration; no remote mutations |
+| `codeer agent bind <name> --new-agent/--agent <id>` | Configure one local remote-Agent binding; no remote Agent creation yet |
+| `codeer agent use <name>` / `agent bindings` | Select/list local Agent bindings; offline, does not select credentials |
+| `codeer --binding <name> --profile <profile> …` | One binding/connection for this invocation; actual API/workspace/Agent scope must match |
+| `codeer eval tester-fork --tester <local-id>` | Preview/expect new Tester and reconnect only this Agent's mapped Cases; source unchanged |
+| `codeer kb upload --fork …` | Separate KB/files locally mapped to this binding; FAQ and Agent reference switch follow separately |
+| `codeer clean --dry-run` / `clean --expect <token>` | Offline referenced-history protection and exact completed-history reclamation |
+| `codeer clean --keep <path> --reason <text>` | Persist manual retention; separate from cleanup preview/apply |
 | `codeer agent adopt` | Preview and adopt selected remote fields or retain local proposals; no remote mutations |
 | `codeer agent attachment` | Upload a declared original with byte readback; unknown identity blocks retries |
 | `codeer kb bind` | Explicit source-file → node-ID mapping and text adoption; preserves original files |

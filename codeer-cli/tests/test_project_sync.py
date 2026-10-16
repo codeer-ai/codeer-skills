@@ -12,7 +12,7 @@ import httpx
 
 from codeer_cli.cli import main
 from codeer_cli.client import CodeerClient
-from codeer_cli.project import discover, read_json, save_json
+from codeer_cli.project import discover, fingerprint, read_json, save_json
 from codeer_cli.project_agent import observe
 from codeer_cli.sync import merge
 
@@ -39,6 +39,8 @@ class API:
         self.run_mode = "pass"
         self.history_id = "h1"
         self.bump_versions = False
+        self.file_bytes = {}
+        self.file_names = {}
 
     def handler(self, request):
         path = request.url.path.removeprefix("/api/v1")
@@ -46,6 +48,8 @@ class API:
         self.calls.append((request.method, path, body))
         if path == "/external/me":
             result = {"profile": {"default_workspace_id": "w", "default_organization_id": "o"}}
+        elif path == "/llm/models":
+            result = [{"model_id": "judge-1"}]
         elif path == "/external/agents/all":
             result = [self.agent]
         elif path == "/external/agents/a/versions":
@@ -86,6 +90,22 @@ class API:
                       "page": {"limit": 500, "offset": 0, "total_records": 1}, "messages": [
                           {"id": 1, "conversation_group_id": "g1", "sequence": 1, "part_kind": "user-prompt",
                            "content": {"content": "Can I speak to a person?"}, "metadata": {"agent_history_id": "h0"}}]}
+        elif path.startswith("/external/knowledge-bases/files/"):
+            sid = path.split("/")[4]
+            content = self.file_bytes.get(sid, b"item,price\nA,1\n")
+            metadata = {"node_id": sid, "snapshot_object_id": 73, "status": self.file_status,
+                        "knowledge_base_id": "kb-root",
+                        "name": self.file_names.get(sid, sid + ".csv"),
+                        "stored_file": {"available": True, "size_bytes": len(content), "sha256": None,
+                                        "provenance": "uploaded_original", "revision": "fixture-file"}}
+            if path.endswith("/download"):
+                return httpx.Response(200, content=content, headers={"X-Codeer-Snapshot-Object-Id": "73"})
+            if path.endswith("/export"):
+                result = {"metadata": metadata, "snapshot": {"snapshot_object_id": 73, "content": content.decode(), "content_revision": fingerprint(content.hex())}, "faqs": [], "export_revision": fingerprint(content.hex())}
+            else:
+                result = metadata
+        elif path == "/external/knowledge-bases/nodes" and request.method == "POST":
+            result = {"id": "kb-created"}
         elif path == "/external/knowledge-bases/nodes":
             result = [] if request.url.params.get("parent_id") else self.nodes
         elif path.endswith("/files:status"):
@@ -93,7 +113,18 @@ class API:
         elif path == "/external/context-object-faqs":
             result = []
         elif request.method == "POST" and "knowledge-bases" in path:
-            result = {"nodes": [{"node_id": "file-new", "original_name": "faq.md"}]}
+            from email.parser import BytesParser
+            message = BytesParser().parsebytes(b"Content-Type: " + request.headers["content-type"].encode() + b"\r\nMIME-Version: 1.0\r\n\r\n" + request.content)
+            nodes = []
+            for part in message.walk():
+                name = part.get_filename()
+                if not name:
+                    continue
+                sid = "file-new" if not self.file_bytes else f"file-new-{len(self.file_bytes)+1}"
+                self.file_bytes[sid] = part.get_payload(decode=True)
+                self.file_names[sid] = name
+                nodes.append({"node_id": sid, "original_name": name})
+            result = {"nodes": nodes}
         elif path == "/external/eval/runs":
             self.run_number += 1
             ids = []
@@ -199,7 +230,10 @@ class ProjectFixture:
         os.chdir(self.root)
         self.addCleanup(os.chdir, old)
         self.api = API()
-        self.cli("init", "--legacy")
+        self.api.agent.update(primary_object_ids=[], attachment_ids=[])
+        self.cli("init")
+        self.cli("agent", "bind", "candidate", "--new-agent")
+        self.cli("agent", "use", "candidate")
 
     def cli(self, *args):
         output = io.StringIO()
@@ -208,10 +242,25 @@ class ProjectFixture:
         return code, json.loads(output.getvalue()) if output.getvalue() else None
 
     def pull(self):
+        if not discover().target.get("agent_id"):
+            self.assertEqual(self.cli("agent", "bind", "existing", "--agent", "a")[0], 0)
+            self.assertEqual(self.cli("agent", "use", "existing")[0], 0)
         code, result = self.cli("agent", "pull", "--agent", "a")
         self.assertEqual(code, 0)
         self.assertFalse(result["accepted"])
+        # Explicit fixture review establishes the checkpoint; pull itself does not.
+        code, adoption = self.cli("agent", "adopt", "--resource", "agent", "--remote", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertEqual(self.cli("agent", "adopt", "--resource", "agent", "--remote", "--expect", adoption["token"])[0], 0)
         return discover()
+
+    def adopt_fields(self, resource, fields=None):
+        args = ["agent", "adopt", "--resource", resource, "--remote"]
+        if fields:
+            args += ["--fields", fields]
+        code, plan = self.cli(*args, "--dry-run")
+        self.assertEqual(code, 0, plan)
+        self.assertEqual(self.cli(*args, "--expect", plan["token"])[0], 0)
 
 
 class SyncCLITests(ProjectFixture, unittest.TestCase):
@@ -238,14 +287,15 @@ class SyncCLITests(ProjectFixture, unittest.TestCase):
         self.assertFalse(any(method != "GET" for method, _, _ in self.api.calls))
         project.path("instructions").write_text("Updated")
         self.api.agent["description"] = "web edit"
+        self.adopt_fields("agent", "description")
         code, plan = self.cli("agent", "diff", "--local")
         self.assertEqual(code, 0)
         self.assertEqual(plan["payload"]["description"], "web edit")
         self.assertEqual(self.cli("agent", "apply", "--expect", plan["token"])[0], 0)
         payload = [b for m, _, b in self.api.calls if m == "PATCH"][-1]
         self.assertEqual(payload["system_prompt"], "Updated")
-        self.assertEqual(payload["primary_object_ids"], [42])
-        self.assertEqual(payload["attachment_ids"], ["doc"])
+        self.assertEqual(payload["primary_object_ids"], [])
+        self.assertEqual(payload["attachment_ids"], [])
         self.assertEqual(payload["description"], "web edit")
         self.assertEqual(project.state()["resources"]["agent"]["status"], "applied")
 
@@ -303,7 +353,8 @@ class SyncCLITests(ProjectFixture, unittest.TestCase):
         directory = self.root / "kb"
         directory.mkdir()
         (directory / "faq.md").write_text("FAQ")
-        args = ("kb", "upload", "--dir", str(directory), "--name", "Same", "--kb-id", "kb-two", "--local-id", "support")
+        save_json(self.root / "resources.json", {"schema_version": 1, "knowledge": {"support": {"directory": "kb", "glob": "*"}}})
+        args = ("kb", "upload", "--new", "--dir", str(directory), "--name", "Same", "--kb-id", "kb-two", "--local-id", "support")
         code, plan = self.cli(*args, "--dry-run")
         self.assertEqual(code, 0)
         self.assertEqual(plan["kb_id"], "kb-two")
@@ -323,7 +374,8 @@ class SyncCLITests(ProjectFixture, unittest.TestCase):
         directory.mkdir()
         (directory / "faq.md").write_text("FAQ")
         self.api.file_status = "FAILED"
-        args = ("kb", "upload", "--dir", str(directory), "--name", "Same", "--kb-id", "kb-two", "--local-id", "support")
+        save_json(self.root / "resources.json", {"schema_version": 1, "knowledge": {"support": {"directory": "kb", "glob": "*"}}})
+        args = ("kb", "upload", "--new", "--dir", str(directory), "--name", "Same", "--kb-id", "kb-two", "--local-id", "support")
         _, plan = self.cli(*args, "--dry-run")
         code, result = self.cli(*args, "--expect", plan["token"])
         self.assertEqual(code, 1)
@@ -339,7 +391,8 @@ class SyncCLITests(ProjectFixture, unittest.TestCase):
         directory = self.root / "kb"
         directory.mkdir()
         (directory / "faq.md").write_text("FAQ")
-        args = ("kb", "upload", "--dir", str(directory), "--name", "Same", "--kb-id", "kb-two", "--local-id", "support")
+        save_json(self.root / "resources.json", {"schema_version": 1, "knowledge": {"support": {"directory": "kb", "glob": "*"}}})
+        args = ("kb", "upload", "--new", "--dir", str(directory), "--name", "Same", "--kb-id", "kb-two", "--local-id", "support")
         _, preview = self.cli(*args, "--dry-run")
         self.assertEqual(self.cli(*args, "--expect", preview["token"])[0], 0)
         (directory / "hours.md").write_text("Hours")

@@ -73,13 +73,15 @@ Network/timeouts/5xx mean connection unverified; permission errors and uncertain
 New projects separate portable content from local deployment state:
 
 ```bash
-codeer agent bind --alias dev --new
-# OR: codeer agent bind --alias prod --agent <id>
-codeer agent use dev
+codeer agent bind beta-customer-a-candidate --new-agent
+# OR: codeer agent bind prod-customer-a-main --agent <id>
+codeer agent use beta-customer-a-candidate
+codeer agent bindings
+# For this invocation only: codeer --binding beta-customer-a-candidate --profile beta-a check
 ```
 
 Profile names do not select deployment targets. Explicitly map existing resources
-and resolve differences using [deployment adoption](reference/project.md#deployments-clone-and-platform-adoption).
+and resolve differences using [deployment adoption](reference/project.md#remote-agent-bindings-clone-and-platform-adoption).
 Keep needed originals in the project; `.codeer/`, raw histories and ordinary
 runs/releases remain local. Operators coordinate shared production writes;
 clone cannot recover another person's pending operations or local history.

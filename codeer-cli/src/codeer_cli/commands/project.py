@@ -10,7 +10,6 @@ def register(sub):
     p = sub.add_parser("init", help="Initialize a local Agent development directory (offline)")
     p.add_argument("directory", nargs="?", default=".")
     p.add_argument("--name")
-    p.add_argument("--legacy", action="store_true", help="Initialize the previous single-target format for compatibility")
     p.set_defaults(func=run_init, no_client=True)
     p = sub.add_parser("status", help="Read local evidence; --refresh explicitly queries remote")
     p.add_argument("--refresh", action="store_true")
@@ -19,6 +18,28 @@ def register(sub):
     p.set_defaults(func=run_status, no_client=True)
     p = sub.add_parser("validate", help="Validate local structure and references (offline)")
     p.set_defaults(func=run_validate, no_client=True)
+    p = sub.add_parser("clean", help="Offline cleanup of completed, unreferenced machine history in one binding")
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--expect")
+    p.add_argument("--older-than", help="Minimum age, e.g. 30d")
+    p.add_argument("--keep", help="Persistently retain an existing project file/directory")
+    p.add_argument("--reason", help="Reason for manual retention")
+    p.set_defaults(func=run_clean, no_client=True)
+
+
+def run_clean(args, client=None):
+    from ..clean import clean, keep
+    project = args.project or required()
+    if args.keep:
+        if args.dry_run or args.expect or args.older_than:
+            raise ProjectError("--keep is a separate local operation; omit cleanup flags")
+        result = keep(project, args.keep, args.reason)
+    else:
+        if args.reason:
+            raise ProjectError("--reason requires --keep")
+        result = clean(project, dry_run=args.dry_run, expected=args.expect, older_than=args.older_than)
+    print_json(result)
+    return 0
 
 
 def required():
@@ -28,8 +49,8 @@ def required():
     return project
 
 
-def project_readme(*, legacy):
-    log = "log.md" if legacy else "logs/YYYY-MM.md (continue an existing log.md)"
+def project_readme():
+    log = "logs/YYYY-MM.md (continue an existing log.md)"
     return f"""# Agent development project
 
 Describe the people, tasks and outcomes this Agent should support. The coding
@@ -73,22 +94,16 @@ def run_init(args, client=None):
     root = Path(args.directory).resolve()
     root.mkdir(parents=True, exist_ok=True)
     files = {
-        "project.toml": f'schema_version = 1\nname = {json.dumps(args.name or root.name)}\n\n[target]\n# Bound by agent pull/apply after scope verification. No credentials here.\n\n[paths]\n# Override paths to adopt existing local files without moving them.\n',
-        "README.md": project_readme(legacy=True),
-        "log.md": "# Decision and change log\n\nAppend dated proposals, confirmations, apply and verification outcomes with reasons and evidence links. Do not record secrets or every command.\n",
+        "project.toml": f'schema_version = 2\nname = {json.dumps(args.name or root.name)}\n\n[paths]\n# Override paths to adopt existing local files without moving them.\n',
+        "README.md": project_readme(),
         "sources/index.md": "# Source index\n\n| Source path or URL | Purpose | Version/date | Authority | Derivative/KB | Gaps |\n| --- | --- | --- | --- | --- | --- |\n",
-        ".gitignore": ".codeer/\nsources/history/\nruns/\nreleases/*/raw*\n*.pdf\n",
+        ".gitignore": ".codeer/\nsources/history/\nruns/\nreleases/\n",
     }
     existing = root / "project.toml"
-    legacy = args.legacy or existing.exists() and Project.load(root).config["schema_version"] == 1
-    if not legacy:
-        files["project.toml"] = f'schema_version = 2\nname = {json.dumps(args.name or root.name)}\n\n[paths]\n# Override paths to adopt existing local files without moving them.\n'
-        files[".gitignore"] = ".codeer/\nsources/history/\nruns/\nreleases/\n"
-        del files["log.md"]
-        # Continue an authored legacy log rather than creating a second authority.
-        if not (root / "log.md").exists() and not any((root / "logs").glob("*.md")):
-            files[f"logs/{now()[:7]}.md"] = "# Decisions and milestones\n\nRecord important proposals, confirmations, applied changes, verification and unresolved work with evidence links. Never record secrets or every command.\n"
-        files["README.md"] = project_readme(legacy=False)
+    if existing.exists():
+        Project.load(root)
+    if not (root / "log.md").exists() and not any((root / "logs").glob("*.md")):
+        files[f"logs/{now()[:7]}.md"] = "# Decisions and milestones\n\nRecord important proposals, confirmations, applied changes, verification and unresolved work with evidence links. Never record secrets or every command.\n"
     created, updated = [], []
     for name, content in files.items():
         path = root / name
@@ -140,7 +155,7 @@ def run_status(args, client=None):
     if result["latest_run"] and not args.full:
         result["latest_run"] = {k: result["latest_run"].get(k) for k in ("id", "history_id", "status", "counts", "revision", "local_stale", "remote_stale_at_last_query", "comparison")}
     if args.human:
-        print(f"Project: {result['project']} (deployment: {result.get('deployment') or 'unselected'})")
+        print(f"Project: {result['project']} (binding: {result.get('binding') or 'unselected'})")
         print(f"Offline evidence; last remote query: {result.get('last_remote_query') or 'none'}")
         run = result.get("latest_run")
         print(f"Latest run: {run['id']} — {run['status']} {run.get('counts') or {}}" if run else "Latest run: none recorded")

@@ -163,7 +163,7 @@ def pull(project, client, *, reconcile=False):
     ids = {e["evaluator_id"] for row in infos for e in row.get("evaluators", [])}
     testers = {tid: api.get_evaluator(client, tid) for tid in sorted(ids)}
     originals = {"obtained": [], "gaps": []}
-    if project.portable and not project.path("evals").exists():
+    if not project.path('evals').exists():
         from .project_attachments import import_originals
         for case in cases:
             if case.get("attachments") or case.get("attachment_ids"):
@@ -198,21 +198,13 @@ def pull(project, client, *, reconcile=False):
             raise ProjectError(f"Ambiguous mapping for {kind} {sid}")
         return matches[0] if matches else f"{kind}-{sid}"
     def record(key, sid, base):
-        if project.portable:
-            if key in resources:
-                if reconcile:
-                    reconcile_entry(project, resources[key], base)
-                resources[key]["observed"] = base
-            return
         if resources.get(key, {}).get("status") == "retired":
             raise ProjectError(f"Retired resource {key} is unexpectedly present; inspect its deletion receipt")
-        if key in resources and reconcile:
-            if resources[key].get("scope") and not scope_matches(resources[key]["scope"], scope):
-                raise ProjectError(f"Mapping scope mismatch: {key}")
-            reconcile_entry(project, resources[key], base)
-            resources[key]["scope"] = scope
-        elif key not in resources:
-            resources[key] = {"server_id": sid, "base": base, "status": "imported_unvalidated", "scope": scope}
+        if key in resources:
+            if reconcile:
+                reconcile_entry(project, resources[key], base)
+            resources[key]["observed"] = base
+        return
     design = {"schema_version": 1, "testers": [], "cases": []}
     for sid, tester in testers.items():
         tid = local_id("tester", sid)
@@ -220,28 +212,31 @@ def pull(project, client, *, reconcile=False):
         design["testers"].append({"local_id": tid, **select(tester, TESTER_FIELDS),
                                    "rationale": "Imported existing shared Tester; review suitability", "evidence": []})
     for case in cases:
-        if project.portable:
-            from .portable import logical_remote
-            case = {**case, **logical_remote(project, select(case, CASE_FIELDS))}
+        from .portable import logical_remote
+        case = {**case, **logical_remote(project, select(case, CASE_FIELDS))}
         sid = case["id"]
         cid = local_id("case", sid)
         record(f"case:{cid}", sid, select(case, CASE_FIELDS))
         pairs = by_case.get(sid, [])
         record(f"pairs:{cid}", sid, {p["evaluator_id"]: p.get("rubric", "") for p in pairs})
         design["cases"].append({"local_id": cid, **select(case, CASE_FIELDS),
-                                "source": {"remote_case_id": sid, "retrieved_at": now()},
+                                "source": {"remote_case_id": sid},
                                 "pairs": [{"tester": local_id("tester", p["evaluator_id"]), "rubric": p.get("rubric", ""), "required_evidence": []} for p in pairs]})
-    stamp = now().replace(":", "-")
     from .portable import logical_remote, redact
     safe_cases = [{**redact(project, row), **logical_remote(project, select(row, CASE_FIELDS))} for row in cases]
-    save_json(project.local_dir / "imports" / stamp / "eval.json", {"scope": scope, "cases": safe_cases, "infos": infos, "testers": redact(project, testers), "originals": originals})
+    from .operation_records import import_snapshot
+    imported = import_snapshot(project, "eval", {"scope": scope, "cases": safe_cases, "infos": infos,
+                                                "testers": redact(project, testers), "originals": originals})
+    state.setdefault("imports", {})["eval"] = str(imported.relative_to(project.root))
     if not project.path("evals").exists():
         save_json(project.path("evals"), design)
     else:
-        save_json(project.root / "reviews" / f"{stamp}.import-design.json", design)
+        proposed = project.root / "reviews" / f"{fingerprint(design)}.import-design.json"
+        if not proposed.exists() and read_json(project.path("evals"), {}) != design:
+            save_json(proposed, design)
     state["queried_at"] = now()
     project.save_state(state)
-    return {"case_count": len(cases), "tester_count": len(testers), "accepted": False, "originals": originals,
+    return {"case_count": len(cases), "tester_count": len(testers), "snapshot": str(imported), "accepted": False, "originals": originals,
             "gaps": ["Imported evidence requirements need semantic review; current resources are not historical snapshots"]}
 
 
@@ -271,14 +266,13 @@ def preview(project, client, design, only=None):
         key = f"tester:{tester['local_id']}"
         entry = resources.get(key, {})
         sid = entry.get("server_id")
-        if project.portable and not sid and (project.target.get("intent") != "create" or known_case_ids) and entry.get("status") != "new":
+        if not sid and (project.target.get('intent') != 'create' or known_case_ids) and (entry.get('status') != 'new'):
             raise ProjectError(f"Map existing {key} with agent adopt --remote-id <id>, or explicitly declare --remote-id new")
         if entry.get("scope") and not scope_matches(entry["scope"], scope):
             raise ProjectError(f"Mapping scope mismatch: {key}")
         from .portable import logical_remote
-        if project.portable:
-            from .portable import check_models
-            check_models(project, client, tester)
+        from .portable import check_models
+        check_models(project, client, tester)
         remote = logical_remote(project, select(api.get_evaluator(client, sid), TESTER_FIELDS)) if sid else {}
         plan = plan_change(project, key, sid, entry.get("base", {}), select(tester, TESTER_FIELDS), remote)
         if sid and plan["changed"]:
@@ -290,7 +284,7 @@ def preview(project, client, design, only=None):
         key = f"case:{cid}"
         entry = resources.get(key, {})
         sid = entry.get("server_id")
-        if project.portable and not sid and (project.target.get("intent") != "create" or known_case_ids) and entry.get("status") != "new":
+        if not sid and (project.target.get('intent') != 'create' or known_case_ids) and (entry.get('status') != 'new'):
             raise ProjectError(f"Map existing {key} before applying; missing state is not permission to create")
         if entry.get("scope") and not scope_matches(entry["scope"], scope):
             raise ProjectError(f"Mapping scope mismatch: {key}")
@@ -299,14 +293,13 @@ def preview(project, client, design, only=None):
         if sid and sid not in known_case_ids:
             raise ProjectError(f"Unknown or cross-Agent mapped case {sid}")
         remote = logical_remote(project, select(api.get_case(client, sid), CASE_FIELDS)) if sid else {}
-        if project.portable:
-            from .portable import translate
-            selected = select(case, CASE_FIELDS)
-            if any(not str(v).startswith("attachment:") for v in selected.get("attachment_ids", [])):
-                raise ProjectError("Portable Case attachments require attachment:<local-id> references")
-            if any(not str(v).startswith("env:") for v in selected.get("label_ids", [])):
-                raise ProjectError("Portable labels require env:<VARIABLE> references")
-            translate(project, selected)
+        from .portable import translate
+        selected = select(case, CASE_FIELDS)
+        if any(not str(v).startswith("attachment:") for v in selected.get("attachment_ids", [])):
+            raise ProjectError("Portable Case attachments require attachment:<local-id> references")
+        if any(not str(v).startswith("env:") for v in selected.get("label_ids", [])):
+            raise ProjectError("Portable labels require env:<VARIABLE> references")
+        translate(project, selected)
         plans.append(plan_change(project, key, sid, entry.get("base", {}), select(case, CASE_FIELDS), remote))
         assigned = api.get_case_evaluator_infos(client, case_ids=[sid]) if sid else []
         current = {e["evaluator_id"]: e.get("rubric", "") for r in assigned for e in r.get("evaluators", [])}
@@ -316,13 +309,12 @@ def preview(project, client, design, only=None):
         removed = case.get("remove_tester_ids", [])
         if not isinstance(removed, list) or any(not isinstance(tid, str) or not tid for tid in removed):
             raise ProjectError(f"case {cid}: remove_tester_ids must be an array of server Tester IDs")
-        if project.portable:
-            if any(not tid.startswith("tester:") for tid in removed):
-                raise ProjectError("Portable removals require tester:<local-id> references")
-            resolved = [resources.get(tid, {}).get("server_id") for tid in removed]
-            if any(tid is None for tid in resolved):
-                raise ProjectError("Unmapped Tester removal reference")
-            removed = resolved
+        if any(not tid.startswith("tester:") for tid in removed):
+            raise ProjectError("Portable removals require tester:<local-id> references")
+        resolved = [resources.get(tid, {}).get("server_id") for tid in removed]
+        if any(tid is None for tid in resolved):
+            raise ProjectError("Unmapped Tester removal reference")
+        removed = resolved
         pair_plan = plan_change(project, f"pairs:{cid}", sid, base, desired, current)
         for tid in removed:
             if tid in desired:
@@ -338,10 +330,9 @@ def preview(project, client, design, only=None):
         plans = [p for p in plans if p["resource"] in only]
     for p in plans:
         p["scope"] = scope
-        if project.portable:
-            from .portable import connection_fingerprint
-            p["environment"] = connection_fingerprint(project)
-            p["operator"] = project.preview_identity(client)
+        from .portable import connection_fingerprint
+        p["environment"] = connection_fingerprint(project)
+        p["operator"] = project.preview_identity(client)
         p["token"] = fingerprint({k: v for k, v in p.items() if k != "token"})
     result = {"scope": scope, "design": design, "plans": plans, "validation": validation, "only": only,
               "conflicts": [p["resource"] for p in plans if p["conflicts"]]}
@@ -479,16 +470,15 @@ def delete_case(project, client, server_id, *, dry_run=False, expected=None):
             raise ProjectError(f"Reconcile {related} before deletion")
     plan = {"operation": "case_delete", "resource": key, "server_id": server_id,
             "scope": scope, "current": current}
-    if project.portable:
-        from .portable import logical_remote
-        plan["current"] = logical_remote(project, current)
-        plan["operator"] = project.preview_identity(client)
-        plan["token"] = fingerprint(plan)
+    from .portable import logical_remote
+    plan["current"] = logical_remote(project, current)
+    plan["operator"] = project.preview_identity(client)
+    plan["token"] = fingerprint(plan)
     if dry_run:
         return {**plan, "dry_run": True, "method": "DELETE", "path": f"/external/eval/cases/{server_id}",
                 "would_write_server_state": True,
                 "next_step": "Review this summary, then rerun without --dry-run after approval."}
-    if project.portable and expected != plan["token"]:
+    if expected != plan['token']:
         raise ProjectError("Missing/stale Case deletion --expect; review current deletion preview")
     receipt_id = f"{now().replace(':', '-')}-{uuid.uuid4().hex[:8]}"
     path = project.local_dir / "receipts" / f"{receipt_id}.json"
@@ -544,6 +534,11 @@ def reconcile_delete(project, client, state, key, scope, case_ids):
     observation = delete_readback(client, sid, scope)
     if observation["absent"] != (sid not in case_ids):
         raise ProjectError("Case list and deletion readback disagree; query again before recovery")
+    from .operation_records import mutable_receipt
+    path, receipt = mutable_receipt(project, entry, field="delete_receipt")
+    relative = entry["delete_receipt"]
+    for related in previous:
+        resources[related]["delete_receipt"] = relative
     if observation["absent"]:
         retire_deleted(resources, previous)
     else:

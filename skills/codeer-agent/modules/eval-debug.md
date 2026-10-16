@@ -31,6 +31,8 @@ Missing evidence lowers confidence; it does not license a guessed diagnosis.
 For project evidence-contract classification gaps, use offline
 `codeer eval inspect-run --run-id <id>` to inspect bound static versus dynamic
 evidence. Its derived states are not semantic verdicts or replacement run results.
+Old runs without evidence contract 2 expose stored metadata/hash only; do not
+derive a new pass, refresh them, or use them as current publication clearance.
 Explain findings using [collaboration guidance](../reference/collaboration.md)
 and the [Eval feedback contract](../workflows/lifecycle.md#eval-feedback-and-next-action).
 

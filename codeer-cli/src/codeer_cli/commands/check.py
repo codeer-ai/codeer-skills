@@ -50,7 +50,7 @@ def run(args, client) -> int:
             args.project.check_scope(client)
             report["deployment"] = {"configured": bool(args.project.target), "target": args.project.target}
             if not args.project.target:
-                report["next_step"] = "Connection verified; explicitly choose agent bind --alias <name> --new or --agent <id>"
+                report["next_step"] = "Connection verified; explicitly choose agent bind <name> --new-agent or --agent <id>"
     except (CodeerError, ValueError) as e:
         errors.append(f"FAIL  Scope: {e.message if hasattr(e, 'message') else str(e)}")
         report["next_step"] = "Verify effective API/workspace and deployment target; correct environment overrides or select the intended profile. Do not rebind the deployment automatically"

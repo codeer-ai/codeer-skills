@@ -90,14 +90,13 @@ class DesignPathTests(unittest.TestCase):
         self.assertEqual(Project.load(self.root).path("design"), old)
         self.assertEqual(new.read_text(), "Pending new proposal")
 
-    def test_legacy_revision_survives_alias_and_filename_rename(self):
-        self.cli("init", "--legacy")
+    def test_current_revision_survives_alias_and_filename_rename(self):
+        self.cli("init")
         old = self.root / "design/behavior-contract.md"
         old.parent.mkdir()
         old.write_text("Accepted decision\n")
         project = Project.load(self.root)
-        baseline = legacy_revision(project)
-        self.assertEqual(project.revision(), baseline)
+        baseline = project.revision()
         old.rename(self.root / "design/agent-design.md")
         manifest = self.root / "project.toml"
         manifest.write_text(manifest.read_text() + 'design="design/agent-design.md"\n')
@@ -105,30 +104,29 @@ class DesignPathTests(unittest.TestCase):
 
 
 class DesignEvidenceTests(EvidenceFixture, unittest.TestCase):
-    def test_old_audit_run_release_survive_upgrade_and_design_rename(self):
+    def test_old_evidence_survives_design_rename_without_new_clearance(self):
         old = self.root / "design/behavior-contract.md"
         old.parent.mkdir()
         old.write_text("Established synthetic policy")
-        # Produce artifacts using the old revision algorithm, then consume them
-        # using the current CLI with no regeneration of evidence.
-        with patch.object(Project, "revision", legacy_revision):
-            project = self.setup_evidence()
-            self.assertEqual(self.cli("eval", "run", "--history", "h1", "--poll-timeout", "0")[0], 0)
-            code, preview = self.cli("agent", "publish", "--history", "h1", "--dry-run")
-            self.assertEqual(code, 0)
-            self.assertEqual(self.cli("agent", "publish", "--history", "h1", "--expect", preview["token"])[0], 0)
-            baseline = project.revision()
-        self.assertEqual(project.revision(), baseline)
-        _, status = self.cli("status")
-        self.assertEqual(status["latest_release"]["status"], "published")
-        self.assertEqual(self.cli("agent", "publish", "--history", "h1", "--dry-run")[0], 0)
+        project = self.setup_evidence()
+        historical = project.root / "runs/historical/run.json"
+        from codeer_cli.project import save_json
+        save_json(historical, {"schema_version": 1, "id": "historical", "status": "passed",
+                              "revision": legacy_revision(project), "history_id": "h1",
+                              "snapshot": {"scope": project.target}, "counts": {"passed": 2}})
+        baseline = project.revision()
+        original = historical.read_bytes()
+        self.assertEqual(self.cli("eval", "inspect-run", "--run-id", "historical")[1]["recorded_status"], "passed")
+        self.assertEqual(self.cli("agent", "publish", "--history", "h1", "--dry-run")[0], 2)
         old.rename(self.root / "design/agent-design.md")
         self.assertEqual(project.revision(), baseline)
         _, status = self.cli("status")
-        self.assertEqual(status["latest_release"]["status"], "published")
-        self.assertFalse(status["latest_run"]["local_stale"])
-        self.assertEqual(self.cli("agent", "publish", "--history", "h1", "--dry-run")[0], 0)
+        self.assertIsNone(status["latest_run"])
+        self.assertEqual(historical.read_bytes(), original)
+        calls = len(self.api.calls)
+        self.assertEqual(self.cli("eval", "export", "--run-id", "historical", "--out-dir", str(project.root / "export"))[0], 2)
+        self.assertEqual(len(self.api.calls), calls)
+        self.assertEqual(historical.read_bytes(), original)
         project.path("design").write_text("Changed policy requires new validation")
         self.assertNotEqual(project.revision(), baseline)
-        self.assertTrue(self.cli("status")[1]["latest_run"]["local_stale"])
         self.assertEqual(self.cli("agent", "publish", "--history", "h1", "--dry-run")[0], 2)

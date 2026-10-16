@@ -47,16 +47,17 @@ class ProjectTests(unittest.TestCase):
             self.assertFalse((self.root / "design").exists())
 
     def test_binding_retains_comments_and_existing_paths(self):
-        self.cli("init", "--legacy")
+        self.cli("init")
         p = self.root / "project.toml"
         p.write_text(p.read_text() + 'agent = "old/settings.json" # keep path\n')
         project = discover()
+        project.select("test")
         project.bind(agent_id="a", api_base="https://api.invalid", workspace_id="w")
         project.bind(agent_id="a2")
         self.assertIn("# keep path", p.read_text())
-        self.assertIn("# Bound by", p.read_text())
+        self.assertNotIn("[target]", p.read_text())
         self.assertEqual(Project.load(self.root).path("agent"), self.root / "old/settings.json")
-        self.assertEqual(Project.load(self.root).target["agent_id"], "a2")
+        self.assertEqual(Project.load(self.root).select("test").target["agent_id"], "a2")
 
     def test_invalid_schema_and_escape_are_errors_before_client(self):
         self.cli("init")
@@ -67,8 +68,10 @@ class ProjectTests(unittest.TestCase):
                 self.assertEqual(self.cli("status")[0], 2)
 
     def test_agent_mismatch_blocks_before_client_and_explicit_escape_works(self):
-        self.cli("init", "--legacy")
-        discover().bind(agent_id="a")
+        self.cli("init")
+        project = discover().select("test")
+        project.bind(agent_id="a", api_base="https://api.invalid", workspace_id="w")
+        (self.root / ".codeer/deployment").write_text("test\n")
         with patch("codeer_cli.cli.CodeerClient.from_env", side_effect=AssertionError("client")):
             self.assertEqual(self.cli("agent", "get", "other")[0], 2)
         fake = unittest.mock.Mock()
@@ -77,8 +80,8 @@ class ProjectTests(unittest.TestCase):
             self.assertEqual(self.cli("--outside-project", "agent", "get", "other")[0], 0)
 
     def test_scope_rejects_other_base_and_workspace(self):
-        self.cli("init", "--legacy")
-        project = discover()
+        self.cli("init")
+        project = discover().select("test")
         project.bind(api_base="https://one", workspace_id="w")
         fake = unittest.mock.Mock(base_url="https://two")
         fake.resolve_scope.return_value = ("w", "org")

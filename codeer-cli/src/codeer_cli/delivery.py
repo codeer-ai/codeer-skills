@@ -35,7 +35,7 @@ def verify(directory):
         path = local_path(relative)
         if not path.is_file() or digest(path.read_bytes()) != expected:
             gaps.append(f"Run input evidence missing or changed: {relative}")
-        if relative.endswith("/inputs/resources.json") and path.is_file():
+        if run.get("evidence_contract_version") == 2 and relative.endswith("/inputs/resources.json") and path.is_file():
             resources = read_json(path, {})
             prefix = relative.removesuffix("resources.json")
             for kind in ("knowledge", "attachments"):
@@ -46,6 +46,11 @@ def verify(directory):
                             required = str(required_path.relative_to(root))
                             if required not in run.get("input_files", {}) or not required_path.is_file():
                                 gaps.append(f"Required declared {field} input missing: {entry[field]}")
+    if run and run.get("evidence_contract_version") != 2:
+        return {"complete": False, "integrity": not gaps, "historical": True,
+                "gaps": [*gaps, "Historical evidence grants no current clearance"],
+                "run_id": run.get("id"), "release_id": release.get("id"),
+                "verification": "Stored metadata and file integrity only; use the pinned old CLI for old evidence interpretation"}
     if run:
         from .evidence import pair_key, classify
         if fingerprint(run.get("snapshot", {})) != run.get("remote_fingerprint"):
@@ -61,7 +66,7 @@ def verify(directory):
                 or any(r.get("agent_history_id") != run.get("history_id") for r in rows)
                 or any(pair_key(o) != (o["result"].get("case_id") or o["result"].get("evaluation_case_id"), o["result"].get("evaluator_id"))
                        for o in run.get("results", []) if o.get("result"))
-                or any(classify(r, requirements.get((r.get("case_id") or r.get("evaluation_case_id"), r.get("evaluator_id")), []), thresholds.get((r.get("case_id") or r.get("evaluation_case_id"), r.get("evaluator_id")), 1), run=run if run.get("evidence_contract_version") == 2 else None) != "passed" for r in rows)):
+                or any(classify(r, requirements.get((r.get("case_id") or r.get("evaluation_case_id"), r.get("evaluator_id")), []), thresholds.get((r.get("case_id") or r.get("evaluation_case_id"), r.get("evaluator_id")), 1), run=run) != "passed" for r in rows)):
             gaps.append("Run lacks complete exact-ID passing results/evidence")
     else:
         gaps.append("Run is missing")
@@ -116,7 +121,9 @@ def export(project, run_id, release_id, out_dir):
     run = read_json(run_source)
     if not run:
         raise ProjectError("Unknown run")
-    if project.portable and not project.owns_scope(run.get("snapshot", {}).get("scope")):
+    if run.get("evidence_contract_version") != 2:
+        raise ProjectError("Historical run is read-only; retain its existing delivery bytes and use metadata/integrity inspection")
+    if not project.owns_scope(run.get('snapshot', {}).get('scope')):
         raise ProjectError("Run is outside the selected deployment")
     selected = [p for p in project.release_paths() if read_json(p).get("id") == release_id] if release_id else []
     if release_id and len(selected) != 1:
@@ -139,7 +146,7 @@ def export(project, run_id, release_id, out_dir):
         if reference.get("verification"):
             references.add(reference["verification"])
     from .portable import environment
-    secret_values = [v.encode() for v in environment(project).values() if v and len(v) >= 8] if project.portable else []
+    secret_values = [v.encode() for v in environment(project).values() if v and len(v) >= 8]
     contents = {}
     for relative in sorted(references):
         if not relative or Path(relative).parts[0] == ".codeer":

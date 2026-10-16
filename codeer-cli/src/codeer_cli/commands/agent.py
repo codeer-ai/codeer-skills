@@ -16,18 +16,18 @@ def register(subparsers):
     agent = subparsers.add_parser("agent", help="Agent CRUD and versioning")
     sub = agent.add_subparsers(dest="action", required=True)
 
-    p = sub.add_parser("bind", help="Configure an isolated local deployment; creates no remote resources")
-    p.add_argument("--alias", required=True)
+    p = sub.add_parser("bind", help="Bind this project to a remote Agent; only records local state")
+    p.add_argument("name", nargs="?")
+    p.add_argument("--alias", help="Alias for the positional binding name")
     group = p.add_mutually_exclusive_group(required=True)
-    group.add_argument("--new", action="store_true")
+    group.add_argument("--new-agent", "--new", dest="new", action="store_true", help="Prepare creation; agent apply creates the remote Agent")
     group.add_argument("--agent")
     p.set_defaults(func=run_bind)
-    p = sub.add_parser("use", help="Select an existing local deployment (offline)")
+    p = sub.add_parser("use", help="Select this project's Agent binding (offline; does not select credentials)")
     p.add_argument("alias")
     p.set_defaults(func=run_use_deployment, no_client=True)
-    p = sub.add_parser("migrate", help="Explicitly migrate a legacy project, retaining originals (offline)")
-    p.add_argument("--alias", required=True)
-    p.set_defaults(func=run_migrate, no_client=True)
+    p = sub.add_parser("bindings", help="List this project's remote Agent bindings and saved identities (offline)")
+    p.set_defaults(func=run_bindings, no_client=True)
     p = sub.add_parser("adopt", help="Compare and explicitly adopt remote content or retain local proposals; no remote writes")
     p.add_argument("--resource", required=True, help="agent, case:<local-id>, tester:<local-id>, pairs:<local-id>")
     p.add_argument("--remote-id", help="Explicit ID for a previously unmapped resource")
@@ -204,7 +204,7 @@ def run_bind(args, client):
 
 def run_recover_rejected_create(args, client):
     from ..deployment import rejected_create_plan, recover_rejected_create
-    if not args.project or not args.project.portable:
+    if not args.project:
         raise ValueError("Recovery requires a portable project/deployment")
     plan = rejected_create_plan(args.project, client, args.evidence)
     result = plan if args.dry_run else recover_rejected_create(args.project, client, plan, args.expect)
@@ -221,17 +221,17 @@ def run_use_deployment(args, client):
     return 0
 
 
-def run_migrate(args, client):
-    from ..deployment import migrate
+def run_bindings(args, client):
+    from ..deployment import list_bindings
     if not args.project:
-        raise ValueError("agent migrate requires a project")
-    print_json(migrate(args.project, args.alias))
+        raise ValueError("agent bindings requires a local project")
+    print_json(list_bindings(args.project))
     return 0
 
 
 def run_adopt(args, client):
     from ..deployment import adoption_plan, adopt
-    if not args.project or not args.project.portable:
+    if not args.project:
         raise ValueError("agent adopt requires a portable project/deployment")
     choice = "remote" if args.remote else "local" if args.keep_local else None
     plan = adoption_plan(args.project, client, args.resource, remote_id=args.remote_id,

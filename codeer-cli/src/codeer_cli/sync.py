@@ -62,7 +62,7 @@ def plan_change(project, key, server_id, base, local, remote):
     local_base = normalize(key, entry.get("local_base", base))
     payload, conflicts = merge(base, local, remote, local_base)
     comparison = None
-    if project.portable and server_id:
+    if server_id:
         from .deployment import compare
         comparison = compare(entry, local, remote)
         conflicts = [field for field, item in comparison.items() if item["state"] == "undecided"]
@@ -91,17 +91,19 @@ def apply_change(project, plan, expected, mutation, readback):
     entry = state.setdefault("resources", {}).setdefault(key, {})
     if not plan["changed"] and plan["server_id"]:
         entry.update(base=plan["remote"], local_base=plan["local"])
-        if project.portable:
-            from .deployment import compare
-            entry.update(tracking_version=1, observed=plan["remote"], alignment=compare(entry, plan["local"], plan["remote"]))
+        from .deployment import compare
+        entry.update(tracking_version=1, observed=plan["remote"], alignment=compare(entry, plan["local"], plan["remote"]))
         record_removals(entry, plan)
         project.save_state(state)
         return {"status": "unchanged", "server_id": plan["server_id"]}
     receipt_id = f"{now().replace(':', '-')}-{uuid.uuid4().hex[:8]}"
     receipt_path = project.local_dir / "receipts" / f"{receipt_id}.json"
+    from .operation_records import recovery_plan
     receipt = {"id": receipt_id, "time": now(), "scope": plan.get("scope", project.target),
-               "plan": plan, "status": "pending"}
+               "plan": recovery_plan(plan), "status": "pending"}
     entry.update(status="pending", receipt=str(receipt_path.relative_to(project.root)))
+    if plan.get("server_id"):
+        entry["server_id"] = plan["server_id"]
     if "scope" in plan:
         entry["scope"] = plan["scope"]
     save_json(receipt_path, receipt)
@@ -110,9 +112,8 @@ def apply_change(project, plan, expected, mutation, readback):
     try:
         response = mutation(plan["payload"])
         mutation_completed = True
-        if project.portable:
-            from .portable import logical_remote
-            response = logical_remote(project, response)
+        from .portable import logical_remote
+        response = logical_remote(project, response)
         receipt["response"] = response
         save_json(receipt_path, receipt)
         server_id = plan["server_id"] or response.get("id") or response.get("node_id")
@@ -130,16 +131,15 @@ def apply_change(project, plan, expected, mutation, readback):
             entry["base"] = actual
             entry["local_base"] = plan["local"]
             entry.pop("decisions", None)
-            if project.portable:
-                from .deployment import compare
-                for field in plan.get("deferred_fields", []):
-                    entry.setdefault("decisions", {})[field] = {"local": fingerprint(plan["local"][field]), "remote": fingerprint(actual.get(field)), "time": now()}
-                entry.update(tracking_version=1, observed=actual, alignment=compare(entry, plan["local"], actual))
+            from .deployment import compare
+            for field in plan.get("deferred_fields", []):
+                entry.setdefault("decisions", {})[field] = {"local": fingerprint(plan["local"][field]), "remote": fingerprint(actual.get(field)), "time": now()}
+            entry.update(tracking_version=1, observed=actual, alignment=compare(entry, plan["local"], actual))
             record_removals(entry, plan)
         entry.update(status=receipt["status"], server_id=server_id)
     except BaseException as exc:
         # Even interruption and transport failure may follow a committed write.
-        receipt.update(status="outcome_unknown", error=type(exc).__name__ if project.portable else str(exc))
+        receipt.update(status="outcome_unknown", error=type(exc).__name__)
         entry["status"] = "outcome_unknown"
         from .client import CodeerError
         if isinstance(exc, CodeerError):
@@ -168,11 +168,24 @@ def reconcile_entry(project, entry, actual):
     """Observe known identity; accept local checkpoint only for proven receipt payload."""
     from .project import read_json
     previous = entry.get("local_base", entry.get("base", {}))
-    receipt = read_json(project.root / entry["receipt"], {}) if entry.get("receipt") else {}
+    receipt = read_json(project.resolve_path("receipt", entry["receipt"]), {}) if entry.get("receipt") else {}
     plan = receipt.get("plan", {})
+    if plan:
+        from .project import scope_matches
+        recorded_scope = plan.get("scope") or receipt.get("scope")
+        current_scope = entry.get("scope") or project.target
+        if recorded_scope and not isinstance(recorded_scope, dict):
+            raise ProjectError("Invalid recovery receipt scope; preserve it for investigation")
+        if recorded_scope and not scope_matches({k: v for k, v in recorded_scope.items() if k != "profile"}, current_scope,
+                                                allow_unbound_agent=plan.get("resource") == "agent"):
+            raise ProjectError("Recovery receipt belongs to another scope")
+        response = receipt.get("response") if isinstance(receipt.get("response"), dict) else {}
+        known_id = plan.get("server_id") or response.get("id") or response.get("node_id")
+        if known_id and entry.get("server_id") and known_id != entry["server_id"]:
+            raise ProjectError("Recovery receipt identity differs from the mapped resource")
     recovering = entry.get("status") in ("pending", "outcome_unknown", "readback_mismatch")
     matched = recovering and bool(plan) and payload_matches(plan, actual)
-    if project.portable and not matched:
+    if not matched:
         entry["observed"] = actual
         # An observation cannot resolve an unknown write or accept new content.
         return
@@ -181,8 +194,10 @@ def reconcile_entry(project, entry, actual):
     if matched:
         record_removals(entry, plan)
     if receipt:
+        from .operation_records import mutable_receipt
+        path, receipt = mutable_receipt(project, entry)
         receipt.update(reconciled_at=now(), reconciliation={"readback": actual, "payload_matches": matched})
-        save_json(project.root / entry["receipt"], receipt)
+        save_json(path, receipt)
 
 
 def record_removals(entry, plan):

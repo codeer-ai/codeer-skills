@@ -29,18 +29,15 @@ without auth or a bound Agent. Init creates README, log, source index and
 documents entry, preserving existing content. Other directories appear on
 demand. Paths are relative to project root and must stay inside it. Override
 paths to adopt existing files; do not move/delete legacy data automatically.
-Schema 2 has no `[target]` or personal profile. Schema 1 remains readable with its
-single target/state and unchanged revision algorithm. `init --legacy` explicitly
-initializes that compatibility format. `agent migrate --alias <name>` retains
-the original TOML under `.codeer/legacy/`, copies state/receipts, and selects a
-deployment; old receipts and evidence hashes remain unchanged. Migration does
-not turn environment IDs into logical dependencies or renew old audit/run proof.
-Only a literal legacy `[target]` section supports automated migration; exotic
-TOML is refused for manual review.
-Establish the legacy API/workspace binding and reconcile uncertain operations
-first if that identity is missing; migration refuses to invent it.
+The current project contract is schema 2, without `[target]` or personal profile.
+Target/state/resources/FAQ objects have their own schema 1 contracts; those numbers
+do not make them old projects. Additional optional diagnostic fields are ignored.
+Unsupported project formats fail before authentication and remain untouched; there
+is no runtime migration command. Follow the [one-time preparation runbook](one-time-preparation.md)
+on a reviewed copy when needed. Conforming projects need zero conversion. Fixed
+history, embedded project.toml and old evidence are never rewritten or upgraded.
 
-## Deployments, clone and platform adoption
+## Remote Agent bindings, clone and platform adoption
 
 Keep projects in your own repository, e.g. `projects/<stable-name>/`. Recommend a
 root README linking projects and common AGENTS maintenance rules; do not create a
@@ -63,20 +60,122 @@ files for keys or persist environment credentials. Interactive `profile add`
 alone may save secure input to the user's config, with restricted permissions.
 
 ```bash
-# Explicitly choose new deployment OR takeover; both configure only local state.
-codeer agent bind --alias dev --new
-# alternative: codeer agent bind --alias prod --agent <id>
-codeer agent use dev
-codeer --deployment prod status
+# Both configure local state; --new-agent does not create a remote Agent yet.
+codeer --profile beta-a agent bind beta-customer-a-main --agent <id>
+codeer --profile beta-a agent bind beta-customer-a-candidate --new-agent
+codeer --profile beta-b agent bind beta-customer-b-main --agent <id>
+codeer agent use beta-customer-a-main
+codeer agent bindings
+codeer --binding beta-customer-a-candidate --profile beta-a status
 ```
 
-Each alias uses `.codeer/deployments/<alias>/target.json`, `state.json`, `imports/`
-and `receipts/`. Alias/profile names are not platform identity. API/workspace/Agent
+Each binding names one remote Agent mapping in this project, not an environment.
+Names are project-unique, 1–64 letters/digits/underscores/hyphens, starting with a
+letter or digit. Same environment/workspace may have many Agents and a workspace
+may have several keys. Names such as `beta` are allowed when unambiguous; examples
+include workspace/customer and Agent role to make multi-Agent work clear.
+The physical paths remain `.codeer/deployments/<name>/target.json`, `state.json`, `imports/`
+and `receipts/`; `.codeer/deployment` stores the local selection. `--deployment`,
+`bind --alias` and `--new` are low-cost command aliases using the same handlers.
+`agent bindings` is offline and shows saved API, workspace/Agent names and IDs,
+selection, creation intent and unresolved operations. Saved names may be stale.
+`known_agent_id` shows an acknowledged create ID even before it can be bound;
+`creation_unresolved` means investigate/reconcile that operation, not create again.
+Binding/profile names are not platform identity. API/workspace/Agent
 must match actual scope. Profile/environment changes after a preview invalidate
 that preview. Content revision excludes deployment and personal profile; runs
 and releases still bind actual scope and exact remote content. Do not copy state
 from another computer. Shared production writes require operator coordination;
 there is no server CAS or concurrent-writer guarantee.
+
+Global `--profile <name>` selects credentials/API for one invocation, including
+`check`, first bind, previews and `status --refresh`, without changing the default
+or saving credentials. An explicit profile rejects any `CODEER_API_KEY` override
+and a different nonempty `CODEER_API_BASE` before client creation/authentication;
+a trailing slash is equivalent. Without the flag, existing env/directory/global
+priority remains. `agent use` changes only the binding. Profiles are not pinned
+or enumerated in bindings: any valid key for the same API/workspace may be used,
+but a key/profile change requires a fresh mutation preview.
+
+### Shared resources and candidate separation
+
+Sharing a Tester/KB is valid; a new Agent binding does not imply dependency copies.
+A Rubric belongs to one Case/Tester pair. Editing that Rubric with `rubrics-apply`
+does not update the shared Tester or another Agent's pairs. Updating a shared
+Tester previews the readable Agent/Case users (`shared_impact`); explain that this
+is the accessible workspace scope, not proof that all external consumers are known.
+Review the actual shared settings and impact. A change in readable users invalidates
+the preview. Historical runs keep captured settings/results and are not rescored.
+
+For candidate-only changes to the Tester itself:
+
+```bash
+codeer --binding beta-customer-a-candidate --profile beta-a eval tester-fork --tester tools --dry-run
+# Repeat with --expect <token>; use --reconcile after a known-ID interruption.
+```
+
+`tools` is a local Tester ID. The command creates one new Tester from reviewed
+local settings, reconnects only this Agent's mapped Cases while retaining their
+Rubrics, reads back, then updates this binding's mapping. The shared source and
+other bindings remain untouched. Changing an `env:` model value invalidates its
+preview, just as for ordinary Agent/Eval apply. An interrupted create without a returned ID is
+never repeated; investigate the actual server identity. Partial reconnection keeps
+its receipts and known new Tester ID. Reconcile those reads, review a fresh preview
+and finish reconnection before another fork or edit to that created Tester.
+
+For separate KB files, use `kb upload --fork --local-id faq --dir kb --glob '*.md'
+--name 'Candidate FAQ' --dry-run`, then reviewed `--expect`. It creates new KB/file
+IDs and changes only this binding's local mapping after original-byte verification.
+Before starting or finishing the mapping switch, reconcile unfinished FAQ operations
+for this KB and unfinished Agent writes in this binding. Their recovery depends on
+the existing mapping; a paused fork retains its known new IDs for later reconnection.
+The output still has `references_pending: true`: upload does not switch the Agent
+or copy FAQ. Review/rebuild FAQ against the new saved snapshots, then use
+`agent diff --local`, `agent adopt --resource agent --fields unified_tools
+--keep-local` with preview/expect, and `agent apply` with fresh preview/expect.
+Only the Agent readback establishes the completed reference switch. Original
+sources and other Agents' old KB nodes remain. For partial uploads use the same
+`--fork ... --reconcile`; unknown file identities block any repeat create/upload.
+The visible source users come from readable Agent knowledge-tool references;
+hidden/non-Agent consumers and server transactions are outside this guarantee.
+
+### Machine records and safe cleanup
+
+`imports/` holds observations, not a second editable Agent definition. Unchanged
+Agent/Eval pulls reuse one snapshot and update state's observation time. `receipts/`
+holds request/identity/readback and recovery evidence; it is more than an activity
+log. Current sync receipts omit derived base/local-base/remote/comparison copies;
+state keeps checkpoints. FAQ replay still needs its full preimage. Existing optional
+extra fields remain readable without another format reader.
+
+Never remove `.codeer/`, state or whole record directories to resolve an unknown
+operation. For a receipt cited by fixed project evidence, recovery creates a live
+derivative with original path/SHA-256 instead of rewriting the pinned source.
+
+```bash
+codeer --binding beta-customer-a-main clean --dry-run
+codeer --binding beta-customer-a-main clean --older-than 30d --dry-run
+# Repeat the same selection/age with --expect <token>.
+codeer clean --keep .codeer/deployments/beta-customer-a-main/receipts/example.json --reason 'Investigation baseline'
+```
+
+Cleanup is explicit, offline and project-local; there is no background retention
+job. Preview writes nothing, lists exact files/bytes and retention reasons. Only
+recognized, completed, unreferenced receipt/import history in the selected binding
+is eligible. Current state from every binding, JSON/path/Markdown/SHA-256 references,
+manual `.codeer/keep.json`, unresolved outcomes, source files, runs, releases and
+fixed history protect content. An unrecognized history contract/scope retains that
+binding; corrupt global roots refuse cleanup. Cyclic dependencies are retained.
+Deletion removes referrers before their dependencies, so interruption can resume
+with a fresh preview. Symlinks are refused rather than followed.
+
+Apply takes `.codeer/project.lock` and rechecks candidates/protection roots/token.
+Current CLI project writers use the same exclusive local process lock, including
+pull/apply/reconcile/refresh/run/export/publish/delivery and FAQ preview observations.
+This provides no remote CAS and no protection against older CLI, direct file
+tools, skill audit/pin writes, or standalone/outside-project writers. Stop those
+writers during cleanup and one-time preparation; do not claim they inherit a lock.
+Manual keep is persistent; removing a keep entry requires deliberate local review.
 
 `resources.json` contains originals and KB source selections:
 
@@ -342,7 +441,7 @@ Do not relocate old evidence or rewrite its references as an upgrade side effect
 Pin first-baseline evidence before diagnosis or repair, and any focused run used
 as a pre-change comparison. An existing `runs/<id>/` is not necessarily fixed:
 `eval export --run-id` can resume and overwrite its `run.json` unless the recorded
-status is `passed`, `failed` or `stale`. This rule applies to legacy and new runs;
+status is `passed`, `failed` or `stale`. This rule applies to current contract-2 runs;
 having answers or a `finished_at` timestamp does not make an `incomplete` run fixed.
 
 - For `passed`, `failed` or `stale`, link the existing run and record its raw-file
@@ -358,6 +457,11 @@ having answers or a `finished_at` timestamp does not make an `incomplete` run fi
   observation is still partial, not acceptance or a completed baseline. Check
   the hash on resume before relying on the comparison.
 
+For old runs without evidence contract 2, every status is historical and read-only;
+`inspect-run` reports stored status/counts/hash only. Current export/refresh,
+publication and new delivery do not accept them. A pinned old CLI may inspect old
+semantics offline; it must not act on current projects or grant current clearance.
+
 The JSON preserves its captured snapshot, results and context; retain referenced
 inputs in their original run directory and copy only missing or mutable supporting
 evidence needed by the diagnosis. Generic `--out` paths may be reused by later
@@ -368,7 +472,7 @@ verified bundle. Preserve existing archives and `.codeer/` recovery receipts.
 
 `codeer status --human` is opt-in readable offline guidance; default JSON remains
 unchanged. `codeer eval inspect-run --run-id <id>` reads captured evidence offline,
-showing recorded outcomes separately from derived evidence interpretation with
+showing current recorded outcomes separately from derived evidence interpretation with
 source hash. It does not refresh, rewrite, rerun, accept or authorize publication.
 New runs (evidence contract 2) resolve input/rubric from the bound snapshot and
 output/tool_steps from results; wrong version/pair/result IDs or snapshot bytes
@@ -414,14 +518,13 @@ Pull saves raw editable/Published/version observations separately from writable
 files, retains remote/shared identities, and never modifies existing local work.
 A repeated pull observes without advancing established sync bases. `--reconcile`
 reads an interrupted operation's recorded identity; local drafts remain intact.
-Schema 2 advances bases only for proven expected content. The legacy reader
-retains its original remote-observation behavior. It advances the local checkpoint only when
+The current reader advances the local checkpoint only when
 readback proves the receipt's payload, preserving proposals edited after that
 operation. Eval recovery includes known unassigned Testers. Unknown create identity cannot be recovered
 by guessing a matching name: identify it from actual server evidence first.
 The first portable Agent pull imports referenced KB originals/text/FAQ and attachments
-without overwriting existing definitions. Eval import remains separate. Legacy pull
-does not import KB/Eval. A repeated pull preserves local proposals and bases.
+without overwriting existing definitions. Eval import remains separate. A repeated
+pull preserves local proposals and bases.
 Current KB/Rubric/Tester reads are not historical snapshots of an old Agent version.
 Record gaps in sources/reviews and append an import milestone to the log.
 
@@ -441,13 +544,13 @@ approval. Apply rereads before each mutation and reads back afterward. Disjoint
 top-level changes can form a proposal; same-field edits conflict. Prompt,
 Rubric, tools and ordered arrays are indivisible. Omitted local fields retain
 remote values; missing files/resources never authorize deletion. Explicit tool
-removal lists IDs with `--remove-tools`; pair removal lists server Tester IDs in
+removal lists IDs with `--remove-tools`; pair removal lists `tester:<local-id>` references in
 the case's `remove_tester_ids`. No transaction, server CAS or automatic rollback
 is promised. Successful resource receipts survive a later failure; unknown
 outcomes require reconciliation before retry.
 Successful apply and no-op synchronization store separate local and remote
-checkpoints. Schema 1 preserves web-only values remotely; schema 2 requires
-explicit adoption or keep-local decisions for changed remote fields. Resource commands persist reviewed
+checkpoints. Changed remote fields require explicit adoption or keep-local decisions.
+Resource commands persist reviewed
 proposals before writes so a partial failure cannot turn old authored values into
 rollback intent. Confirmed pair removals are idempotent; remote readdition needs
 review, and an explicitly accepted readdition clears the earlier removal marker.
@@ -510,7 +613,7 @@ The following synthetic example is a format illustration, not an accepted SOP:
 `meta` retains supported prior-state/conversation references; never invent a new
 backend context field. Keep source provenance outside API payload. Review
 Judge model omission versus explicit `null` (system default). IDs live in
-the selected deployment's `state.json` (legacy `.codeer/state.json`) scoped to
+the selected binding's `state.json` scoped to
 API base/Workspace/Agent. Renaming input retains
 the case; identical input may represent distinct initial conditions. Tester
 updates preview all accessible Workspace pair usage, including other Agents.

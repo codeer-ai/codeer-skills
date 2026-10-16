@@ -5,6 +5,8 @@ import json
 import os
 import stat
 import sys
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +15,29 @@ from ..client import DEFAULT_CODEER_API_BASE
 CONFIG_DIR = ".codeer"
 LOCAL_PROFILE_FILE = "profile"
 GLOBAL_PROFILE_FILE = "profiles.json"
+_selected_profile = ContextVar("codeer_selected_profile", default=None)
+
+
+@contextmanager
+def selected_profile(name=None):
+    """Resolve an explicit invocation without mutating environment or config."""
+    if name is None:
+        yield
+        return
+    if "CODEER_API_KEY" in os.environ:
+        raise ValueError("--profile conflicts with CODEER_API_KEY; remove the environment override")
+    value = (_read_profiles().get("profiles") or {}).get(name)
+    if not isinstance(value, dict):
+        raise ValueError(f"Unknown profile {name!r}; use codeer profile list")
+    base = value.get("api_base") or DEFAULT_CODEER_API_BASE
+    override = os.environ.get("CODEER_API_BASE")
+    if override and override.rstrip("/") != base.rstrip("/"):
+        raise ValueError("--profile API base conflicts with CODEER_API_BASE; remove the environment override")
+    token = _selected_profile.set({"name": name, "source": "--profile", "api_key": value.get("api_key"), "api_base": base})
+    try:
+        yield
+    finally:
+        _selected_profile.reset(token)
 
 
 def register(subparsers):
@@ -45,6 +70,9 @@ def register(subparsers):
 
 
 def resolve_profile() -> dict[str, str | None]:
+    selected = _selected_profile.get()
+    if selected is not None:
+        return dict(selected)
     if "CODEER_API_KEY" in os.environ:
         return {
             "name": os.environ.get("CODEER_PROFILE"),

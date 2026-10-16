@@ -290,11 +290,21 @@ class ExportReviewTests(unittest.TestCase):
         args = ["kb", "faq-sync", "--local-id", "manual", "--keep-local", "--apply"]
         _, plan = self.cli(*args, "--dry-run")
         self.assertEqual(self.cli(*args, "--expect", plan["token"])[0], 1)
+        project = discover()
+        receipt_path = self.root / project.state()["resources"]["faq:manual"]["receipt"]
+        original = receipt_path.read_bytes()
+        report = self.root / "reviews/faq-delete-baseline.md"
+        report.parent.mkdir(exist_ok=True)
+        report.write_text(digest(original).upper())
         count = len(self.api.calls)
         code, result = self.cli("kb", "faq-sync", "--local-id", "manual", "--reconcile")
         self.assertEqual(code, 0, self.error)
         self.assertEqual(result["status"], "aligned")
         self.assertFalse(any(m != "GET" for m, _, _ in self.api.calls[count:]))
+        self.assertEqual(receipt_path.read_bytes(), original)
+        current = self.root / project.state()["resources"]["faq:manual"]["receipt"]
+        self.assertNotEqual(current, receipt_path)
+        self.assertEqual(read_json(current)["provenance"]["original_sha256"], digest(original))
 
     def test_recovery_refuses_changed_file_mapping(self):
         self.imported()
@@ -310,12 +320,12 @@ class ExportReviewTests(unittest.TestCase):
         self.assertEqual(self.cli("kb", "faq-sync", "--local-id", "manual", "--reconcile")[0], 2)
         self.assertIn("file mapping differs", self.error)
 
-    def test_verify_old_bundle_reports_omitted_manifest_reference(self):
+    def test_verify_current_bundle_reports_omitted_manifest_reference(self):
         root = self.root / "old-delivery"
         resources = root / "runs/r/inputs/resources.json"
         save_json(resources, {"schema_version": 1, "knowledge": {"manual": {"manifest": "sources/missing.json"}}})
         run = root / "runs/r/run.json"
-        save_json(run, {"input_files": {"runs/r/inputs/resources.json": digest(resources.read_bytes())}})
+        save_json(run, {"evidence_contract_version": 2, "input_files": {"runs/r/inputs/resources.json": digest(resources.read_bytes())}})
         save_json(root / "manifest.json", {"schema_version": 1, "run_path": "runs/r/run.json", "files": {"runs/r/run.json": digest(run.read_bytes()), "runs/r/inputs/resources.json": digest(resources.read_bytes())}})
         result = verify(root)
         self.assertFalse(result["complete"])
@@ -324,7 +334,7 @@ class ExportReviewTests(unittest.TestCase):
         saved = root / "runs/r/inputs/saved.json"
         save_json(saved, {"files": {}})
         inputs = {"runs/r/inputs/resources.json": digest(resources.read_bytes()), "runs/r/inputs/saved.json": digest(saved.read_bytes())}
-        save_json(run, {"input_files": inputs})
+        save_json(run, {"evidence_contract_version": 2, "input_files": inputs})
         save_json(root / "manifest.json", {"schema_version": 1, "run_path": "runs/r/run.json", "files": {"runs/r/run.json": digest(run.read_bytes()), **inputs}})
         self.assertFalse(any("Required declared" in gap for gap in verify(root)["gaps"]))
 

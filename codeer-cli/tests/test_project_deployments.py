@@ -302,6 +302,32 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(self.cli(*args, "--expect", plan["token"])[0], 2)
         self.assertFalse(any(path == "/external/files" for _, path, _ in self.api.calls[count:]))
 
+    def test_pinned_attachment_recovery_preserves_uppercase_hash_source(self):
+        import hashlib
+        project = self.bind(new=True)
+        content = b"Synthetic original attachment"
+        (self.root / "sources/documents/manual.pdf").write_bytes(content)
+        save_json(self.root / "resources.json", {"schema_version": 1, "attachments": {"manual": {"path": "sources/documents/manual.pdf"}}})
+        args = ["agent", "attachment", "--local-id", "manual"]
+        _, preview = self.cli(*args, "--dry-run")
+        with patch("codeer_cli.project_attachments.download", side_effect=ProjectError("readback interrupted")):
+            self.assertEqual(self.cli(*args, "--expect", preview["token"])[0], 2)
+        entry = project.state()["resources"]["attachment:manual"]
+        path = self.root / entry["receipt"]
+        original = path.read_bytes()
+        report = self.root / "reviews/attachment-baseline.md"
+        report.parent.mkdir(exist_ok=True)
+        report.write_text(hashlib.sha256(original).hexdigest().upper())
+        uploads = len(self.api.upload_bytes)
+        with patch("codeer_cli.project_attachments.download", return_value=content):
+            self.assertEqual(self.cli(*args, "--reconcile")[0], 0, self.error)
+        current = project.state()["resources"]["attachment:manual"]
+        self.assertEqual(current["status"], "ready")
+        self.assertEqual(path.read_bytes(), original)
+        self.assertNotEqual(current["receipt"], entry["receipt"])
+        self.assertEqual(read_json(self.root / current["receipt"])["provenance"]["original_sha256"], hashlib.sha256(original).hexdigest())
+        self.assertEqual(len(self.api.upload_bytes), uploads)
+
     def test_clone_attachment_takeover_verifies_explicit_identity_without_upload(self):
         self.bind()
         content = b"original-file-bytes"
@@ -460,7 +486,7 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(project.state()["resources"], {})
         self.assertEqual(project.target, {})
 
-    def test_migration_retains_original_hashes_receipts_and_unknown_operation(self):
+    def test_unsupported_project_is_rejected_before_http_without_changing_unknown_operation(self):
         manifest = self.root / "project.toml"
         original = 'schema_version = 1\nname = "Legacy"\n\n[target]\nagent_id = "a" # retain identity\napi_base = "https://fixture.invalid"\nworkspace_id = "w"\n\n[paths]\n# retain path comment\n'
         manifest.write_text(original)
@@ -468,14 +494,14 @@ class DeploymentTests(unittest.TestCase):
         save_json(self.root / ".codeer/receipts/old.json", receipt)
         state = {"schema_version": 1, "resources": {"agent": {"server_id": "a", "status": "outcome_unknown", "receipt": ".codeer/receipts/old.json", "base": {"description": "old base"}}}}
         save_json(self.root / ".codeer/state.json", state)
-        self.assertEqual(self.cli("agent", "migrate", "--alias", "legacy")[0], 0, self.error)
-        self.assertEqual((self.root / ".codeer/legacy/project.toml").read_text(), original)
+        calls = len(self.api.calls)
+        self.assertEqual(self.cli("status")[0], 2)
+        self.assertEqual(self.cli("agent", "apply", "--dry-run")[0], 2)
+        self.assertEqual(len(self.api.calls), calls)
+        self.assertEqual(manifest.read_text(), original)
         self.assertEqual(read_json(self.root / ".codeer/state.json"), state)
         self.assertEqual(read_json(self.root / ".codeer/receipts/old.json"), receipt)
-        self.assertEqual(discover().state(), state)
         self.assertIn("# retain path comment", manifest.read_text())
-        self.local_agent()
-        self.assertIn("unreconciled_previous_operation", self.cli("agent", "apply", "--dry-run")[1]["conflicts"])
 
     def test_remote_deleted_case_requires_explicit_local_retirement(self):
         from test_project_eval import design_fixture

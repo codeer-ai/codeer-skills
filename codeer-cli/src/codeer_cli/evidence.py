@@ -14,18 +14,16 @@ def pair_key(pair):
     return pair["case_id"], pair["evaluator_id"]
 
 
-def snapshot(project, client, history_id):
+def snapshot(project, client, history_id, *, persist=True):
     scope = project.check_scope(client)
-    if project.portable:
-        scope = {k: v for k, v in scope.items() if k != "profile"}
+    scope = {k: v for k, v in scope.items() if k != "profile"}
     aid = scope["agent_id"]
     history = agents.get_version(client, aid, history_id)
     if history.get("agent_id") not in (None, aid):
         raise ProjectError("History belongs to another Agent")
     version_settings = writable(history)
-    if project.portable:
-        from .portable import logical_remote
-        version_settings = logical_remote(project, version_settings)
+    from .portable import logical_remote
+    version_settings = logical_remote(project, version_settings)
     runtime = {}
     if "use_search" not in version_settings:
         runtime["use_search"] = agents.get(client, aid).get("use_search")
@@ -57,38 +55,25 @@ def snapshot(project, client, history_id):
         statuses = kb.file_status(client, workspace_id=ws, organization_id=org, node_ids=file_ids or [node_id])
         faqs = {}
         for status in statuses:
-            if project.portable:
-                from .resource_exports import knowledge
-                sid = status.get("node_id") or status.get("id")
-                exported = knowledge(client, sid)
-                faqs[str(sid)] = {"snapshot": exported["snapshot"], "export_revision": exported["export_revision"],
-                                 "faqs": [{k: f[k] for k in ("id", "context_object_id", "question", "ranges")} for f in exported["faqs"]],
-                                 "metadata": exported["metadata"]}
-                continue
-            snapshot_id = status.get("snapshot_object_id")
-            if snapshot_id is not None:
-                offset = 0
-                entries = []
-                while True:
-                    page = kb.list_context_obj_faqs(client, context_object_id=snapshot_id, limit=200, offset=offset)
-                    rows = page if isinstance(page, list) else page.get("items", page.get("data", []))
-                    entries.extend(rows)
-                    if len(rows) < 200:
-                        break
-                    offset += 200
-                faqs[str(snapshot_id)] = entries
+            from .resource_exports import knowledge
+            sid = status.get("node_id") or status.get("id")
+            exported = knowledge(client, sid)
+            faqs[str(sid)] = {"snapshot": exported["snapshot"], "export_revision": exported["export_revision"],
+                             "faqs": [{k: f[k] for k in ("id", "context_object_id", "question", "ranges")} for f in exported["faqs"]],
+                             "metadata": exported["metadata"]}
+            continue
         kb_state[node_id] = {"expected_file_ids": file_ids or [node_id], "statuses": statuses, "faqs": faqs}
     data = {"scope": scope, "history_id": history_id, "agent": version_settings, "current_runtime": runtime,
             "cases": {c["id"]: logical_remote(project, select(c, CASE_FIELDS)) for c in cases}, "testers": testers,
             "pairs": sorted(pairs, key=pair_key), "kb": kb_state,
             "limits": ["Current KB/Rubric/Tester state; no server transaction or fixed external tool state", "History API omits use_search; current runtime value is explicitly observed when needed", "Fingerprint is configuration identity, not proof of reproducibility"]}
-    if project.portable:
-        from .portable import connection_fingerprint
-        data["environment_fingerprint"] = connection_fingerprint(project)
+    from .portable import connection_fingerprint
+    data["environment_fingerprint"] = connection_fingerprint(project)
     result = {"revision": project.revision(), "remote_fingerprint": fingerprint(data), "snapshot": data}
-    state = project.state()
-    state.update(last_anchor=result, queried_at=now())
-    project.save_state(state)
+    if persist:
+        state = project.state()
+        state.update(last_anchor=result, queried_at=now())
+        project.save_state(state)
     return result
 
 
@@ -134,29 +119,28 @@ def ensure_ready(project, anchor):
     for key, entry in resources.items():
         if key.startswith("kb:") and referenced.intersection({entry.get("server_id"), *entry.get("node_ids", [])}) and local_sources(project, entry) != entry.get("local", {}):
             raise ProjectError(f"Managed KB has local unapplied changes or missing source binding: {key}")
-    if project.portable:
-        from .portable import definitions
-        from .project_knowledge import faq_value
-        exported_files = {sid: value for resource in anchor["snapshot"]["kb"].values() for sid, value in resource["faqs"].items()}
-        for local_id, definition in definitions(project).get("knowledge", {}).items():
-            binding = resources.get(f"kb:{local_id}", {})
-            if not definition.get("faq_file") or not referenced.intersection({binding.get("server_id"), *binding.get("node_ids", [])}):
-                continue
-            entry = resources.get(f"faq:{local_id}", {})
-            if entry.get("status") in ("pending", "outcome_unknown", "readback_mismatch"):
-                raise ProjectError("Managed FAQ operation unresolved")
-            local = read_json(project.resolve_path("knowledge", definition["faq_file"]))["files"]
-            observed = {}
-            for name, sid in binding.get("file_ids", {}).items():
-                data = exported_files.get(str(sid))
-                if data is None:
-                    raise ProjectError("Managed FAQ snapshot absent from exact run evidence")
-                inverse = {v: k for k, v in entry.get("ids", {}).get(name, {}).items()}
-                observed[name] = {"content": data["snapshot"]["content"], "faqs": {inverse.get(f["id"], "unmapped-" + str(f["id"])): faq_value(f, data["snapshot"]["content"]) for f in data["faqs"]}}
-            for row in local.values():
-                row["faqs"] = {lid: faq_value(faq, row["content"]) for lid, faq in row["faqs"].items()}
-            if local != observed:
-                raise ProjectError("Managed FAQ changes are not applied to the captured snapshot")
+    from .portable import definitions
+    from .project_knowledge import faq_value
+    exported_files = {sid: value for resource in anchor["snapshot"]["kb"].values() for sid, value in resource["faqs"].items()}
+    for local_id, definition in definitions(project).get("knowledge", {}).items():
+        binding = resources.get(f"kb:{local_id}", {})
+        if not definition.get("faq_file") or not referenced.intersection({binding.get("server_id"), *binding.get("node_ids", [])}):
+            continue
+        entry = resources.get(f"faq:{local_id}", {})
+        if entry.get("status") in ("pending", "outcome_unknown", "readback_mismatch"):
+            raise ProjectError("Managed FAQ operation unresolved")
+        local = read_json(project.resolve_path("knowledge", definition["faq_file"]))["files"]
+        observed = {}
+        for name, sid in binding.get("file_ids", {}).items():
+            data = exported_files.get(str(sid))
+            if data is None:
+                raise ProjectError("Managed FAQ snapshot absent from exact run evidence")
+            inverse = {v: k for k, v in entry.get("ids", {}).get(name, {}).items()}
+            observed[name] = {"content": data["snapshot"]["content"], "faqs": {inverse.get(f["id"], "unmapped-" + str(f["id"])): faq_value(f, data["snapshot"]["content"]) for f in data["faqs"]}}
+        for row in local.values():
+            row["faqs"] = {lid: faq_value(faq, row["content"]) for lid, faq in row["faqs"].items()}
+        if local != observed:
+            raise ProjectError("Managed FAQ changes are not applied to the captured snapshot")
     for resource in anchor["snapshot"]["kb"].values():
         statuses = resource["statuses"]
         actual = {s.get("node_id") or s.get("id") for s in statuses}
@@ -179,8 +163,7 @@ def ensure_ready(project, anchor):
             if not tid or effective_change(resources.get(key, {}), key, {tid: pair["rubric"]}, {t: rubric for (c, t), rubric in remote_pairs.items() if c == sid}):
                 raise ProjectError(f"Pair changes not applied: {case['local_id']}/{pair['tester']}")
         for tid in case.get("remove_tester_ids", []):
-            if project.portable:
-                tid = resources.get(tid, {}).get("server_id")
+            tid = resources.get(tid, {}).get("server_id")
             if (sid, tid) in remote_pairs or tid not in resources.get(f"pairs:{case['local_id']}", {}).get("removed_ids", []):
                 raise ProjectError(f"Pair removal not applied: {case['local_id']}/{tid}")
 
@@ -212,7 +195,7 @@ def thresholds(project):
 
 def bound_result(row, run):
     """A captured snapshot and trigger, not a score, establish result identity."""
-    if not row or not run:
+    if not row or not run or run.get("evidence_contract_version") != 2:
         return False
     saved = run.get("snapshot", {})
     key = (row.get("case_id") or row.get("evaluation_case_id"), row.get("evaluator_id"))
@@ -268,7 +251,7 @@ def run(project, client, args):
         raise ProjectError("Agent has no version to evaluate")
     for path in (project.root / "runs").glob("*/run.json"):
         previous = read_json(path)
-        if project.portable and not project.owns_scope(previous.get("snapshot", {}).get("scope")):
+        if not project.owns_scope(previous.get('snapshot', {}).get('scope')):
             continue
         if previous.get("history_id") == history_id and previous.get("status") in ("triggering", "polling", "outcome_unknown"):
             raise ProjectError(f"Previous run {previous['id']} is unresolved; eval export --run-id before another trigger")
@@ -284,19 +267,18 @@ def run(project, client, args):
     path = project.root / "runs" / run_id / "run.json"
     record = {"schema_version": 1, "evidence_contract_version": 2, "id": run_id, "started_at": now(), "history_id": history_id,
               **anchor, "audit": audit, "planned_pairs": pairs, "triggers": [], "results": [], "status": "triggering"}
-    if project.portable:
-        from .portable import input_paths
-        import hashlib
-        record["input_files"] = {}
-        for source in input_paths(project):
-            relative = Path("runs") / run_id / "inputs" / source.relative_to(project.root)
-            content = source.read_bytes()
-            target = project.root / relative
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(content)
-            record["input_files"][str(relative)] = hashlib.sha256(content).hexdigest()
-        if project.revision() != anchor["revision"]:
-            raise ProjectError("Local content changed while recording run inputs; no Eval was triggered")
+    from .portable import input_paths
+    import hashlib
+    record["input_files"] = {}
+    for source in input_paths(project):
+        relative = Path("runs") / run_id / "inputs" / source.relative_to(project.root)
+        content = source.read_bytes()
+        target = project.root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+        record["input_files"][str(relative)] = hashlib.sha256(content).hexdigest()
+    if project.revision() != anchor["revision"]:
+        raise ProjectError("Local content changed while recording run inputs; no Eval was triggered")
     save_json(path, record)
     if getattr(args, "out", None):
         save_json(args.out, record)
@@ -350,7 +332,7 @@ def run(project, client, args):
             record["status"] = "stale"
         record["finished_at"] = now()
     except BaseException as exc:
-        record.update(status="outcome_unknown", error=type(exc).__name__ if project.portable else str(exc))
+        record.update(status="outcome_unknown", error=type(exc).__name__)
         raise
     finally:
         save_json(path, record)
@@ -379,7 +361,7 @@ def confirmed_acceptance(project):
 
 
 def publication_plan(project, client, history_id):
-    anchor = snapshot(project, client, history_id)
+    anchor = snapshot(project, client, history_id, persist=False)
     ensure_ready(project, anchor)
     acceptance, pairs = confirmed_acceptance(project)
     audit = valid_audit(project, anchor, pairs)
@@ -387,15 +369,14 @@ def publication_plan(project, client, history_id):
     selected = None
     for path in sorted((project.root / "runs").glob("*/run.json"), reverse=True):
         record = read_json(path)
-        if (record.get("status") == "passed" and record.get("history_id") == history_id and record.get("revision") == anchor["revision"] and record.get("remote_fingerprint") == anchor["remote_fingerprint"] and wanted <= {pair_key(p) for p in record.get("planned_pairs", [])}):
+        if (record.get("evidence_contract_version") == 2 and record.get("status") == "passed" and record.get("history_id") == history_id and record.get("revision") == anchor["revision"] and record.get("remote_fingerprint") == anchor["remote_fingerprint"] and wanted <= {pair_key(p) for p in record.get("planned_pairs", [])}):
             selected = {"path": str(path.relative_to(project.root)), "fingerprint": fingerprint(record), "id": record["id"]}
             break
     if not selected:
         raise ProjectError("No current passing run covers the confirmed acceptance set for this exact history")
     plan = {"history_id": history_id, "revision": anchor["revision"], "remote_fingerprint": anchor["remote_fingerprint"], "audit": audit, "run": selected, "acceptance": acceptance, "pairs": pairs}
-    if project.portable:
-        plan["operator"] = project.preview_identity(client)
-        plan["scope"] = anchor["snapshot"]["scope"]
+    plan["operator"] = project.preview_identity(client)
+    plan["scope"] = anchor["snapshot"]["scope"]
     plan["token"] = fingerprint(plan)
     return plan
 
@@ -404,7 +385,7 @@ def publish(project, client, history_id, *, dry_run, expected, reconcile=False):
     unresolved = []
     for path in project.release_paths():
         record = read_json(path)
-        if project.portable and record.get("plan", {}).get("scope") and not project.owns_scope(record["plan"]["scope"]):
+        if record.get('plan', {}).get('scope') and (not project.owns_scope(record['plan']['scope'])):
             continue
         if record.get("status") in ("pending", "outcome_unknown", "readback_mismatch"):
             unresolved.append((path, record))
@@ -435,7 +416,7 @@ def publish(project, client, history_id, *, dry_run, expected, reconcile=False):
         record["actual_history_id"] = actual.get("publish_history_id")
         record["status"] = "published" if record["actual_history_id"] == history_id else "readback_mismatch"
     except BaseException as exc:
-        record.update(status="outcome_unknown", error=type(exc).__name__ if project.portable else str(exc))
+        record.update(status="outcome_unknown", error=type(exc).__name__)
         raise
     finally:
         save_json(path, record)
@@ -450,6 +431,8 @@ def export_run(project, client, run_id, out_dir):
     record = read_json(path)
     if not record:
         raise ProjectError("Unknown run ID")
+    if record.get("evidence_contract_version") != 2:
+        raise ProjectError("Historical run is read-only; inspect stored metadata/hash or use the pinned old CLI offline")
     update_record = record.get("status") not in ("passed", "failed", "stale")
     project.check_scope(client)
     anchor = snapshot(project, client, record["history_id"])
@@ -484,7 +467,7 @@ def export_run(project, client, run_id, out_dir):
             rows[key] = row
     requirements = {pair_key(p): p["variables"] for p in record.get("evidence_requirements", [])}
     minimum_scores = {pair_key(p): p["value"] for p in record.get("minimum_scores", [])}
-    outcomes = [{"case_id": p["case_id"], "evaluator_id": p["evaluator_id"], "minimum_score": minimum_scores.get(pair_key(p), 1.0), "state": "skipped" if pair_key(p) in skipped else classify(rows.get(pair_key(p)), requirements.get(pair_key(p), []), minimum_scores.get(pair_key(p), 1.0), run=record if record.get("evidence_contract_version") == 2 else None), "result": rows.get(pair_key(p))} for p in record["planned_pairs"]]
+    outcomes = [{"case_id": p["case_id"], "evaluator_id": p["evaluator_id"], "minimum_score": minimum_scores.get(pair_key(p), 1.0), "state": "skipped" if pair_key(p) in skipped else classify(rows.get(pair_key(p)), requirements.get(pair_key(p), []), minimum_scores.get(pair_key(p), 1.0), run=record), "result": rows.get(pair_key(p))} for p in record["planned_pairs"]]
     exact = bool(allowed) and len(allowed) == len(outcomes) - len(skipped) and {r["result"]["id"] for r in outcomes if r["result"]} == allowed
     status = "passed" if exact and not anomalies and all(r["state"] == "passed" for r in outcomes) else "incomplete" if not exact or any(r["state"] in ("missing", "unjudgeable", "skipped") for r in outcomes) else "failed"
     if anchor["remote_fingerprint"] != record["remote_fingerprint"] or anchor["revision"] != record["revision"]:
@@ -511,6 +494,11 @@ def inspect_run(project, run_id):
     if path.parent.parent != (project.root / "runs").resolve():
         raise ProjectError("Invalid run ID")
     record = read_json(path)
+    if record and record.get("evidence_contract_version") != 2:
+        return {"id": run_id, "history_id": record.get("history_id"), "recorded_status": record.get("status"),
+                "recorded_counts": record.get("counts"), "historical": True,
+                "source_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                "limits": "Stored metadata/integrity only; no current interpretation, refresh or publication clearance"}
     if not record or not project.owns_scope(record.get("snapshot", {}).get("scope")):
         raise ProjectError("Unknown run or run belongs to another deployment")
     required = {pair_key(p): p["variables"] for p in record.get("evidence_requirements", [])}

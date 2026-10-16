@@ -3,7 +3,6 @@
 Only variables named by the project's definitions are read. Resolved secrets
 exist at the HTTP boundary; previews, state and evidence retain logical names.
 """
-from copy import deepcopy
 import os
 import re
 from pathlib import Path
@@ -116,8 +115,6 @@ def bindings(project, *, canonical=False):
 
 
 def translate(project, value, *, reverse=False):
-    if not project.portable:
-        return deepcopy(value)
     refs = {**bindings(project, canonical=reverse), **environment(project)}
     if reverse:
         inverse = {}
@@ -152,8 +149,6 @@ def connection_fingerprint(project):
 
 
 def redact(project, value):
-    if not project.portable:
-        return value
     refs = [(resolved, reference) for reference, resolved in environment(project).items() if resolved and len(resolved) >= 8]
     def walk(item):
         if isinstance(item, str):
@@ -169,8 +164,6 @@ def redact(project, value):
 
 def logical_remote(project, value):
     result = redact(project, translate(project, value, reverse=True))
-    if not project.portable:
-        return result
     def missing(kind, sid):
         return f"unresolved:{kind}:{fingerprint(str(sid))[:12]}"
     env = environment(project)
@@ -196,8 +189,6 @@ def logical_remote(project, value):
 
 
 def check_agent(project, settings):
-    if not project.portable:
-        return
     if any(t.get("agent_id") or t.get("type") == "agent" for t in settings.get("unified_tools", []) or []):
         raise ProjectError("Sub-Agent references are retained for read-only diagnosis; project deployment is unsupported")
     for field, prefix in (("attachment_ids", "attachment:"), ("primary_object_ids", "env:")):
@@ -221,8 +212,6 @@ def check_agent(project, settings):
 
 
 def check_models(project, client, settings):
-    if not project.portable:
-        return
     selected = translate(project, settings)
     wanted = {selected.get("llm_model"), selected.get("judge_llm_model_id")}
     wanted.update(t.get("image_model") for t in selected.get("unified_tools", []) or [])

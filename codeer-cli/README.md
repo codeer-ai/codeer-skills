@@ -101,22 +101,23 @@ Active audit metadata may remain in `reviews/*.audit.json` or use
 and publish share discovery and validity; historical copies in
 `reviews/evidence/` grant no active clearance. Routine reads create no reviews.
 
-Project `eval export --run-id` leaves canonical `passed`, `failed` and `stale`
+For current contract-2 evidence, `eval export --run-id` leaves canonical `passed`, `failed` and `stale`
 records unchanged, but can update other statuses while resuming evidence. Before
 diagnosis or repair, link fixed records with their raw-file SHA-256; preserve one
 original JSON byte snapshot and hash for still-updateable records. Reuse verified
-pins without overwriting them or copying whole run trees. This changes no CLI
-schema, resume behavior or publication gate; see the
+pins without overwriting them or copying whole run trees. See the
 [batch evidence rules](../skills/codeer-agent/reference/project.md#batch-reviews-and-project-entry).
 
 `codeer eval inspect-run --run-id <id>` makes no network calls or writes. It shows
 original status/states, derived evidence states, snapshot/result/missing origins
-and source SHA-256. It does not judge answer quality or permit publication.
+and source SHA-256 for current runs. It does not judge answer quality or permit
+publication. Old runs expose stored metadata/hash only and cannot be refreshed
+or used by current publication/delivery; their original bytes are retained.
 New runs record `evidence_contract_version: 2`: input/rubric can come from the
 exact fingerprinted snapshot; output/tool_steps come from the bound result.
-Version, pair and triggered-result IDs must match. Legacy run/export classification
-retains its original contract; inspection gives a separate interpretation without
-rewriting it. Formal delivery still requires exact identity and file integrity.
+Version, pair and triggered-result IDs must match. Formal current delivery still
+requires exact identity and file integrity; old bundles are checked for stored
+metadata/file integrity only and grant no new clearance.
 
 Local Agent project continuation uses `codeer status` for recorded evidence and
 an actionable `next_action` with a completion condition. It groups shared
@@ -167,16 +168,43 @@ codeer status
 codeer validate
 ```
 
-`project.toml` describes one main Agent and supports custom paths. New schema 2
-stores each deployment under `.codeer/deployments/<alias>/`; schema 1's target
-and original revision reader remain supported. Child directories
+`project.toml` describes one Agent design and supports custom paths. Current schema 2
+stores each remote Agent binding under `.codeer/deployments/<name>/`; unsupported
+project formats stop before authentication. Conforming data needs zero conversion;
+see the [one-time preparation runbook](../skills/codeer-agent/reference/one-time-preparation.md)
+for copy/backup/hash/review/switch/rollback boundaries. Fixed historical evidence
+and embedded project.toml remain read-only. Child directories
 discover it upward. API base, workspace and explicit Agent mismatches are
-rejected; profile/connection changes invalidate previews, and legacy profile
-constraints remain checked. Use global `--outside-project` only for an intentional standalone
+rejected; profile/connection changes invalidate previews. No profile allowlist or
+default is stored in bindings. Use global `--outside-project` only for an intentional standalone
 operation. `status --refresh` explicitly queries remote configuration; offline
 status reports the last observation time and cannot assert live remote validity.
 Init preserves existing `.gitignore` content and appends private-output defaults
 after existing rules; repeating init without further edits is idempotent.
+
+Use `agent bind <name> --new-agent|--agent <id>`, `agent use <name>`, `agent bindings`
+and global `--binding <name>`. Names identify remote Agent mappings; include a
+workspace/customer and main/candidate role when one environment has many Agents.
+Global `--profile <name>` selects one connection for this invocation only, including
+check, first bind and refresh. Environment API key or differing API base conflicts
+fail before authentication. Bindings accept any valid key for their actual API/workspace;
+key changes require fresh previews. Saved list names are observations, not identity.
+
+For shared dependencies, Rubric-only writes change one Case/Tester pair. Shared
+Tester updates preview readable users; candidate-only changes use
+`eval tester-fork --tester <local-id>` with preview/expect/readback and known-ID
+reconcile. `kb upload --fork` creates new KB/files for one binding, followed by
+FAQ review/rebuild and separately reviewed Agent reference apply. See the
+[shared-resource rules](../skills/codeer-agent/reference/project.md#shared-resources-and-candidate-separation).
+
+Unchanged pulls reuse snapshots; receipts keep required recovery inputs while
+omitting derived comparison copies. `clean --dry-run` lists exact eligible completed,
+unreferenced machine history/bytes, then `clean --expect <token>` rechecks under the
+local project lock. Optional `--older-than 30d` filters age; `--keep <path> --reason
+<text>` persists manual retention. All bindings' state, structured/Markdown/path/hash
+references and fixed evidence protect content. Unknown scope retains a binding;
+corrupt roots/symlinks refuse cleanup. Current CLI project writers share the lock;
+direct skill/file/old/standalone writers must stop during clean/preparation.
 
 `history negative-feedback` requires an explicit Agent or a bound project; a
 missing target is rejected before querying History. Outside a project,
@@ -213,8 +241,8 @@ to content or dependent Eval references still require renewed validation. See
 To adopt an existing Agent without overwriting local work:
 
 ```bash
-codeer agent bind --alias prod --agent <id>
-codeer agent use prod
+codeer agent bind prod-customer-a-main --agent <id>
+codeer agent use prod-customer-a-main
 codeer agent pull --agent <id>
 codeer eval pull
 codeer agent diff --local

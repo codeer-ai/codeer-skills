@@ -131,15 +131,17 @@ def register(subparsers):
 
     p = sub.add_parser("upload", help="Create/reuse KB and upload files from a directory; run --dry-run first")
     p.add_argument("--new", action="store_true", help="Explicitly create new KB/files after deployment or takeover")
+    p.add_argument("--fork", action="store_true", help="Project only: create separate KB/files for the selected binding; Agent/FAQ references require subsequent review")
     p.add_argument("--kb-id", help="Explicit KB ID (required to reuse an existing KB in project mode)")
     p.add_argument("--local-id", help="Stable project KB identity")
     p.add_argument("--expect", help="Reviewed project dry-run token")
-    p.add_argument("--reconcile", action="store_true", help="Project only: read back saved file IDs without uploading again")
+    upload_mode = p.add_mutually_exclusive_group()
+    upload_mode.add_argument("--reconcile", action="store_true", help="Project only: read back saved file IDs without uploading again")
     p.add_argument("--dir", required=True, help="Directory containing files to upload")
     p.add_argument("--name", required=True, help="KB display name (idempotent on name)")
     p.add_argument("--description", default=None)
     p.add_argument("--glob", default="*", help="File glob within --dir (default: all files)")
-    p.add_argument("--dry-run", action="store_true",
+    upload_mode.add_argument("--dry-run", action="store_true",
                    help="Validate directory/glob and print intended upload without writing server state.")
     p.add_argument("--out", default=None, help="Write result JSON to this file too")
     p.add_argument("--poll-timeout", type=int, default=POLL_TIMEOUT)
@@ -810,7 +812,7 @@ def run_upload(args, client) -> int:
         print_json(result)
         write_json(args.out, result)
         return 1 if result.get("status") == "not_ready" or result.get("unsupported_replacements") or result.get("missing_sources") else 0
-    if args.reconcile:
+    if args.reconcile or getattr(args, "fork", False):
         raise ValueError("--reconcile requires a local project and saved upload receipt")
     workspace_id, organization_id = client.resolve_scope()
     kb_dir = Path(args.dir).resolve()

@@ -1,5 +1,6 @@
 """ID-bound KB additions. Existing file content cannot be replaced by this API."""
 from pathlib import Path
+from copy import deepcopy
 from tempfile import TemporaryDirectory
 import time
 
@@ -62,14 +63,16 @@ def reconcile(project, client, key, entry, scope, args):
     ws, org = client.resolve_scope()
     statuses = kb.file_status(client, organization_id=org, workspace_id=ws, node_ids=entry["node_ids"])
     ready = {s.get("node_id") or s.get("id") for s in statuses} == set(entry["node_ids"]) and all(str(s.get("status")).upper() == "READY" for s in statuses)
-    if ready and project.portable:
+    if ready:
         if not entry.get("file_ids"):
             by_name = {Path(name).name: name for name in plan.get("upload_files", [])}
             entry["file_ids"] = {by_name[n["original_name"]]: n["node_id"] for n in receipt.get("response", {}).get("nodes", []) if n.get("original_name") in by_name and n.get("node_id")}
         verify_originals(client, entry, statuses)
     entry.update(status="ready" if ready else "not_ready", base=statuses)
+    from .operation_records import mutable_receipt
+    receipt_path, receipt = mutable_receipt(project, entry)
     receipt.update(reconciled_at=now(), status=entry["status"], statuses=statuses)
-    save_json(project.root / entry["receipt"], receipt)
+    save_json(receipt_path, receipt)
     state = project.state()
     state["resources"][key] = entry
     state["queried_at"] = now()
@@ -81,7 +84,18 @@ def upload(project, client, args):
     # Private staging is removed on success, errors and interruption. Hash and
     # multipart content use the same read, even if source files change in flight.
     with TemporaryDirectory(prefix="codeer-kb-") as directory:
-        return _upload(project, client, args, Path(directory))
+        result = _upload(project, client, args, Path(directory))
+    if getattr(args, "fork", False) and not args.dry_run and result.get("status") == "ready":
+        state = project.state()
+        source_key, operation_key = f"kb:{args.local_id}", f"fork-kb:{args.local_id}"
+        operation = state["resources"][operation_key]
+        previous = state["resources"][source_key]
+        state["resources"][source_key] = {**deepcopy(operation), "previous_server_id": previous["server_id"]}
+        operation["status"] = "forked"
+        project.save_state(state)
+        result.update(references_pending=True, source_modified=False,
+                      next_step="Review FAQ gaps/rebuild, then agent diff/adopt --keep-local and agent apply for new KB references")
+    return result
 
 
 def _upload(project, client, args, staged_directory):
@@ -92,7 +106,29 @@ def _upload(project, client, args, staged_directory):
         raise ProjectError("Project KB upload requires --local-id (stable local identity)")
     key = f"kb:{local_id}"
     state = project.state()
+    fork_source = None
+    if getattr(args, "fork", False):
+        if args.kb_id:
+            raise ProjectError("--fork creates new identities; omit --kb-id")
+        # FAQ recovery pins old file IDs; Agent recovery compares logical KB refs.
+        # Preserve those mappings until their recorded writes have been reconciled.
+        for dependency in (f"faq:{local_id}", "agent"):
+            if state.get("resources", {}).get(dependency, {}).get("status") in ("pending", "outcome_unknown", "readback_mismatch"):
+                raise ProjectError(f"Reconcile {dependency} before KB separation; preserve the current recovery mapping")
+        fork_source = state.setdefault("resources", {}).get(key, {})
+        if not fork_source.get("server_id") or fork_source.get("status") in ("pending", "outcome_unknown", "readback_mismatch"):
+            raise ProjectError("KB separation requires a mapped, reconciled source KB")
+        if fork_source.get("scope") and not scope_matches(fork_source["scope"], scope, allow_unbound_agent=True):
+            raise ProjectError("Source KB belongs to another scope")
+        key = f"fork-kb:{local_id}"
+        if state["resources"].get(key, {}).get("status") == "forked":
+            if args.reconcile:
+                raise ProjectError("KB separation is already complete; no unfinished fork to reconcile")
+            del state["resources"][key]
+        args.new = True
     entry = state.setdefault("resources", {}).get(key, {})
+    if fork_source and entry.get("fork_from") and entry["fork_from"] != fork_source["server_id"]:
+        raise ProjectError("Source KB mapping changed during separation; inspect the fork receipt")
     if entry.get("scope") and not scope_matches(entry["scope"], scope, allow_unbound_agent=True):
         raise ProjectError("KB mapping scope differs from saved receipt")
     sid = entry.get("server_id") or args.kb_id
@@ -104,13 +140,12 @@ def _upload(project, client, args, staged_directory):
         raise ProjectError("Inspect the previous upload receipt and reconcile returned node IDs before retrying")
     directory = Path(args.dir).resolve()
     source = {"directory": str(directory.relative_to(project.root)) if directory.is_relative_to(project.root) else str(directory), "glob": args.glob}
-    if project.portable:
-        from .portable import definitions
-        if (project.target.get("intent") != "create" or project.target.get("agent_id")) and not entry and not getattr(args, "new", False):
-            raise ProjectError("Map an existing KB with kb bind, or explicitly review a --new upload; missing state cannot create a replacement")
-        definition = definitions(project).get("knowledge", {}).get(local_id)
-        if not definition or source != {k: definition[k] for k in ("directory", "glob")}:
-            raise ProjectError("Portable KB upload must match resources.json directory/glob for this local ID")
+    from .portable import definitions
+    if (project.target.get("intent") != "create" or project.target.get("agent_id")) and not entry and not getattr(args, "new", False):
+        raise ProjectError("Map an existing KB with kb bind, or explicitly review a --new upload; missing state cannot create a replacement")
+    definition = definitions(project).get("knowledge", {}).get(local_id)
+    if not definition or source != {k: definition[k] for k in ("directory", "glob")}:
+        raise ProjectError("Portable KB upload must match resources.json directory/glob for this local ID")
     if entry.get("source") and entry["source"] != source:
         raise ProjectError("KB source directory/glob differs from binding; use a separate stable local ID for a different selection")
     files = sorted(p for p in directory.glob(args.glob) if p.is_file())
@@ -134,17 +169,24 @@ def _upload(project, client, args, staged_directory):
     missing = sorted(set(prior) - set(local))
     changed = {name: digest for name, digest in local.items() if prior.get(name) != digest}
     if not changed and not missing and sid:
+        unchanged = {"resource": key, "kb_id": sid, "scope": scope, "source": source, "local": local,
+                     "content_unchanged": True, "fork_from": fork_source.get("server_id") if fork_source else None,
+                     "operator": project.preview_identity(client)}
+        if args.dry_run:
+            return {**unchanged, "token": fingerprint(unchanged)}
+        if fork_source and args.expect != fingerprint(unchanged):
+            raise ProjectError("Missing/stale --expect for completing the existing KB separation")
         entry.update(source=source, scope=scope)
         state["resources"][key] = entry
         ids = entry.get("node_ids", [])
         statuses = kb.file_status(client, organization_id=org, workspace_id=ws, node_ids=ids) if ids else []
         ready = bool(ids) and {s.get("node_id") or s.get("id") for s in statuses} == set(ids) and all(str(s.get("status")).upper() == "READY" for s in statuses)
-        if ready and project.portable:
+        if ready:
             verify_originals(client, entry, statuses)
         entry.update(status="ready" if ready else "not_ready", base=statuses)
         if entry.get("receipt"):
-            path = project.root / entry["receipt"]
-            receipt = read_json(path, {})
+            from .operation_records import mutable_receipt
+            path, receipt = mutable_receipt(project, entry)
             receipt.update(status=entry["status"], statuses=statuses, readiness_checked_at=now())
             save_json(path, receipt)
         project.save_state(state)
@@ -157,9 +199,20 @@ def _upload(project, client, args, staged_directory):
             "unsupported_replacements": sorted(overlap),
             "missing_sources": missing,
             "limitation": "No supported in-place content replacement; replacement requires explicit new nodes and reviewed Agent/FAQ reference changes."}
-    if project.portable:
-        plan["operator"] = project.preview_identity(client)
-        plan["new"] = getattr(args, "new", False)
+    if fork_source:
+        from . import agents
+        source_ids = {fork_source["server_id"], *fork_source.get("file_ids", {}).values(), *fork_source.get("node_ids", [])}
+        users = []
+        for agent in agents.list_all(client, workspace_id=ws, organization_id=org):
+            references = {sid for tool in agent.get("unified_tools", []) or []
+                          for sid in [*(tool.get("knowledge_node_ids") or []), tool.get("knowledge_node_id")]
+                          if sid}
+            if references & source_ids:
+                users.append({"agent_id": agent["id"], "node_ids": sorted(references & source_ids)})
+        plan.update(fork_from=fork_source["server_id"], source_users=users, references_pending=True,
+                    faq_transfer="FAQ is not copied by file upload; review/rebuild against new snapshots before Agent apply")
+    plan["operator"] = project.preview_identity(client)
+    plan["new"] = getattr(args, "new", False)
     plan["token"] = fingerprint(plan)
     if args.dry_run:
         return plan
@@ -172,6 +225,8 @@ def _upload(project, client, args, staged_directory):
     receipt_path = project.local_dir / "receipts" / f"kb-{now().replace(':', '-')}.json"
     receipt = {"plan": plan, "status": "pending"}
     entry.update(status="pending", receipt=str(receipt_path.relative_to(project.root)), source=source, scope=scope, upload_complete=False)
+    if fork_source:
+        entry["fork_from"] = fork_source["server_id"]
     state["resources"][key] = entry
     project.save_state(state)
     save_json(receipt_path, receipt)
@@ -204,7 +259,7 @@ def _upload(project, client, args, staged_directory):
                 break
             time.sleep(3)
         ready = bool(ids) and {s.get("node_id") or s.get("id") for s in statuses} == set(ids) and all(str(s.get("status")).upper() == "READY" for s in statuses)
-        if ready and project.portable:
+        if ready:
             verify_originals(client, entry, statuses)
         receipt.update(status="ready" if ready else "not_ready", statuses=statuses, kb_id=sid,
                        original_verification=entry.get("original_verification", {}))
@@ -229,8 +284,6 @@ def record_export(project, result):
 def bind(project, client, local_id, kb_id, files, *, choice, dry_run, expected):
     """Explicit file-ID takeover. A Markdown snapshot never proves PDF identity."""
     from .portable import definitions
-    if not project.portable:
-        raise ProjectError("KB takeover mapping requires a portable project")
     definition = definitions(project).get("knowledge", {}).get(local_id)
     if not definition or not isinstance(files, dict) or not files:
         raise ProjectError("Declare the KB in resources.json and supply relative-file → node-ID JSON")

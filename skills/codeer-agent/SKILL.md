@@ -37,8 +37,15 @@ action and its completion condition. Status advice is offline evidence, not
 semantic acceptance or new authorization; inspect the relevant artifacts.
 
 For a new development directory use `codeer init <directory>` without credentials.
-For schema 2, verify connection, explicitly configure `agent bind --alias <name>
---agent <id>` and select it with `agent use <name>` (or global `--deployment`).
+Use the current schema-2 project contract. Verify connection with an explicit
+single-invocation `--profile` when needed, configure `agent bind <name> --agent <id>`
+or `--new-agent`, and select it with `agent use <name>` (or global `--binding`).
+Inspect `agent bindings` for actual API/workspace/Agent IDs. Names identify remote
+Agent mappings, not environments; one workspace/environment may have many bindings.
+Unsupported projects require a reviewed one-time preparation copy; conforming
+projects need zero conversion. Old evidence stays read-only, never upgraded into
+current clearance. Read the [preparation runbook](reference/one-time-preparation.md)
+before any authorized tool/data switch.
 An existing Agent then starts with read-only `agent pull`, then relevant
 KB exports and `eval pull`. Import preserves IDs and local work; it does not
 approve behavior or recreate shared resources. Missing historical Agent design does

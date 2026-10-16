@@ -88,6 +88,7 @@ class AgentReviewTests(ProjectFixture, unittest.TestCase):
     def test_success_and_noop_preserve_remote_only_changes_on_next_apply(self):
         project = self.pull()
         self.api.agent["description"] = "Web description"
+        self.adopt_fields("agent", "description")
         for prompt in ("Original", "Changed", "Changed again"):
             project.path("instructions").write_text(prompt)
             _, plan = self.cli("agent", "diff", "--local")
@@ -103,6 +104,7 @@ class AgentReviewTests(ProjectFixture, unittest.TestCase):
     def test_normal_reconcile_does_not_restore_an_older_receipt_checkpoint(self):
         project = self.pull()
         self.api.agent["description"] = "Web value"
+        self.adopt_fields("agent", "description")
         project.path("instructions").write_text("Changed prompt")
         _, plan = self.cli("agent", "apply", "--dry-run")
         self.cli("agent", "apply", "--expect", plan["token"])
@@ -113,6 +115,7 @@ class AgentReviewTests(ProjectFixture, unittest.TestCase):
         self.cli("agent", "apply", "--expect", plan["token"])
         self.cli("agent", "pull", "--agent", "a", "--reconcile")
         self.api.agent["description"] = "Newer web value"
+        self.adopt_fields("agent", "description")
         _, plan = self.cli("agent", "diff", "--local")
         self.assertFalse(plan["conflicts"])
         self.assertEqual(plan["payload"]["description"], "Newer web value")
@@ -120,7 +123,10 @@ class AgentReviewTests(ProjectFixture, unittest.TestCase):
     def test_minimal_tool_and_handoff_survive_server_defaults(self):
         project = self.pull()
         local = read_json(project.path("agent"))
-        local.update(unified_tools=[{"id": "kb", "type": "knowledge_base", "knowledge_node_ids": ["kb-one"]}], human_handoff={"enabled": False})
+        state = project.state()
+        state["resources"]["kb:existing"] = {"server_id": "kb-one", "status": "ready"}
+        project.save_state(state)
+        local.update(unified_tools=[{"id": "kb", "type": "knowledge_base", "knowledge_node_ids": ["kb:existing"]}], human_handoff={"enabled": False})
         save_json(project.path("agent"), local)
         _, plan = self.cli("agent", "apply", "--dry-run")
         self.assertEqual(self.cli("agent", "apply", "--expect", plan["token"])[0], 0)
@@ -137,6 +143,10 @@ class EvalReviewTests(EvalFixture, unittest.TestCase):
         self.api.cases["c1"]["expected_output"] = "Web expectation"
         self.api.testers["t1"]["name"] = "Web Tester name"
         self.api.pairs["c1"][0]["rubric"] = "Web Rubric"
+        self.adopt_fields("tester:tools", "name")
+        self.adopt_fields("case:handoff", "expected_output")
+        self.adopt_fields("pairs:handoff")
+        design = read_json(project.path("evals"))
         for prompt in ("Edited once", "Edited twice"):
             design["cases"][0]["input"] = prompt
             save_json(project.path("evals"), design)
@@ -186,7 +196,7 @@ class EvalReviewTests(EvalFixture, unittest.TestCase):
         self.apply_design()
         with self.api.client() as client:
             first = snapshot(project, client, "h1")
-            self.assertEqual(first["snapshot"]["cases"]["c1"]["attachment_ids"], ["attachment"])
+            self.assertEqual(first["snapshot"]["cases"]["c1"]["attachment_ids"], ["attachment:case-doc"])
             self.api.cases["c1"]["label_ids"] = ["changed-label"]
             self.assertNotEqual(snapshot(project, client, "h1")["remote_fingerprint"], first["remote_fingerprint"])
 
@@ -213,7 +223,7 @@ class EvalReviewTests(EvalFixture, unittest.TestCase):
         save_json(project.path("evals"), design)
         self.apply_design()
         design["cases"][0]["pairs"] = design["cases"][0]["pairs"][1:]
-        design["cases"][0]["remove_tester_ids"] = ["t1"]
+        design["cases"][0]["remove_tester_ids"] = ["tester:tools"]
         save_json(project.path("evals"), design)
         self.apply_design()
         self.apply_design()
@@ -229,7 +239,7 @@ class EvalReviewTests(EvalFixture, unittest.TestCase):
         self.assertEqual(self.cli("eval", "pull", "--reconcile")[0], 0)
         self.assertNotIn("t1", project.state()["resources"]["pairs:handoff"]["removed_ids"])
         design["cases"][0]["pairs"] = design["cases"][0]["pairs"][:1]
-        design["cases"][0]["remove_tester_ids"] = ["t1"]
+        design["cases"][0]["remove_tester_ids"] = ["tester:tools"]
         save_json(project.path("evals"), design)
         self.apply_design()
 
@@ -238,8 +248,9 @@ class EvalReviewTests(EvalFixture, unittest.TestCase):
         self.apply_design()
         design["testers"].append({**copy.deepcopy(design["testers"][0]), "local_id": "second", "name": "Second"})
         design["cases"][0]["pairs"] = [{"tester": "second", "rubric": "Alternative"}]
-        design["cases"][0]["remove_tester_ids"] = ["t1"]
+        design["cases"][0]["remove_tester_ids"] = ["tester:tools"]
         save_json(project.path("evals"), design)
+        self.declare_new()
         _, plan = self.cli("eval", "cases-apply", "--dry-run")
         original = self.api.handler
         def ignores_removal(request):
@@ -370,7 +381,8 @@ class KBReviewTests(EvidenceFixture, unittest.TestCase):
         directory = project.root / "kb"
         directory.mkdir(exist_ok=True)
         (directory / "faq.md").write_text("KB source")
-        return ("kb", "upload", "--local-id", "support", "--kb-id", "kb-one", "--name", "Support", "--dir", str(directory), "--poll-timeout", "0")
+        save_json(project.root / "resources.json", {"schema_version": 1, "knowledge": {"support": {"directory": "kb", "glob": "*"}}})
+        return ("kb", "upload", "--new", "--local-id", "support", "--kb-id", "kb-one", "--name", "Support", "--dir", str(directory), "--poll-timeout", "0")
 
     def test_known_file_ids_reconcile_is_read_only(self):
         project = self.pull()
@@ -447,8 +459,9 @@ class KBReviewTests(EvidenceFixture, unittest.TestCase):
         # Reconcile local Agent proposal to the now-observed remote tool.
         self.cli("agent", "pull", "--agent", "a", "--reconcile")
         local = read_json(project.path("agent"))
-        local["unified_tools"] = self.api.agent["unified_tools"]
+        local["unified_tools"] = [{"id": "kb", "type": "knowledge_base", "knowledge_node_ids": ["kb:support"]}]
         save_json(project.path("agent"), local)
+        self.adopt_fields("agent", "unified_tools")
         base = project.revision()
         source = project.root / "kb/faq.md"
         for action in (lambda: source.write_text("Changed"), lambda: source.unlink(), lambda: (source.parent / "new.md").write_text("New")):
@@ -456,7 +469,7 @@ class KBReviewTests(EvidenceFixture, unittest.TestCase):
             self.assertNotEqual(project.revision(), base)
             self.assertIn("kb:support", project.status()["local_changes"])
             with self.api.client() as client:
-                with self.assertRaisesRegex(ProjectError, "KB.*local|local.*KB"):
+                with self.assertRaisesRegex(ProjectError, "KB.*local|local.*KB|Missing deployment source"):
                     ensure_ready(project, snapshot(project, client, "h1"))
 
     def test_reauditing_cannot_clear_unapplied_direct_file_source_changes(self):
@@ -465,7 +478,7 @@ class KBReviewTests(EvidenceFixture, unittest.TestCase):
         _, plan = self.cli(*args, "--dry-run")
         self.cli(*args, "--expect", plan["token"])
         local = read_json(project.path("agent"))
-        local["unified_tools"] = [{"id": "kb", "type": "knowledge_base", "knowledge_node_ids": ["file-new"]}]
+        local["unified_tools"] = [{"id": "kb", "type": "knowledge_base", "knowledge_node_ids": ["kb:support/faq.md"]}]
         save_json(project.path("agent"), local)
         _, plan = self.cli("agent", "apply", "--dry-run")
         self.assertEqual(self.cli("agent", "apply", "--expect", plan["token"])[0], 0)

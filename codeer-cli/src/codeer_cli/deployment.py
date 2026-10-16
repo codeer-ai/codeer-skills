@@ -1,7 +1,6 @@
 """Explicit local deployment setup and resource adoption over existing APIs."""
 from copy import deepcopy
 import hashlib
-import shutil
 
 from . import eval_ as api
 from .project import ProjectError, fingerprint, now, read_json, save_json
@@ -87,73 +86,51 @@ def recover_rejected_create(project, client, plan, expected):
 def configure(project, client, *, alias, agent_id=None, new=False):
     project.select(alias)
     if project.target or project.state_path.exists():
-        raise ProjectError("Deployment already exists; select it with --deployment or agent use")
+        raise ProjectError("Binding already exists; select it with --binding or agent use")
     ws, _ = client.resolve_scope()
     if getattr(client, "agent_id", None) and (new or client.agent_id != agent_id):
         raise ProjectError("CODEER_AGENT_ID conflicts with the explicit deployment; correct the override")
+    agent_name = None
     if agent_id:
         from .project_agent import observe
-        observe(client, agent_id)  # Validate access before binding; no inferred mapping.
+        agent_name = observe(client, agent_id)[0].get("name")
     elif not new:
         raise ProjectError("Explicitly choose --new or --agent <id>")
-    project.bind(api_base=client.base_url.rstrip("/"), workspace_id=str(ws), agent_id=agent_id,
-                 intent="create" if new else "takeover", created_at=now())
-    return {"deployment": alias, "target": project.target, "remote_mutations": 0,
-            "next_step": "Upload dependencies then preview Agent create" if new else "Pull observations; explicitly map and adopt or keep each resource"}
+    from .commands.check import _workspace_name
+    workspace_name = _workspace_name(client.get_me().get("profile", {}), ws)
+    project.bind(api_base=client.base_url.rstrip("/"), workspace_id=str(ws), workspace_name=workspace_name, agent_id=agent_id,
+                 intent="create" if new else "takeover", created_at=now(), agent_name=agent_name)
+    return {"binding": alias, "deployment": alias, "target": project.target, "remote_mutations": 0,
+            "next_step": "Local binding prepared; no remote Agent exists yet. Upload dependencies then preview agent apply" if new else "Pull observations; explicitly map and adopt or keep each resource"}
 
 
 def use(project, alias):
     project.select(alias)
     if not project.target:
-        raise ProjectError("Unknown deployment; configure it with agent bind")
+        raise ProjectError("Unknown binding; configure it with agent bind <name>")
     path = project.root / ".codeer/deployment"
     path.write_text(alias + "\n", encoding="utf-8")
-    return {"deployment": alias, "remote_mutations": 0}
+    return {"binding": alias, "deployment": alias, "remote_mutations": 0}
 
 
-def migrate(project, alias):
-    """Retain exact legacy configuration/state/receipts and historical evidence."""
-    if project.portable:
-        raise ProjectError("Already a portable project")
-    original = project.root / "project.toml"
-    old = project.root / ".codeer"
-    target = {k: v for k, v in project.target.items() if k != "profile"}
-    if not all(target.get(k) for k in ("api_base", "workspace_id")):
-        raise ProjectError("Establish the legacy API/workspace binding (reconcile existing receipts first) before migration; originals unchanged")
-    project.state()  # Validate before making any migration files.
-    import re
-    text = original.read_text(encoding="utf-8")
-    if "target" in project.config and not re.search(r"(?m)^\[target\][ \t]*(?:#.*)?$", text):
-        raise ProjectError("Migration requires a literal [target] table; originals unchanged")
-    text = re.sub(r"(?ms)^\[target\][ \t]*(?:#[^\n]*)?\n.*?(?=^\[|\Z)", "", text)
-    text, count = re.subn(r"(?m)^(schema_version\s*=\s*)1(\s*(?:#.*)?)$", r"\g<1>2\2", text)
-    if count != 1:
-        raise ProjectError("Cannot safely migrate schema_version; originals unchanged")
-    from .project import Project
-    migrated = Project(project.root, {**project.config, "schema_version": 2})
-    migrated.config.pop("target", None)
-    migrated.select(alias)
-    if migrated.local_dir.exists():
-        raise ProjectError("Migration destination exists")
-    backup = old / "legacy/project.toml"
-    if backup.exists():
-        raise ProjectError("Legacy backup exists; inspect previous migration before retry")
-    backup.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(original, backup)
-    for name in ("state.json", "receipts", "imports"):
-        source = old / name
-        if source.is_dir():
-            shutil.copytree(source, migrated.local_dir / name)
-        elif source.is_file():
-            migrated.local_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, migrated.local_dir / name)
-    save_json(migrated.local_dir / "target.json", {**target, "intent": "migrated", "created_at": now()})
-    # Remove only the literal target section; retain the original in the backup.
-    original.write_text(text, encoding="utf-8")
-    use(migrated, alias)
-    return {"deployment": alias, "backup": str(backup), "remote_mutations": 0,
-            "gaps": ["Historical hashes and evidence are retained verbatim, not relabeled as portable validation",
-                     "Replace environment IDs with logical dependencies before new deployment"]}
+def list_bindings(project):
+    from copy import copy
+    rows = []
+    for path in sorted((project.root / ".codeer/deployments").glob("*/target.json")):
+        bound = copy(project).select(path.parent.name)
+        target, state = bound.target, bound.state()
+        agent = state.get("resources", {}).get("agent", {})
+        pending = [key for key, value in state.get("resources", {}).items()
+                   if value.get("status") in ("pending", "outcome_unknown", "readback_mismatch")]
+        rows.append({"name": bound.deployment, "selected": bound.deployment == project.deployment,
+                     "api_base": target["api_base"], "workspace_id": target["workspace_id"],
+                     "workspace_name": target.get("workspace_name"), "agent_id": target.get("agent_id"),
+                     "known_agent_id": agent.get("server_id"),
+                     "agent_name": agent.get("observed", {}).get("name") or target.get("agent_name"),
+                     "status": "bound" if target.get("agent_id") else "creation_unresolved" if agent.get("server_id") or "agent" in pending else "awaiting_create",
+                     "unresolved_resources": pending,
+                     "observed_at": state.get("queried_at")})
+    return {"bindings": rows, "offline": True, "remote_mutations": 0}
 
 
 def read_resource(project, client, key, remote_id=None):
@@ -224,7 +201,8 @@ def compare(entry, local, remote):
         decision = entry.get("decisions", {}).get(key, {})
         decided = decision.get("local") == fingerprint(desired) and decision.get("remote") == fingerprint(current)
         aligned = desired == current
-        local_only = key in rb and current == rb.get(key) and key in lb and desired != lb.get(key)
+        tracked = "base" in entry and "local_base" in entry
+        local_only = tracked and current == rb.get(key) and desired != lb.get(key)
         result[key] = {"state": "aligned" if aligned else "pending_apply" if decided or local_only else "undecided",
                        "local": desired, "remote": current,
                        "local_changed": key not in lb or desired != lb.get(key),

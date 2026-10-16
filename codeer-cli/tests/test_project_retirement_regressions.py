@@ -12,6 +12,12 @@ from test_project_evidence import EvidenceFixture
 
 
 class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
+    def reviewed_delete(self, sid):
+        code, preview = self.cli("eval", "case-delete", "--case", sid, "--dry-run")
+        if code:
+            return code, preview
+        return self.cli("eval", "case-delete", "--case", sid, "--expect", preview["token"])
+
     def deletion_handler(self, request):
         if request.method == "DELETE" and "/eval/cases/" in request.url.path:
             sid = request.url.path.rsplit("/", 1)[1]
@@ -30,12 +36,12 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
         save_json(alternate, revised)
         before = deepcopy(self.api.cases)
         local = project.path("evals").read_bytes()
-        state = (project.root / ".codeer/state.json").read_bytes()
+        state = project.state_path.read_bytes()
         for extra in (("--dry-run",), ("--expect", "unreviewed")):
             self.assertEqual(self.cli("eval", "cases-apply", "--cases", str(alternate), *extra)[0], 2)
         self.assertEqual(self.api.cases, before)
         self.assertEqual(project.path("evals").read_bytes(), local)
-        self.assertEqual((project.root / ".codeer/state.json").read_bytes(), state)
+        self.assertEqual(project.state_path.read_bytes(), state)
 
     def test_configured_custom_design_is_the_authority_for_default_and_explicit_apply(self):
         project, design = self.prepare()
@@ -59,10 +65,10 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
         original = "# Existing repository rules\n.venv/\n!runs/"  # No final newline.
         (root / ".gitignore").write_text(original)
         subprocess.run(["git", "init", "-q", str(root)], check=True)
-        self.assertEqual(self.cli("init", str(root), "--legacy")[0], 0)
+        self.assertEqual(self.cli("init", str(root))[0], 0)
         first = (root / ".gitignore").read_bytes()
         self.assertTrue(first.decode().startswith(original + "\n"))
-        private = [".codeer/state.json", "sources/history/import/raw.json", "runs/example/run.json", "releases/example/raw-response.json", "sources/documents/sop.pdf"]
+        private = [".codeer/state.json", "sources/history/import/raw.json", "runs/example/run.json", "releases/example/raw-response.json"]
         result = subprocess.run(["git", "check-ignore", "--stdin"], cwd=root, input="\n".join(private), text=True, capture_output=True, check=False)
         self.assertEqual(result.stdout.splitlines(), private)
         self.assertEqual(self.cli("init", str(root))[0], 0)
@@ -143,7 +149,7 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
         authored = project.path("evals").read_bytes()
         self.original_handler = self.api.handler
         with patch.object(self.api, "handler", side_effect=self.deletion_handler):
-            self.assertEqual(self.cli("eval", "case-delete", "--case", sid)[0], 0)
+            self.assertEqual(self.reviewed_delete(sid)[0], 0)
         self.assertNotIn(sid, self.api.cases)
         self.assertEqual(project.path("evals").read_bytes(), authored)
         resources = project.state()["resources"]
@@ -168,8 +174,8 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
 
     def test_delete_is_journaled_before_request_and_dry_run_is_read_only(self):
         project, _, sid = self.prepare_deletion()
-        before = (project.root / ".codeer/state.json").read_bytes()
-        files = set((project.root / ".codeer/receipts").glob("*.json"))
+        before = project.state_path.read_bytes()
+        files = set((project.local_dir / "receipts").glob("*.json"))
         code, preview = self.cli("eval", "case-delete", "--case", sid, "--dry-run")
         self.assertEqual(code, 0)
         self.assertEqual(preview["case_id"], sid)
@@ -177,8 +183,8 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
         self.assertNotIn("input", preview["current"])
         self.assertIn(sid, self.api.cases)
         self.assertFalse(any(method == "DELETE" for method, _, _ in self.api.calls))
-        self.assertEqual((project.root / ".codeer/state.json").read_bytes(), before)
-        self.assertEqual(set((project.root / ".codeer/receipts").glob("*.json")), files)
+        self.assertEqual(project.state_path.read_bytes(), before)
+        self.assertEqual(set((project.local_dir / "receipts").glob("*.json")), files)
         def handler(request):
             if request.method == "DELETE":
                 entries = project.state()["resources"]
@@ -189,7 +195,7 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
                 self.assertEqual(receipt["scope"]["agent_id"], "a")
             return self.deletion_handler(request)
         with patch.object(self.api, "handler", side_effect=handler):
-            self.assertEqual(self.cli("eval", "case-delete", "--case", sid)[0], 0)
+            self.assertEqual(self.reviewed_delete(sid)[0], 0)
 
     def test_unknown_committed_delete_reconciles_absence_without_repeating_delete(self):
         project, _, sid = self.prepare_deletion()
@@ -199,11 +205,16 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
                 raise httpx.ReadTimeout("delete response lost", request=request)
             return response
         with patch.object(self.api, "handler", side_effect=handler):
-            self.assertEqual(self.cli("eval", "case-delete", "--case", sid)[0], 1)
+            self.assertEqual(self.reviewed_delete(sid)[0], 1)
         entry = project.state()["resources"]["case:handoff"]
         self.assertEqual(entry["status"], "outcome_unknown")
         path = project.root / entry["delete_receipt"]
         original = read_json(path)
+        import hashlib
+        original_bytes = path.read_bytes()
+        report = project.root / "reviews/deletion-baseline.md"
+        report.parent.mkdir(exist_ok=True)
+        report.write_text(hashlib.sha256(original_bytes).hexdigest().upper())
         self.assertEqual(self.cli("eval", "pull")[0], 0)
         self.assertEqual(project.state()["resources"]["case:handoff"]["status"], "outcome_unknown")
         for extra in ((), ("--dry-run",)):
@@ -213,10 +224,15 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
         # Eval readback uses POST batch queries; count DELETE specifically.
         self.assertEqual(sum(m == "DELETE" for m, _, _ in self.api.calls), 1)
         self.assertEqual([(m, path) for m, path, _ in self.api.calls if m != "GET" and not path.endswith(":batch")], mutations)
-        stored = read_json(path)
+        current = project.root / project.state()["resources"]["case:handoff"]["delete_receipt"]
+        self.assertNotEqual(current, path)
+        self.assertEqual(path.read_bytes(), original_bytes)
+        stored = read_json(current)
         self.assertEqual(stored["status"], original["status"])
         self.assertEqual(stored["error"], original["error"])
         self.assertEqual(stored["reconciliation"]["status"], "retired")
+        self.assertEqual(stored["provenance"]["original_sha256"], hashlib.sha256(original_bytes).hexdigest())
+        self.assertEqual(project.state()["resources"]["pairs:handoff"]["delete_receipt"], str(current.relative_to(project.root)))
         self.assertEqual(project.state()["resources"]["pairs:handoff"]["status"], "retired")
 
     def test_uncommitted_delete_reconciles_presence_and_requires_explicit_retry(self):
@@ -227,14 +243,14 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
                 raise httpx.ReadTimeout("request not committed", request=request)
             return self.original_handler(request)
         with patch.object(self.api, "handler", side_effect=handler):
-            self.assertEqual(self.cli("eval", "case-delete", "--case", sid)[0], 1)
+            self.assertEqual(self.reviewed_delete(sid)[0], 1)
         self.assertEqual(self.cli("eval", "pull", "--reconcile")[0], 0)
         self.assertIn(sid, self.api.cases)
         self.assertEqual(sum(m == "DELETE" for m, _, _ in self.api.calls), 1)
         self.assertNotIn("delete_receipt", project.state()["resources"]["case:handoff"])
         self.assertEqual(self.cli("eval", "cases-apply", "--dry-run")[0], 0)
         with patch.object(self.api, "handler", side_effect=self.deletion_handler):
-            self.assertEqual(self.cli("eval", "case-delete", "--case", sid)[0], 0)
+            self.assertEqual(self.reviewed_delete(sid)[0], 0)
 
     def test_delete_readback_mismatch_can_be_observed_without_repeating_write(self):
         project, _, sid = self.prepare_deletion()
@@ -244,10 +260,10 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
                 return httpx.Response(200, json={"data": {}, "error_code": 0})
             return self.original_handler(request)
         with patch.object(self.api, "handler", side_effect=handler):
-            code, receipt = self.cli("eval", "case-delete", "--case", sid)
+            code, receipt = self.reviewed_delete(sid)
         self.assertEqual((code, receipt["status"]), (1, "readback_mismatch"))
         self.assertFalse(receipt["readback"]["absent"])
-        self.assertEqual(self.cli("eval", "case-delete", "--case", sid)[0], 2)
+        self.assertEqual(self.reviewed_delete(sid)[0], 2)
         self.assertEqual(self.cli("eval", "pull", "--reconcile")[0], 0)
         self.assertEqual(sum(m == "DELETE" for m, _, _ in self.api.calls), 1)
         stored = read_json(project.root / project.state()["resources"]["case:handoff"]["last_delete_receipt"])
@@ -264,7 +280,7 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
     def test_retired_case_does_not_block_later_tester_unknown_outcome_recovery(self):
         project, design, sid = self.prepare_deletion()
         with patch.object(self.api, "handler", side_effect=self.deletion_handler):
-            self.assertEqual(self.cli("eval", "case-delete", "--case", sid)[0], 0)
+            self.assertEqual(self.reviewed_delete(sid)[0], 0)
         design["cases"] = design["cases"][1:]
         save_json(project.path("evals"), design)
         tid = project.state()["resources"]["tester:tools"]["server_id"]
@@ -289,7 +305,7 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
     def test_retired_local_id_cannot_be_reused_for_implicit_creation_or_update(self):
         project, _, sid = self.prepare_deletion()
         with patch.object(self.api, "handler", side_effect=self.deletion_handler):
-            self.assertEqual(self.cli("eval", "case-delete", "--case", sid)[0], 0)
+            self.assertEqual(self.reviewed_delete(sid)[0], 0)
         self.assertEqual(self.cli("validate")[0], 1)
         self.assertEqual(self.cli("eval", "case-update", "--case", sid, "--input", "Recreate?", "--dry-run")[0], 2)
         self.assertEqual(self.cli("eval", "cases-apply", "--dry-run")[0], 2)
@@ -303,7 +319,7 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
                 raise httpx.ReadTimeout("lost", request=request)
             return response
         with patch.object(self.api, "handler", side_effect=handler):
-            self.assertEqual(self.cli("eval", "case-delete", "--case", sid)[0], 1)
+            self.assertEqual(self.reviewed_delete(sid)[0], 1)
         path = project.root / project.state()["resources"]["case:handoff"]["delete_receipt"]
         receipt = read_json(path)
         receipt["scope"]["workspace_id"] = "other"
@@ -319,7 +335,7 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
                 return httpx.Response(403, json={"message": "Not authorized"})
             return self.deletion_handler(request)
         with patch.object(self.api, "handler", side_effect=handler):
-            self.assertEqual(self.cli("eval", "case-delete", "--case", sid)[0], 3)
+            self.assertEqual(self.reviewed_delete(sid)[0], 3)
             self.assertEqual(self.cli("eval", "pull", "--reconcile")[0], 3)
         self.assertEqual(project.state()["resources"]["case:handoff"]["status"], "outcome_unknown")
         self.assertEqual(self.cli("eval", "pull", "--reconcile")[0], 0)
@@ -340,7 +356,7 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
         project, _, sid = self.prepare_deletion()
         old_case = deepcopy(self.api.cases[sid])
         with patch.object(self.api, "handler", side_effect=self.deletion_handler):
-            self.assertEqual(self.cli("eval", "case-delete", "--case", sid)[0], 0)
+            self.assertEqual(self.reviewed_delete(sid)[0], 0)
         self.api.cases[sid] = old_case
         for extra in ((), ("--reconcile",)):
             self.assertEqual(self.cli("eval", "pull", *extra)[0], 2)
@@ -349,9 +365,10 @@ class RetirementReviewTests(EvidenceFixture, unittest.TestCase):
     def test_intentional_new_local_id_creates_new_case_without_reusing_retired_identity(self):
         project, design, sid = self.prepare_deletion()
         with patch.object(self.api, "handler", side_effect=self.deletion_handler):
-            self.assertEqual(self.cli("eval", "case-delete", "--case", sid)[0], 0)
+            self.assertEqual(self.reviewed_delete(sid)[0], 0)
         design["cases"][0]["local_id"] = "handoff-replacement"
         save_json(project.path("evals"), design)
+        self.declare_new()
         code, plan = self.cli("eval", "cases-apply", "--dry-run")
         self.assertEqual(code, 0)
         self.assertEqual(self.cli("eval", "cases-apply", "--expect", plan["token"])[0], 0)

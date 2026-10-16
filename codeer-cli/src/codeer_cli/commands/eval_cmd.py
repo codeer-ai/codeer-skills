@@ -20,6 +20,16 @@ POLL_INTERVAL = 5
 POLL_TIMEOUT = 900
 
 
+def run_tester_fork(args, client):
+    from ..project_fork import tester_fork
+    if not args.project:
+        raise ValueError("tester-fork requires a local Agent project")
+    result = tester_fork(args.project, client, args.tester, dry_run=args.dry_run,
+                         expected=args.expect, reconcile=args.reconcile)
+    print_json(result)
+    return 1 if result.get("status") in ("readback_mismatch", "outcome_unknown", "pending") else 0
+
+
 def _ids(csv_text: str | None) -> list[str] | None:
     if not csv_text:
         return None
@@ -29,6 +39,14 @@ def _ids(csv_text: str | None) -> list[str] | None:
 def register(subparsers):
     ev = subparsers.add_parser("eval", help="Eval suite operations")
     sub = ev.add_subparsers(dest="action", required=True)
+
+    p = sub.add_parser("tester-fork", help="Create a separate Tester and reconnect this binding's mapped Cases")
+    p.add_argument("--tester", required=True, help="Declared local Tester ID")
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument("--dry-run", action="store_true")
+    p.add_argument("--expect")
+    mode.add_argument("--reconcile", action="store_true", help="Read back known identities without remote mutations")
+    p.set_defaults(func=run_tester_fork)
 
     p = sub.add_parser("pull", help="Import cases, related Testers and stable pair mappings without remote writes")
     p.add_argument("--agent", default=None)

@@ -181,17 +181,26 @@ cd support-agent
 codeer status
 codeer validate
 # When adopting an existing Agent (requires credentials):
-codeer agent bind --alias prod --agent <id>
-codeer agent use prod
+codeer agent bind prod-customer-a-main --agent <id>
+codeer agent use prod-customer-a-main
 codeer agent pull --agent <id>
 codeer eval pull
 ```
 
-Each local project describes one main Agent with isolated local deployments.
-New schema 2 projects keep target/profile outside committed content; legacy
-schema 1 remains readable and can be explicitly migrated. The layout grows as
+Each local project describes one Agent design with independent remote Agent bindings,
+including several Agents in the same workspace or different workspaces/APIs.
+Current schema 2 keeps targets/profile outside committed content. Unsupported
+projects require reviewed one-time preparation; old evidence stays read-only,
+while conforming data needs zero conversion. The layout grows as
 work proceeds; `codeer init` creates only the initial scaffold. Paths can be
 configured in `project.toml` to adopt existing files.
+
+`agent bindings` lists saved API/workspace/Agent identities; global `--binding`
+and single-invocation `--profile` choose the mapping and connection independently.
+Shared Tester/KB changes require impact review; candidate separation uses
+`eval tester-fork` or `kb upload --fork`, followed by appropriate reference readback.
+Use `clean --dry-run`/`--expect` for completed, unreferenced machine history; preserve
+unknown operations and fixed evidence. See the [binding, recovery and cleanup contract](skills/codeer-agent/reference/project.md#remote-agent-bindings-clone-and-platform-adoption).
 
 ```bash
 support-agent/

@@ -38,10 +38,12 @@ request export only or bounded diagnosis. Suggestions grant no new apply/publish
 authorization. Existing projects continue with configured files and evidence;
 `codeer status --human` and `codeer eval inspect-run --run-id <id>` offer offline
 guidance/inspection without reinitialization or bulk migration.
-For baseline comparisons, fixed `passed`/`failed`/`stale` runs use a link and
-raw-file SHA-256. Other run records may change during export: the builder saves
+For baseline comparisons, current contract-2 `passed`/`failed`/`stale` runs use a link and
+raw-file SHA-256. Other current run records may change during export: the builder saves
 one original JSON byte snapshot and hash before diagnosis or repair, reusing
 verified pins. It does not copy whole run trees or rewrite historical evidence.
+Old-contract runs are read-only stored metadata/hash; no current interpretation,
+refresh or publication clearance is derived from them.
 
 - Plan and create an Agent v0 from a folder of KB, product docs, SOPs, or other
   source files.
@@ -257,8 +259,8 @@ These three commands work without credentials or network access. When adopting
 an existing Agent, select the correct profile, then run:
 
 ```bash
-codeer agent bind --alias prod --agent <id>
-codeer agent use prod
+codeer agent bind prod-customer-a-main --agent <id>
+codeer agent use prod-customer-a-main
 codeer agent pull --agent <id>
 codeer eval pull
 codeer agent diff --local
@@ -308,10 +310,11 @@ Keep Agent projects in your own repo, e.g. `projects/<stable-name>/`; a root
 README can link them and shared AGENTS can record maintenance rules. A new
 project init preserves parent files; add `.codeer/` to the repo-root ignore too,
 protecting inherited profile selection. New
-`project.toml` uses schema 2 without targets/personal profiles. Legacy schema 1
-still reads original hashes; explicitly use `agent migrate --alias <name>` to
-retain originals and move tracking into a local deployment. Migration does not
-renew old evaluation evidence or resolve environment IDs automatically.
+`project.toml` uses the single current schema 2 without targets/personal profiles.
+Unsupported projects stop before authentication; follow the
+[one-time preparation runbook](../../skills/codeer-agent/reference/one-time-preparation.md)
+on a reviewed backup/copy if necessary. Conforming projects need zero conversion.
+Historical evidence/embedded configs keep their bytes and grant no new clearance.
 
 After clone, missing `.codeer/` is normal. Reuse explicitly configured environment
 variables, nearest parent/project profile or global default. Run `profile current`
@@ -323,11 +326,29 @@ restricted permissions. No automatic key collection/persistence occurs.
 Network/timeouts/5xx mean connection unverified. Permission errors and uncertain
 401/403 rejections do not establish expiration.
 
-Explicitly configure a new deployment with `agent bind --alias dev --new`, or
-take over with `--agent <id>`. Select with `agent use <alias>` or global
-`--deployment <alias>`. Each deployment has its own target/mappings/bases/receipts;
-profile names are not identity. Operators coordinate shared production writes;
-there is no concurrent-writer guarantee or state handoff package.
+Configure `agent bind beta-customer-a-candidate --new-agent` locally, or take over
+with `agent bind beta-customer-a-main --agent <id>`. Select with `agent use <name>`
+or global `--binding <name>`; `agent bindings` lists saved API/workspace/Agent IDs.
+Binding names identify Agents, not environments; several Agents may share one
+workspace, and another workspace can use `beta-customer-b-main`.
+Global `--profile <name>` affects this invocation only, including check/refresh.
+Conflicting environment key/API values are rejected before authentication. A valid
+key for the same API/workspace is accepted after a fresh preview; bindings store no
+profile allowlist. Operators still coordinate shared remote writes.
+
+Shared Tester edits list readable Agent/Case impact; Rubric-only edits affect one
+pair. For candidate-only settings use `eval tester-fork --tester <local-id>` with
+preview/expect and readback. KB separation uses `kb upload --fork` to make new
+IDs, followed by FAQ review/rebuild and reviewed Agent reference apply. Known-ID
+interruptions reconcile; unknown creates are never repeated blindly.
+
+`imports/` reuses unchanged snapshots; `receipts/` retains recovery inputs while
+omitting redundant comparison copies. Use `clean --dry-run`, then the matching
+`--expect` and optional `--older-than 30d` to remove completed, unreferenced machine
+history from one binding. JSON/Markdown/path/hash/manual keep references and all
+bindings' state protect content. Old history/runs/releases/sources remain. Current
+CLI project writers share a local lock; direct file/skill audit/pin/older or
+standalone tools must stop during cleanup/preparation. This is not a remote lock.
 
 Declare required originals/KB selections in `resources.json`. Agent/Case settings
 use `attachment:<local-id>` and knowledge tools use `kb:<local-id>[/path]`.

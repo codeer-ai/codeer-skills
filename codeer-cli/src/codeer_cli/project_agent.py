@@ -102,69 +102,49 @@ def pull(project, client, agent_id, *, reconcile=False):
         raise ProjectError("Unfinished operation; inspect receipt then pull --reconcile")
     if entry.get("status") in ("pending", "outcome_unknown", "readback_mismatch") and entry.get("server_id") and entry["server_id"] != agent_id:
         raise ProjectError("Reconcile the saved Agent identity before importing another Agent")
-    if project.portable:
-        recovering_create = reconcile and project.target.get("agent_id") is None and entry.get("server_id") == agent_id
-        if not project.target or project.target.get("agent_id") != agent_id and not recovering_create:
-            raise ProjectError("Configure takeover with agent bind --alias <name> --agent <id> before pull")
+    recovering_create = reconcile and project.target.get("agent_id") is None and entry.get("server_id") == agent_id
+    if not project.target or project.target.get("agent_id") != agent_id and not recovering_create:
+        raise ProjectError("Configure takeover with agent bind <name> --agent <id> before pull")
     editable, editable_settings = observe(client, agent_id)
     versions = agents.list_versions(client, agent_id)
     published_id = editable.get("publish_history_id")
     published = agents.get_version(client, agent_id, published_id) if published_id else None
-    if project.portable:
-        from .portable import logical_remote
-        from .project_attachments import import_originals
-        latest = max(versions, key=lambda h: h.get("version_number", 0)) if versions else None
-        history = agents.get_version(client, agent_id, latest["id"]) if latest else {}
-        originals = import_originals(project, client, history) if not project.path("agent").exists() else {"obtained": [], "gaps": []}
-        from .project_knowledge import import_references
-        knowledge = import_references(project, client, history) if not project.path("agent").exists() else {"obtained": [], "gaps": []}
-        # Reload after original import so its mappings cannot be overwritten.
-        state = project.state()
-        editable_settings = logical_remote(project, editable_settings)
-        editable = logical_remote(project, writable(editable))
-        published = logical_remote(project, writable(published)) if published else None
+    from .portable import logical_remote
+    from .project_attachments import import_originals
+    latest = max(versions, key=lambda h: h.get("version_number", 0)) if versions else None
+    history = agents.get_version(client, agent_id, latest["id"]) if latest else {}
+    originals = import_originals(project, client, history) if not project.path("agent").exists() else {"obtained": [], "gaps": []}
+    from .project_knowledge import import_references
+    knowledge = import_references(project, client, history) if not project.path("agent").exists() else {"obtained": [], "gaps": []}
+    # Reload after original import so its mappings cannot be overwritten.
+    state = project.state()
+    editable_settings = logical_remote(project, editable_settings)
+    editable = logical_remote(project, writable(editable))
+    published = logical_remote(project, writable(published)) if published else None
     imported_at = now()
-    directory = project.local_dir / "imports" / imported_at.replace(":", "-")
-    save_json(directory / "agent.json", {"editable": editable, "published": published, "versions": versions,
-                                         "retrieved_at": imported_at, "scope": scope})
+    from .operation_records import import_snapshot
+    directory = import_snapshot(project, "agent", {"editable": editable, "published": published,
+                                                 "versions": versions, "scope": scope}).parent
+    state.setdefault("imports", {})["agent"] = str((directory / "agent.json").relative_to(project.root))
     settings = dict(editable_settings)
     paths = (project.path("agent"), project.path("instructions"))
     if not any(p.exists() for p in paths):
         prompt = settings.pop("system_prompt", "")
         save_json(paths[0], settings)
         paths[1].write_text(prompt, encoding="utf-8")
-    if project.portable:
-        entry = state.setdefault("resources", {}).setdefault("agent", {})
-        if reconcile:
-            reconcile_entry(project, entry, editable_settings)
-            if recovering_create and entry.get("status") == "imported_unvalidated":
-                project.bind(agent_id=agent_id)
-        entry.update(server_id=agent_id, observed=editable_settings, tracking_version=1)
-        state.update(queried_at=imported_at, versions=versions, published_history_id=published_id)
-        project.save_state(state)
-        from .deployment import compare
-        return {"agent_id": agent_id, "snapshot": str(directory), "accepted": False,
-                "comparison": compare(entry, local_settings(project), editable_settings), "originals": originals, "knowledge": knowledge,
-                "gaps": ["Website crawl settings are excluded; source snapshots do not recreate crawling; import Eval separately",
-                         "Design intent, confirmations and previous local history cannot be reconstructed"]}
-    elif "agent" in state.get("resources", {}) and not reconcile:
-        # A repeated pull records observation, never advances a live sync base.
-        state["observed_agent"] = editable_settings
-        state["queried_at"] = imported_at
-        project.save_state(state)
-        return {"agent_id": agent_id, "snapshot": str(directory), "local_preserved": True, "base_preserved": True, "accepted": False}
-    project.bind(agent_id=agent_id, api_base=scope["api_base"], workspace_id=scope["workspace_id"])
     entry = state.setdefault("resources", {}).setdefault("agent", {})
-    if reconcile and entry:
+    if reconcile:
         reconcile_entry(project, entry, editable_settings)
-    else:
-        entry.update(base=editable_settings, status="imported_unvalidated")
-    entry["server_id"] = agent_id
+        if recovering_create and entry.get("status") == "imported_unvalidated":
+            project.bind(agent_id=agent_id)
+    entry.update(server_id=agent_id, observed=editable_settings, tracking_version=1)
     state.update(queried_at=imported_at, versions=versions, published_history_id=published_id)
     project.save_state(state)
-    return {"agent_id": agent_id, "snapshot": str(directory), "local_preserved": True,
-            "accepted": False, "published_history_id": published_id,
-            "gaps": ["KB/Eval/Tester import is separate", "Import does not establish intended behavior or validate quality"]}
+    from .deployment import compare
+    return {"agent_id": agent_id, "snapshot": str(directory), "accepted": False,
+            "comparison": compare(entry, local_settings(project), editable_settings), "originals": originals, "knowledge": knowledge,
+            "gaps": ["Website crawl settings are excluded; source snapshots do not recreate crawling; import Eval separately",
+                     "Design intent, confirmations and previous local history cannot be reconstructed"]}
 
 
 def preview(project, client, remove_tools=None, note=""):
@@ -177,28 +157,24 @@ def preview(project, client, remove_tools=None, note=""):
         raise ProjectError(f"Previous create identity {entry['server_id']} is known; agent pull --agent <id> --reconcile to bind it before retry")
     if agent_id and entry.get("server_id") != agent_id:
         raise ProjectError("Pull the bound Agent before applying")
-    if project.portable and not project.target:
+    if not project.target:
         raise ProjectError("Configure a deployment with agent bind --new or --agent <id> before apply")
-    if project.portable and not agent_id and project.target.get("intent") != "create":
+    if not agent_id and project.target.get('intent') != 'create':
         raise ProjectError("Missing Agent identity is not create intent; configure a separate explicitly new deployment or reconcile its known identity")
     remote = observe(client, agent_id)[1] if agent_id else {}
     local = local_settings(project)
-    if project.portable:
-        from .portable import check_agent, check_models, logical_remote
-        check_agent(project, local)
-        check_models(project, client, local)
-        remote = logical_remote(project, remote)
+    from .portable import check_agent, check_models, logical_remote
+    check_agent(project, local)
+    check_models(project, client, local)
+    remote = logical_remote(project, remote)
     plan = plan_change(project, "agent", agent_id, entry.get("base", {}), local, remote)
     plan["scope"] = scope
-    if project.portable:
-        from .portable import connection_fingerprint
-        plan["environment"] = connection_fingerprint(project)
-        plan["operator"] = project.preview_identity(client)
+    from .portable import connection_fingerprint
+    plan["environment"] = connection_fingerprint(project)
+    plan["operator"] = project.preview_identity(client)
     plan["version_note"] = note if agent_id else ""
     payload = plan["payload"]
     if not agent_id and any(k in payload for k in ("response_mode", "output_presentation_policy")):
-        if not project.portable:
-            raise ProjectError("External create does not accept response_mode/output_presentation_policy; create Draft first then explicitly update these settings")
         plan["deferred_fields"] = [k for k in ("response_mode", "output_presentation_policy") if k in payload]
         for key in plan["deferred_fields"]:
             payload.pop(key)

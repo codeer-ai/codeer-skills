@@ -26,7 +26,7 @@ def download(client, attachment_id, expected_size=None, *, record=None):
 
 
 def upload(project, client, local_id, *, dry_run, expected=None, reconcile=False, remote_id=None, new=False):
-    if not project.portable or not project.target:
+    if not project.target:
         raise ProjectError("Configure a portable deployment before uploading attachments")
     definition = definitions(project).get("attachments", {}).get(local_id)
     if not definition:
@@ -96,8 +96,10 @@ def upload(project, client, local_id, *, dry_run, expected=None, reconcile=False
         if hashlib.sha256(actual).hexdigest() != receipt["plan"]["sha256"]:
             raise ProjectError("Original readback mismatch; receipt retained")
         entry.update(server_id=response["uuid"], status="ready", sha256=receipt["plan"]["sha256"])
+        from .operation_records import mutable_receipt
+        receipt_path, receipt = mutable_receipt(project, entry)
         receipt.update(status="ready", reconciled_at=now())
-        save_json(project.root / entry["receipt"], receipt)
+        save_json(receipt_path, receipt)
         project.save_state(state)
         return {"resource": key, "status": "ready", "remote_mutations": 0}
     if expected != plan["token"]:

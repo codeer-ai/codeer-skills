@@ -52,7 +52,7 @@ class WorkflowTests(EvidenceFixture, unittest.TestCase):
         project, design = self.prepare()
         self.apply_design()
         self.assertFalse(project.path("design").exists())  # does not block bounded import/review
-        imported = next((project.root / ".codeer/imports").glob("*/agent.json"))
+        imported = next((project.local_dir / "imports").glob("*/agent.json"))
         raw = read_json(imported)
         self.assertEqual(raw["published"]["system_prompt"], "Previously published")
         project.path("instructions").write_text("Local prompt proposal")

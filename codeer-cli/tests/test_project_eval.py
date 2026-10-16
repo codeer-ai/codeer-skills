@@ -1,7 +1,9 @@
 import copy
+import os
 import unittest
+from unittest.mock import patch
 
-from codeer_cli.project import save_json
+from codeer_cli.project import discover, read_json, save_json
 from codeer_cli.project_eval import validate_design
 from test_project_sync import ProjectFixture
 
@@ -13,7 +15,7 @@ def design_fixture():
              "evidence": [{"variable": "tool_steps", "producer": "reasoning_steps", "availability": "verified", "verification": "reviews/evidence.md"}]}],
             "cases": [{"local_id": "handoff", "input": "Human please", "source": {"document": "sources/documents/sop.md"},
                        "meta": {"previous_messages": [{"role": "user", "content": "Order late"}]},
-                       "label_ids": ["routing"], "attachment_ids": ["attachment"],
+                       "label_ids": ["env:FIXTURE_LABEL"], "attachment_ids": ["attachment:case-doc"],
                        "pairs": [{"tester": "tools", "rubric": "Must actually call handoff", "required_evidence": ["tool_steps"]}]},
                       {"local_id": "hours", "input": "Hours?", "source": {"document": "sources/documents/sop.md"},
                        "pairs": [{"tester": "tools", "rubric": "Must not call handoff", "required_evidence": ["tool_steps"]}]}]}
@@ -23,15 +25,39 @@ class EvalFixture(ProjectFixture):
     def prepare(self):
         project = self.pull()
         design = design_fixture()
+        patcher = patch.dict(os.environ, {"FIXTURE_LABEL": "routing"})
+        patcher.start()
+        self.addCleanup(patcher.stop)
         source = project.root / "sources/documents/sop.md"
         source.write_text("Synthetic SOP: explicit human request calls handoff; hours questions do not.")
         evidence = project.root / "reviews/evidence.md"
         evidence.parent.mkdir(parents=True, exist_ok=True)
         evidence.write_text("MockTransport fixture supplies complete reasoning_steps to the tool_steps Judge variable. Synthetic delivery evidence only.")
         save_json(project.path("evals"), design)
+        state = project.state()
+        state.setdefault("resources", {})["attachment:case-doc"] = {"server_id": "attachment", "status": "ready"}
+        for kind, rows in (("tester", design["testers"]), ("case", design["cases"])):
+            for row in rows:
+                state.setdefault("resources", {}).setdefault(f"{kind}:{row['local_id']}", {"status": "new"})
+        project.save_state(state)
         return project, design
 
+    def declare_new(self):
+        # These fixtures explicitly authorize newly declared local identities.
+        # The runtime still rejects missing takeover mappings without this step.
+        project = discover()
+        design = read_json(project.path("evals"))
+        for kind, rows in (("tester", design["testers"]), ("case", design["cases"])):
+            for row in rows:
+                key = f"{kind}:{row['local_id']}"
+                if key not in project.state().get("resources", {}):
+                    args = ["agent", "adopt", "--resource", key, "--remote-id", "new", "--keep-local"]
+                    code, declaration = self.cli(*args, "--dry-run")
+                    self.assertEqual(code, 0, declaration)
+                    self.assertEqual(self.cli(*args, "--expect", declaration["token"])[0], 0)
+
     def apply_design(self):
+        self.declare_new()
         code, plan = self.cli("eval", "cases-apply", "--dry-run")
         self.assertEqual(code, 0, plan)
         self.assertEqual(self.cli("eval", "cases-apply", "--expect", plan["token"])[0], 0)
@@ -63,13 +89,15 @@ class ProjectEvalTests(EvalFixture, unittest.TestCase):
         self.apply_design()
         self.assertEqual(len(self.api.cases), 2)
         design["testers"].append({**copy.deepcopy(design["testers"][0]), "local_id": "new-judge", "name": "New judge", "rationale": "Different evidence policy"})
+        state = project.state()
+        state["resources"]["tester:new-judge"] = {"status": "new"}
+        project.save_state(state)
         design["cases"][0]["pairs"].append({"tester": "new-judge", "rubric": "Alternative", "required_evidence": ["tool_steps"]})
         save_json(project.path("evals"), design)
         self.apply_design()
         sid = project.state()["resources"]["case:handoff"]["server_id"]
-        old_tester = project.state()["resources"]["tester:tools"]["server_id"]
         design["cases"][0]["pairs"] = design["cases"][0]["pairs"][1:]
-        design["cases"][0]["remove_tester_ids"] = [old_tester]
+        design["cases"][0]["remove_tester_ids"] = ["tester:tools"]
         save_json(project.path("evals"), design)
         self.apply_design()
         self.assertEqual(len(self.api.pairs[sid]), 1)

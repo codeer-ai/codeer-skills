@@ -103,8 +103,6 @@ def collect(project, client, kb_id):
 
 
 def import_kb(project, client, local_id, kb_id, *, dry_run=False, expected=None, initial=False, collected=None):
-    if not project.portable:
-        raise ProjectError("KB portable import requires schema_version 2")
     scope = project.check_scope(client)
     resources = definitions(project)
     if local_id in resources.get("knowledge", {}):
@@ -321,7 +319,6 @@ def faq_sync(project, client, local_id, *, dry_run, expected=None, choice=None, 
         raise ProjectError("No unresolved FAQ operation")
     plan = faq_plan(project, client, local_id, choice=choice, ids=ids, apply=apply)
     if dry_run:
-        # Cache observation only. Proposed mappings, decisions and bases are untouched.
         entry.update(observed=plan["remote"], observed_at=now())
         state["resources"][key] = entry
         project.save_state(state)
@@ -471,9 +468,11 @@ def reconcile_faq(project, client, key, entry, *, ids=None, dry_run=False):
             entry.setdefault("decisions", {}).pop(name, None)
         else:
             entry.setdefault("decisions", {})[name] = {"local": fingerprint(expected_local[name]), "remote": fingerprint(remote)}
+    from .operation_records import mutable_receipt
+    receipt_path, receipt = mutable_receipt(project, entry, record=receipt)
     receipt["conflicts"] = conflicts
     receipt.update(status=entry["status"], reconciled_at=now())
-    save_json(project.root / entry["receipt"], receipt)
+    save_json(receipt_path, receipt)
     state = project.state()
     state.setdefault("resources", {})[key] = entry
     project.save_state(state)

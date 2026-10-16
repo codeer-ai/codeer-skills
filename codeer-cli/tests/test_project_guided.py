@@ -191,10 +191,12 @@ class GuidedProjectTests(EvidenceFixture, unittest.TestCase):
         code, inspected = self.cli('eval', 'inspect-run', '--run-id', result['id'])
         self.assertEqual(code, 0)
         self.assertEqual(inspected['recorded_status'], 'incomplete')
-        self.assertEqual(inspected['derived_counts'], {'passed': 2})
+        self.assertTrue(inspected['historical'])
+        self.assertNotIn('derived_counts', inspected)
         self.assertEqual(tree_bytes(project.root), before)
         self.assertEqual(len(self.api.calls), calls)
         swapped = copy.deepcopy(record)
+        swapped['evidence_contract_version'] = 2
         swapped['results'][0]['result'], swapped['results'][1]['result'] = swapped['results'][1]['result'], swapped['results'][0]['result']
         save_json(run_path, swapped)
         inspected = self.cli('eval', 'inspect-run', '--run-id', result['id'])[1]
@@ -202,6 +204,7 @@ class GuidedProjectTests(EvidenceFixture, unittest.TestCase):
         self.assertTrue(all(set(p['evidence_sources'].values()) == {'missing'} for p in inspected['pairs']))
         save_json(run_path, record)
         omitted = copy.deepcopy(record)
+        omitted['evidence_contract_version'] = 2
         omitted['results'] = []
         save_json(run_path, omitted)
         self.assertEqual(self.cli('eval', 'inspect-run', '--run-id', result['id'])[1]['derived_counts'], {'missing': 2})

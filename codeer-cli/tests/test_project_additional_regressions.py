@@ -10,7 +10,7 @@ from codeer_cli.evidence import ensure_ready, snapshot
 from codeer_cli._validate import ToolValidationError, validate_unified_tools
 from codeer_cli.commands.agent import _summarize_tool, _tool_summary
 from codeer_cli.parse import parse_agent
-from codeer_cli.project import ProjectError, fingerprint, read_json
+from codeer_cli.project import ProjectError, fingerprint, read_json, save_json
 from test_project_evidence import EvidenceFixture
 
 
@@ -102,7 +102,7 @@ class AdditionalReviewTests(EvidenceFixture, unittest.TestCase):
         self.api.agent["unified_tools"] = [{"id": "table", "type": "tabular_data", "knowledge_node_id": "file-table"}]
         project = self.setup_evidence()
         source = project.root / "kb/table.csv"
-        source.parent.mkdir()
+        source.parent.mkdir(exist_ok=True)
         source.write_text("item,price\nA,1\n")
         state = project.state()
         state["resources"]["kb:table"] = {"server_id": "kb-root", "node_ids": ["file-table"],
@@ -193,7 +193,8 @@ class AdditionalReviewTests(EvidenceFixture, unittest.TestCase):
         directory.mkdir()
         source = directory / "faq.md"
         source.write_bytes(b"REVIEWED_ORIGINAL_BYTES")
-        args = ("kb", "upload", "--dir", str(directory), "--name", "New KB", "--local-id", "new", "--poll-timeout", "0")
+        save_json(project.root / "resources.json", {"schema_version": 1, "knowledge": {"new": {"directory": "kb", "glob": "*"}}})
+        args = ("kb", "upload", "--new", "--dir", str(directory), "--name", "New KB", "--local-id", "new", "--poll-timeout", "0")
         _, plan = self.cli(*args, "--dry-run")
         original = self.api.handler
         sent = []
@@ -221,7 +222,8 @@ class AdditionalReviewTests(EvidenceFixture, unittest.TestCase):
         directory.mkdir()
         source = directory / "table.csv"
         source.write_bytes(b"item,price\nA,1\n")
-        args = ("kb", "upload", "--dir", str(directory), "--name", "New KB", "--local-id", "new", "--poll-timeout", "0")
+        save_json(project.root / "resources.json", {"schema_version": 1, "knowledge": {"new": {"directory": "kb", "glob": "*"}}})
+        args = ("kb", "upload", "--new", "--dir", str(directory), "--name", "New KB", "--local-id", "new", "--poll-timeout", "0")
         _, plan = self.cli(*args, "--dry-run")
         original = self.api.handler
         sent = []
