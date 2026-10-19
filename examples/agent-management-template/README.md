@@ -1,49 +1,72 @@
-# Agent 開發管理
+# Agent Development Management
 
-本資料夾搭配 `codeer-agent` skill 與 Codeer CLI，集中管理多個 Agent 開發專案。共用協作規則放在 [AGENTS.md](AGENTS.md)，每個專案各自保存來源、設計、設定、評量與驗證證據。
+English | [繁體中文](README.zh-TW.md)
 
-## 建立自己的管理資料夾
+Use this folder with the `codeer-agent` skill and Codeer CLI to manage multiple
+Agent development projects. Shared collaboration rules live in
+[AGENTS.md](AGENTS.md). Each project keeps its own sources, design, settings,
+evaluations and verification evidence.
 
-將整份範本複製到自己的工作位置，目錄可自行命名，例如 `my-agents/`、`team-agents/`。複製後：
+## Set up your management folder
 
-1. 將本 README 的標題與介紹改成團隊或自己的用途，保留專案索引作為入口。
-2. 檢查 `AGENTS.md`，依協作語言、資料保存與團隊規則調整；沿用標準檔名，方便 coding agent 讀取。
-3. 安裝 `codeer-agent` skill 與對應 Codeer CLI，或指定已準備好的開發 checkout。先以 `codeer init --help` 核對本機專案命令是否可用；若不可用，依所選版本的 CLI 文件設定入口。範本本身不包含工具或憑證。
-4. 按需求建立第一個專案；需要版本管理時，再自行初始化 Git。
+Copy the whole template to your preferred location and choose a name such as
+`my-agents/` or `team-agents/`. After copying:
 
-初始結構如下，`projects/` 只有保留空目錄的 `.gitkeep`：
+1. Adapt this README's title and introduction to your team or personal use.
+   Keep the project index as the entry point.
+2. Review `AGENTS.md` for your collaboration language, data retention and team
+   rules. Keep the standard filename so coding agents can discover it.
+3. Install Codeer CLI 0.1.17 or newer and a compatible `codeer-agent` skill. Use
+   PyPI for the CLI by default; follow the selected version's CLI documentation
+   if a source installation is needed. Check `codeer init --help` before starting.
+   This template contains neither tools nor credentials.
+4. Create your first project as needed. Initialize Git separately if you want
+   version control.
+
+The initial layout contains only `.gitkeep` under `projects/`:
 
 ```text
-my-agents/                  # 可自行命名的管理資料夾
-  README.md                 # 給使用者閱讀的用途、操作入口與專案索引
-  AGENTS.md                 # 給 coding agent 讀取的共用協作規則
-  .gitignore                # 個人狀態與原始資料的預設保護
-  projects/                 # 按需建立各個 Agent 開發專案
+my-agents/                  # Choose your own management folder name
+  README.md                 # English guide and shared project index
+  README.zh-TW.md           # Traditional Chinese guide
+  AGENTS.md                 # Shared rules for coding agents
+  .gitignore                # Default protection for local state and raw data
+  projects/                 # Create individual Agent projects as needed
 ```
 
-管理根目錄負責共用文件及索引，不建立根層 `project.toml`；個別專案內容放在 `projects/`。每個 `projects/<slug>/` 對應一個主要 Agent，建議使用穩定、具業務意義的英文小寫連字號名稱。各專案的本機內容應能獨立搬走；遠端共用資源依 skill／CLI 的規則管理。
+The management root holds shared documents and the index. Keep each project's
+content under `projects/`, without creating a root-level `project.toml`.
+Each `projects/<slug>/` represents one primary Agent; prefer stable, meaningful
+lowercase English names separated by hyphens. Local project content should remain
+independently movable. Manage shared remote resources through the skill and CLI.
 
-## 文件與工具的分工
+## Document and tool responsibilities
 
-| 入口 | 負責內容 |
+| Entry point | Responsibility |
 | --- | --- |
-| 管理資料夾的 README、AGENTS.md | 使用導航、專案索引與跨專案協作約定 |
-| `codeer-agent` skill | 來源分析、設計、評量、審查與遠端操作的工作流程及授權邊界 |
-| Codeer CLI | 專案初始化、結構檢查、狀態與證據紀錄，以及實際平台命令的執行與讀回 |
+| Management README and AGENTS.md | Navigation, project index and collaboration across projects |
+| `codeer-agent` skill | Source analysis, design, evaluation, review, remote workflows and authorization boundaries |
+| Codeer CLI | Initialization, structural checks, status and evidence records, platform commands and readback |
 
-管理文件不另定義平台命令、驗收條件或證據格式。各專案的路徑以 `project.toml` 為準，詳細工作流程及命令以實際使用的 skill／CLI 文件為準。
+Platform commands, acceptance criteria and evidence formats belong to the skill
+and CLI documentation for the versions in use. Project paths come from
+`project.toml`.
 
-## 新增專案
+## Add a project
 
-在管理根目錄開啟 coding agent，提供專案名稱、目標與資料位置即可，例如：
+Open a coding agent in the management root and provide the project name, goal
+and source location. For example:
 
 ```text
-請使用 codeer-agent skill，在 projects/support-agent 建立客服 Agent 開發專案。
-來源資料位於我指定的資料夾。先讀取資料、整理理解與待確認問題，
-保存本機設計及下一步；這輪只做本機工作。
+Use the codeer-agent skill to create a support Agent development project at
+projects/support-agent. The sources are in the folder I specify. Read them,
+record the understood design, open questions and next step. Work locally only
+for this request.
 ```
 
-若自行初始化，從管理根目錄執行以下命令，將 `support-agent` 換成實際名稱；目錄已有工作時使用接續流程：
+To initialize it yourself, run these commands from the management root, replacing
+`support-agent` with your project name. Resume existing work instead of starting
+it again:
 
 ```bash
 codeer init projects/support-agent
@@ -52,35 +75,54 @@ codeer status
 codeer validate
 ```
 
-上述命令可離線使用，不需要 API key，也不會建立遠端 Agent。初始化後，把專案用途與 README 連結加入下方索引。來源原件預設保存在專案 `sources/`，也可在來源索引登記指定的外部位置；其他內容隨工作產生，不需先填完所有模板。
+These commands work offline without an API key and create no remote Agent.
+After initialization, add the project's purpose and README link to the
+[project index](#project-index). Originals default to the project's `sources/`;
+the source index can also record explicitly supplied external locations.
+Other content grows as work proceeds; there is no need to complete every template
+in advance.
 
-## 專案索引
+## Project index
 
-目前尚未建立專案。新增後在下表填入專案 README 的相對連結與用途；實際狀態以專案文件及 CLI 證據為準，不另維護進度表。
+No projects have been created yet. Add each project's relative README link and
+purpose below. Both language guides use this shared index. Project documents and
+CLI evidence determine actual status; keep progress records inside each project.
 
-| 專案 | 用途 |
+| Project | Purpose |
 | --- | --- |
 
-## 接續工作
+## Resume work
 
-指定 `projects/<slug>/` 與本次目標，讓 coding agent 依 skill 的接續流程，讀取已存在且與本次工作相關的專案文件，再核對 `codeer status`、`codeer validate` 與相關證據。缺少尚未產生的設計或紀錄，不代表要重建專案。`validate` 檢查結構；業務語意由 coding agent 依 skill 審查。
+Specify `projects/<slug>/` and the current goal. The coding agent follows the
+skill's continuation workflow, reads existing documents relevant to the task,
+then checks `codeer status`, `codeer validate` and supporting evidence. A design
+or record that has not yet been produced is not a reason to recreate the project.
+`validate` runs local checks; the skill guides semantic review.
 
-下表是常見預設位置，內容隨工作產生；既有專案沿用設定及紀錄路徑：
+These are common default locations. Content appears as work proceeds; existing
+projects retain their configured paths and records:
 
-| 位置 | 責任 |
+| Location | Responsibility |
 | --- | --- |
-| `project.toml`、專案 README | 一個主要 Agent 的本機設定與導航 |
-| `sources/` | 原件、來源索引與 History／AI Draft 匯出 |
-| `design/` | 已確認行為、待確認草稿及驗收範圍 |
-| `kb/`、`agent/`、`evals/` | 知識、Instructions／設定與 Case／Tester／Rubric 設計 |
-| `reviews/`、`logs/YYYY-MM.md` | 審查、確認依據、理由及結果；既有 `log.md` 繼續沿用 |
-| `runs/`、`releases/` | 實際評量與發布證據 |
-| `.codeer/` | 本機 binding、同步基準及恢復回執，不提交 Git |
+| `project.toml`, project README | One primary Agent's local configuration and navigation |
+| `sources/` | Originals, source index, History and AI Draft exports |
+| `design/` | Accepted behavior, pending drafts and acceptance scope |
+| `kb/`, `agent/`, `evals/` | Knowledge, Instructions/settings and Case/Tester/Rubric design |
+| `reviews/`, `logs/YYYY-MM.md` | Reviews, confirmations, reasons and outcomes; continue an existing `log.md` |
+| `runs/`, `releases/` | Recorded evaluation and publication evidence |
+| `.codeer/` | Local bindings, sync bases and recovery receipts; keep out of Git |
 
-## 遠端操作與資料保存
+## Remote operations and data retention
 
-需要遠端操作時，依 skill 的連線、binding、匯入及授權流程進行；單純本機整理不需先配置遠端 Agent。憑證依 CLI 文件保存在使用者設定，不寫入專案。
+For remote work, follow the skill's connection, binding, import and authorization
+workflows. Local organization does not require a remote Agent. Store credentials
+in user settings as described by the CLI documentation, outside project files.
 
-根目錄 `.gitignore` 預設排除個人環境檔、各層 `.codeer/`，以及 `projects/*/` 下預設的原始 History、runs 與 releases，與 CLI 初始化的私人輸出規則一致。自訂路徑或團隊共享需求需另行檢查忽略範圍；未被忽略不代表適合共享。
+The root `.gitignore` excludes personal environment files, `.codeer/` at any depth,
+and default raw History, runs and releases under `projects/*/`. These match the
+CLI's private-output defaults. Check coverage for custom paths or team sharing;
+a file being unignored does not make it suitable for sharing.
 
-`.codeer/` 含恢復所需資訊，不能當快取直接刪除，也不能假設 clone 可還原全部操作狀態。需要共同保存證據時，依 skill／CLI 文件選取共享範圍。
+`.codeer/` contains recovery information. Do not delete it as cache or assume a
+clone restores all operation state. Follow the skill and CLI to select evidence
+for controlled sharing.

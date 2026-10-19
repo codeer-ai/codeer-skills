@@ -1,26 +1,61 @@
-# Agent 開發協作規則
+# Agent Development Collaboration Rules
 
-本檔只約定多專案管理方式。先讀根目錄 [README.md](README.md)，再讀目標專案中已存在且與本次工作相關的 README、AGENTS.md 與紀錄。沿用使用者工作語言；文件、設定與 Agent 對客語言依各專案需求。
+This file covers management of multiple Agent projects. Start with the root
+[README.md](README.md) ([Traditional Chinese](README.zh-TW.md)), then read the
+target project's existing README, AGENTS.md and records relevant to the task.
+Use the user's preferred working language. Choose the languages of project
+documents, settings and the deployed Agent's customer-facing responses according
+to each project's requirements.
 
-## 工作範圍與工具
+## Scope and tools
 
-- 管理根目錄負責共用規則及專案索引，不是 Agent 專案；不要在根目錄執行 `codeer init`、建立 `project.toml` 或放入個別專案的設計／設定。
-- 每個 `projects/<slug>/` 對應一個主要 Agent，建議使用穩定、具業務意義的英文小寫連字號名稱。既有專案沿用原目錄，不為排序重新命名。
-- 先確認使用者指定的專案與任務；多個專案時不自行猜選。只有要求建立新 Agent 開發專案時才初始化，建立管理資料夾不代表要建立 Agent。
-- 開發工作使用已安裝的 `codeer-agent` skill 或使用者指定 checkout，先讀其 SKILL.md，再按任務讀相關模組。來源分析、設計、評量、審查及授權流程由 skill 定義；初始化、結構檢查、狀態及平台操作由 CLI 執行，不在管理文件重訂契約。
-- 找不到 skill 或 CLI 不支援所需命令時，說明具體缺口，依所選版本文件處理；不杜撰命令，也不靜默切換工具版本。
-- 各專案的本機內容應能獨立搬走，不直接依賴另一專案的設定或本機狀態。遠端共用資源依 skill／CLI 規則管理，不因建立新專案自動複製。
+- The management root holds shared rules and the project index. It is not an
+  Agent project: do not run `codeer init`, create `project.toml`, or place an
+  individual project's design or settings there.
+- Each `projects/<slug>/` represents one primary Agent. Prefer stable, meaningful
+  lowercase English names separated by hyphens. Keep existing directory names;
+  do not rename projects merely to change their order.
+- Establish the user's target project and task before acting; do not guess among
+  multiple projects. Initialize only when asked to create an Agent development
+  project. Creating a management folder does not imply creating an Agent.
+- Use the installed `codeer-agent` skill or the checkout specified by the user.
+  Read its SKILL.md, then the modules relevant to the task. The skill defines
+  source analysis, design, evaluation, review and authorization workflows. The
+  CLI performs initialization, structural checks, status and platform operations.
+  Keep these contracts in their owning skill and CLI documentation.
+- If the skill is unavailable or the CLI lacks a required command, explain the
+  specific gap and consult the selected version's documentation. Do not invent
+  commands or silently switch tool versions.
+- Each project's local content should remain independently movable, without
+  directly depending on another project's settings or local state. Manage shared
+  remote resources through the skill and CLI; a new project does not automatically
+  copy them.
 
-## 新建與接續
+## Create and resume
 
-1. 先檢查目標目錄與既有修改，讀取相關內容，不覆寫原件或還原使用者工作。
-2. 新建使用 `codeer init projects/<slug>`，目錄已有內容時先核對用途。初始化不需憑證，也不會建立遠端 Agent；後續從該專案目錄操作 CLI。
-3. 接續依 skill 讀取已存在且與本次工作相關的文件，核對 `codeer status`、`codeer validate` 及證據。路徑以 `project.toml` 及既有紀錄為準，不為套用範本搬檔、重建或補出第二份權威文件。
-4. 新增專案時，在管理根目錄 README 的索引補上該專案用途及 README 連結，保留其他條目；進度、業務規則與操作結果留在專案內。
+1. Inspect the destination, existing changes and relevant content before editing.
+   Preserve originals and user-authored work.
+2. Create a project with `codeer init projects/<slug>`. If the directory already
+   contains work, inspect its purpose first. Initialization needs no credentials
+   and creates no remote Agent. Run subsequent CLI commands from that project.
+3. To resume, follow the skill: read existing documents relevant to the task and
+   check `codeer status`, `codeer validate` and the supporting evidence. Use the
+   paths in `project.toml` and existing records. Do not move files, recreate work
+   or introduce a second source of truth merely to match the template.
+4. When adding a project, add its purpose and README link to the root
+   [project index](README.md#project-index), preserving other entries. Keep
+   progress, business rules and operation results inside the project.
 
-## Git 與資料保存
+## Git and data preservation
 
-- Git 初始化、commit、push 與 repo 設定依使用者要求執行，不是建立 Agent 開發專案的隱含步驟。加檔時使用明確路徑。
-- 保留 CLI 初始化生成的忽略規則；使用自訂路徑時檢查保護範圍。提交前仍需檢查客戶原件、對話與設定中的敏感內容，不因未被 ignore 就推定可共享。
-- 憑證依 CLI 文件保存，不寫入專案或聊天。`.codeer/` 不提交 Git，也不是可隨意刪除的快取；清理與證據保存依 skill／CLI 流程進行。
-- 修改後檢查差異並執行最小必要驗證，清楚區分已完成與未驗證。
+- Initialize Git, commit, push and change repository settings only as requested
+  by the user. These are not implicit steps in creating an Agent development
+  project. Add files using explicit paths.
+- Preserve CLI-generated ignore rules and check their coverage for custom paths.
+  Before committing, inspect customer originals, conversations and settings for
+  sensitive content. A file being unignored does not make it suitable for sharing.
+- Store credentials as described by the CLI documentation, outside project files
+  and chats. Keep `.codeer/` out of Git; it contains recovery information and is
+  not disposable cache. Follow the skill and CLI for cleanup and evidence retention.
+- Review the diff and perform the smallest meaningful validation after changes.
+  Distinguish completed work from outcomes that remain unverified.

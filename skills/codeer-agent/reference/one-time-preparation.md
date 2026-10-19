@@ -24,8 +24,8 @@ Binding terminology does not require moving `.codeer/deployments` or the local
 
 ## Prepare an exact reviewed copy
 
-1. Limit the inventory to the approved project directories, currently the known
-   `customer-agents/projects` projects. Stop ordinary CLI, old tools, direct
+1. Limit the inventory to the project directories explicitly approved by the
+   operator. Stop ordinary CLI, old tools, direct
    audit/pin/file editors and other operators. The local lock covers cooperative
    current CLI commands only. Record the installed CLI/skill version and editable
    source path; preserve a Git revision plus locked dependencies sufficient to

@@ -4,17 +4,25 @@ Standalone CLI for managing Codeer agents over the Codeer API.
 
 ## User install
 
-Install the CLI from PyPI with `pipx`:
+This guide requires CLI **0.1.17 or newer** for local Agent projects and skill
+management. Install the CLI from PyPI with `pipx`:
 
 ```bash
-pipx install codeer-cli
+pipx install 'codeer-cli>=0.1.17'
 ```
 
 Verify that the command is available:
 
 ```bash
 codeer --help
+codeer skill --help
+codeer init --help
 ```
+
+If PyPI has no matching release, use the [source installation](#development-install)
+from a revision that includes these commands. If an older CLI is already installed,
+run `pipx upgrade codeer-cli` and repeat these checks. `pipx list` shows the installed
+package version.
 
 If `pipx` is not installed:
 
@@ -26,13 +34,13 @@ python -m pipx ensurepath
 Then restart the terminal and run:
 
 ```bash
-pipx install codeer-cli
+pipx install 'codeer-cli>=0.1.17'
 ```
 
 As a fallback, you can install into your user Python environment:
 
 ```bash
-python -m pip install --user codeer-cli
+python -m pip install --user 'codeer-cli>=0.1.17'
 ```
 
 ## Local skill management
@@ -77,7 +85,11 @@ as a complete package so obsolete files do not remain. `--dry-run` reports
 Updates download and validate the new package first, recheck the old installation,
 then retain a backup while replacing it. Publication failures restore the old
 copy. If restoration also fails, the error gives the retained backup's path for
-manual recovery. `--ref` can select an older revision as well as a newer one.
+manual recovery. `--ref` accepts a GitHub branch, tag or commit and can select an
+older revision as well as a newer one. It selects the skill files only; it does
+not install or upgrade the CLI. Choose a source revision compatible with the
+installed CLI and containing `skills/<skill-name>`. Upgrade the CLI separately
+with `pipx upgrade codeer-cli`.
 
 Modified, unmanaged, or symlinked directories are refused; preserve custom work
 and resolve those installations manually. Uninstall checks hashes and removes
@@ -163,9 +175,10 @@ error. This validation happens before Agent creation. Select KB file nodes,
 using `kb:<local-id>/<filename>` references, rather than the KB folder itself.
 Other HTTP 400 messages remain uncertain and are not cleared by this path.
 
-The following project commands are implemented in this checkout. This change
-does not publish a new PyPI release; use the development install until a release
-includes them. Initialization, status and structural validation work offline:
+The following commands require CLI 0.1.17 or newer. Install from PyPI and verify
+the commands as described in [User install](#user-install); a compatible source
+checkout is an alternative. Initialization, status and structural validation
+work offline:
 
 ```bash
 codeer init ./support-agent

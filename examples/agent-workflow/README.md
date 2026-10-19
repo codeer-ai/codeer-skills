@@ -21,7 +21,7 @@ uv run python tests/workflow_demo.py --out-dir /tmp/codeer-workflow-demo
 ```
 
 This uses the real CLI parser and `httpx.MockTransport`, without credentials,
-network requests or real customer resources. It retains ten inspectable projects:
+network requests or real customer resources. It retains 17 inspectable projects:
 
 - `new-agent/`: offline design, preview/create Draft, one shared tool Tester and
   two Case/Rubric pairs, synthetic acceptance/audit, failed run, reviewed repair,
@@ -64,6 +64,20 @@ network requests or real customer resources. It retains ten inspectable projects
   results. The saved run is deliberately relabeled with the legacy unjudgeable
   state; `eval inspect-run` gives a separate derived interpretation without
   rewriting it. Swapped legitimate results and omitted rows are counterexamples.
+- `agent-bindings/`: named remote Agent bindings, including multiple Agents in
+  one workspace, with offline listing of their recorded identities.
+- `tester-separation/`: a separate candidate Tester preserves the shared source;
+  affected Case/Rubric assignments remain explicit.
+- `kb-separation/`: separate KB files preserve the shared source; Agent references
+  and FAQ content require subsequent review before use.
+- `safe-cleanup/`: reclaim completed, unreferenced machine records while retaining
+  current state, unknown operations and evidence protected by paths or hashes.
+- `record-reduction/`: a large operation receipt retains the inputs needed for
+  recovery with less duplicated diagnostic data.
+- `small-record-reduction/`: the same receipt contract and recovery reader work
+  for a small operation with optional preview fields.
+- `one-time-preparation/`: conforming current projects need no changes; reviewed
+  corrections preserve identities and fixed evidence and are idempotent.
 
 Start a fresh chat with the installed skill and one project directory. Ask it to
 identify the target, accepted versus proposed decisions, applied versus verified

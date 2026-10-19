@@ -12,10 +12,11 @@ Codex/Claude skills for building, evaluating, and managing [Codeer](https://code
 
 ## Installation
 
-The local Agent project workflow described below is implemented in this source
-checkout and has not been released by this change. Use the development install
-for these commands; installing the current PyPI package does not establish that
-it contains them.
+The commands below require Codeer CLI **0.1.17 or newer** and the companion
+`codeer-agent` skill. Install the CLI from PyPI, then install the skill separately.
+If PyPI has no matching release, use the [source installation](#cli-development)
+from a revision containing these commands. An older CLI does not gain new commands
+when you update only the skill.
 
 For customer-facing setup docs, see
 [docs/customer-install/](docs/customer-install/).
@@ -23,7 +24,9 @@ For customer-facing setup docs, see
 Install and authenticate the CLI separately from the skill:
 
 ```bash
-pipx install codeer-cli
+pipx install 'codeer-cli>=0.1.17'
+codeer skill --help
+codeer init --help
 codeer profile add work
 codeer profile use work
 codeer check
@@ -62,7 +65,11 @@ codeer skill install codeer-presentations --target codex
 
 Install downloads only the selected skill from this public repository, defaults
 to `--ref main`, and records the resolved commit and file hashes. Use
-`--ref <tag-or-commit>` for a reproducible revision. `--dry-run` downloads and
+`--ref <tag-or-commit>` for a reproducible skill revision; a branch is also accepted.
+This selects only the skill files, not the CLI package version. Choose a published
+revision that contains `skills/codeer-agent` and supports your installed CLI.
+Upgrade the CLI separately with `pipx upgrade codeer-cli`.
+`--dry-run` downloads and
 validates the source without changing installation files. Identical contents
 are a no-op. If the source has changed, install updates an unchanged CLI-managed
 copy, including removing obsolete files. Modified, manually installed, or
@@ -128,8 +135,10 @@ Make sure:
 - Workspace and organization scope resolve from the workspace API-key virtual
   user's profile. The CLI does not use `CODEER_WORKSPACE_ID`,
   `CODEER_ORGANIZATION_ID`, `--workspace`, or `--org`.
-- Bind the main Agent in `project.toml`; outside a project, `CODEER_AGENT_ID`
-  remains an optional non-secret default.
+- In a local project, map a remote Agent with `codeer agent bind <name> --agent <id>`
+  and select it with `codeer agent use <name>`. Bindings stay under `.codeer/`,
+  outside portable `project.toml`. Outside a project, `CODEER_AGENT_ID` remains
+  an optional non-secret default.
 
 ## Local Agent development
 
@@ -141,14 +150,11 @@ results and initial diagnosis; export-only requests remain bounded. Missing
 policy, curation, retrieval, response and grading/execution problems need
 different fixes.
 
-Projects share navigation and editing responsibilities; KB structure and extra
-analysis may differ. Material batches use one main report under
-`reviews/batches/<batch-id>/`; unchanged checks do not produce more reports.
-Existing projects need no reinitialization or bulk migration. Configured paths,
-legacy reviews/logs and historical evidence remain readable and untouched.
-Baseline evidence links include the raw-file SHA-256. Runs outside `passed`,
-`failed` or `stale` may still be updated by export: save one original JSON byte
-snapshot before diagnosis or repair, and reuse verified pins. See the
+Projects keep sources, design decisions, reviews and test evidence so work can
+resume in another conversation. A batch of related changes has one main report
+under `reviews/batches/<batch-id>/`; unchanged checks do not create more reports.
+Existing projects retain their configured paths, logs and historical evidence.
+For exact evidence formats and preservation during diagnosis, see the
 [batch evidence rules](skills/codeer-agent/reference/project.md#batch-reviews-and-project-entry).
 
 ```bash
@@ -156,7 +162,7 @@ codeer status --human                  # Optional readable offline guidance
 codeer eval inspect-run --run-id <id>  # Read-only saved-evidence interpretation
 ```
 
-Default status JSON is unchanged. Inspection does not rewrite, accept or rerun
+Default status output remains JSON. Inspection does not rewrite, accept or rerun
 old results. See [batch evidence](skills/codeer-agent/reference/project.md#batch-reviews-and-project-entry).
 
 Tell the coding agent your goals and provide source files or links. It reads
@@ -266,9 +272,12 @@ See [CLI usage](codeer-cli/README.md#local-agent-projects) and
 [reproducible synthetic journeys](examples/agent-workflow/README.md).
 To create your own Agent development management folder, copy the
 [Agent management template](examples/agent-management-template/README.md).
-It provides shared coding-agent rules, a usage guide, an empty project index and
-Git ignore defaults. Keep `AGENTS.md` and `README.md` as the standard entry points;
-choose your own folder name and customize the documents for your team.
+It provides English collaboration rules and a usage guide, a
+[Traditional Chinese guide](examples/agent-management-template/README.zh-TW.md),
+one shared project index in `README.md`, and Git ignore defaults. Keep `AGENTS.md`
+and `README.md` as the standard entry points; choose your own folder name and
+customize the documents for your team. Collaboration follows the user's preferred
+language.
 
 From this checkout's root, for example:
 

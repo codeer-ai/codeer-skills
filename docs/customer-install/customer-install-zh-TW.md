@@ -6,6 +6,9 @@
 Agent 生命週期：從資料整理、Agent 規劃、Behavior Cases、Production
 History 分析，到下一輪迭代。
 
+本指南的本機專案與 Skill 安裝命令需要 **Codeer CLI 0.1.17 或更新版本**，
+以及相配的 `codeer-agent` skill。CLI 與 Skill 分開安裝及更新。
+
 ## 先分清楚：CLI 和 Skill 各自負責什麼？
 
 ### Codeer CLI
@@ -83,14 +86,21 @@ Codeer Agent Skill 會透過本機 `codeer` CLI 操作 Codeer API。建議使用
 安裝 CLI：
 
 ```bash
-pipx install codeer-cli
+pipx install 'codeer-cli>=0.1.17'
 ```
 
 確認指令可用：
 
 ```bash
 codeer --help
+codeer skill --help
+codeer init --help
 ```
+
+如果 PyPI 尚未提供符合版本的套件，可從包含這些命令的版本採用
+[原始碼安裝](../../codeer-cli/README.md#development-install)。已安裝舊版時，
+先執行 `pipx upgrade codeer-cli` 再核對命令；`pipx list` 可查看套件版本。
+只更新 Skill 不會讓舊 CLI 增加新命令。
 
 如果沒有 `pipx`：
 
@@ -102,7 +112,7 @@ python -m pipx ensurepath
 重開 terminal 後，再執行：
 
 ```bash
-pipx install codeer-cli
+pipx install 'codeer-cli>=0.1.17'
 ```
 
 維護更新：
@@ -178,8 +188,10 @@ Claude Code 使用 `~/.claude/skills/codeer-agent`。加上 `--scope project`
 會改成目前目錄下的 `.agents/skills/` 或 `.claude/skills/`。
 
 使用 `codeer skill list` 查看安裝狀態。`--dry-run` 會下載並驗證來源、顯示
-安裝目的地，但不寫入安裝檔案；`--ref <tag-or-commit>` 可固定來源版本，
-省略時使用 `main`。來源版本必須包含 `skills/codeer-agent` 資料夾。
+安裝目的地，但不寫入安裝檔案；`--ref <tag-or-commit>` 可固定 Skill 來源版本，
+也接受分支名稱，省略時使用 `main`。來源版本必須包含 `skills/codeer-agent`
+資料夾，並支援已安裝的 CLI。`--ref` 只選擇 Skill 檔案，不會安裝或升級 CLI；
+CLI 另外透過 `pipx upgrade codeer-cli` 更新。
 
 如果安裝後沒有看到 Skill，請重新啟動 Codex；Claude Code 可執行
 `/reload-skills`。
@@ -244,15 +256,15 @@ history, and show me proposed changes before applying them.
 可以查訂單，但退款由人工決定。」coding agent 會先讀資料、說明理解並提出建議，
 只詢問意圖不明、來源衝突或新的重要取捨，不要求你重複確認已清楚說過的需求。
 它會邊探索邊保存設計與待決事項，方便換對話後接續。你不必學習內部模式名稱、
-填寫 Agent 設計 模板，或為了記錄明確指示再核准一次文件。
+填寫 Agent 設計模板，或為了記錄明確指示再核准一次文件。
 
 整體流程是：理解需求 → 設計行為與測試 → 預覽並套用已授權的 Draft 修改 →
 讀回與審查 → 測試指定版本 → 視結果診斷修正 → 明確授權後發布。
 以下命令可由 coding agent 代為操作；設計決策本身不等於遠端寫入授權。
 
-以下命令已在開發原始碼實作；本次變更尚未發布新的 PyPI 套件。
-先檢查 `codeer init --help`，尚未提供時請使用
-[開發版安裝](../../codeer-cli/README.md#development-install)。
+以下命令使用 Step 2 安裝的 CLI 0.1.17 或更新版本。開始前先檢查
+`codeer init --help`；若找不到命令，先回到
+[CLI 安裝步驟](#step-2安裝-codeer-cli)處理版本。
 
 ```bash
 codeer init ./support-agent
@@ -278,11 +290,8 @@ coding agent 將已確定的設計決策放在 `design/agent-design.md`，待確
 Prompt 的唯一編輯來源是 `agent/instructions.md`，其他設定放在
 `agent/settings.json`；穩定 Tester／Case／Rubric 配對放在 `evals/design.json`。
 
-上述為新專案預設。既有專案沿用 `[paths].design` 或舊 `[paths].contract` 指定的檔案；
-未指定時，若只有舊 `design/behavior-contract.md` 或其草稿，便沿用舊位置。
-新舊兩組檔案並存時，以 `[paths].design` 明確選定來源。待確認提案放在選定檔案旁的
-`<stem>.draft.md`，不另建第二份設計。更新 CLI 不會搬移既有檔案；純名稱調整不會
-使證據過期，設計內容或其他依賴改變時仍需重新驗證。
+既有專案沿用設定的路徑與紀錄，更新 CLI 不會搬檔或建立第二份設計。
+需要選擇新舊設計路徑時，請見[專案存放與既有路徑](#專案存放與既有路徑)。
 
 直接用日常語言提出需求，coding agent 會選擇 **build、cases、audit、apply、eval、improve、publish、observe**
 八種 Skill 模式，也可以明確指定模式。例如「只診斷這題轉人工失敗」、「套用先前確認的修改並測試，
@@ -299,33 +308,8 @@ token 只辨識內容，不代表授權。本機／網頁衝突與結果不明�
 [專案契約](../../skills/codeer-agent/reference/project.md)。原始 History／AI Draft
 匯出留在 `sources/history/<collection-id>/` 私有目錄；候選測試保留來源，經審查才套用。
 
-### 可攜專案、Clone 與平台修改接回
-
-Agent 專案放在自己的管理 repo，例如 `projects/<stable-name>/`；root README 可提供索引，共同 AGENTS 保存維護規則。Repo root 的 ignore 也加 `.codeer/`，保護繼承的 profile 選取；project init 保留父目錄檔案。現行 `project.toml` 只有 schema 2，不保存目標或個人 profile；state／resources 等物件的 schema 1 是各自契約，不是舊專案。符合現行格式即可零變更使用；不支援的專案在認證前拒絕，必要時依[一次性整理手冊](../../skills/codeer-agent/reference/one-time-preparation.md)在副本備份、hash 核對與人工審核後處理。沒有日常 migrate 命令；歷史證據與內嵌設定保持原 bytes，不升級成新版 pass。
-
-Clone 後沒有 `.codeer/` 是正常狀態。先沿用已明確設定的環境變數、最近父目錄／專案 profile 或全域預設，以 `profile current`、`check` 核對。只有缺設定才明確執行 `profile add <name>`，其他平台加 `--api-base`；未選取則用 `profile use`。缺失／遭拒的 key 應修正實際設定來源；切換 profile 不會消除環境覆蓋。互動式 add 才安全保存輸入至受限權限的使用者設定，不自動蒐集／保存 key。網路中斷、逾時或 5xx 表示尚無法驗證連線；權限不足與原因未明的 401／403 都不等於 key 過期。
-
-Binding 是本專案對一個遠端 Agent 的命名映射，不是環境名稱。`agent bind beta-customer-a-main --agent <id>` 接手既有 Agent；`agent bind beta-customer-a-candidate --new-agent` 先建立本地映射，之後 apply 才建立遠端 Agent。同 workspace 可有 main／candidate，多 workspace 可另取 `beta-customer-b-main`。名稱限專案內唯一、1–64 個英數／底線／連字號且以英數起頭。以 `agent use <name>` 或全域 `--binding <name>` 選取；`agent bindings` 離線顯示 API、workspace／Agent 名稱與 ID、選取及未知操作。實體仍用 `.codeer/deployments/<name>/`，名稱不是平台身分。
-
-全域 `--profile <name>` 只影響這次命令，涵蓋 check、bind、預覽及 status refresh，不改預設或保存 key。明確 profile 若遇到任何 CODEER_API_KEY 覆蓋，或不同的非空 CODEER_API_BASE，會在認證前拒絕；尾端斜線視為等價。未用旗標仍沿用環境／目錄／全域優先序。Binding 不保存 profile 清單；同 API／workspace 的合法 key 可使用，但換連線需重看預覽。共同遠端寫入仍需操作者協調，本機鎖不提供遠端交易保證。
-
-在 `resources.json` 宣告必要原件與 KB 來源。Agent／Case 附件使用 `attachment:<local-id>`，知識工具使用 `kb:<local-id>[/path]`，環境值／憑證使用明確的 `env:<VARIABLE>`，只在 HTTP 邊界解析，不提交憑證。以 `agent attachment` 上傳原件，KB 則依宣告的 local ID／目錄／glob 上傳；都先預覽，再用已核對的 `--expect`。必要 PDF／附件可受控進 Git／儲存；新專案不加廣泛 PDF ignore，原始客服對話、一般 run／release 留本機。
-
-共用 Tester／KB 本身是合理選擇。只改 candidate 的 Rubric 不會改共用 Tester；共同更新 Tester 時，預覽會列出可讀到的 Agent／Case 影響，影響改變需重新確認。若只改 candidate 的 Tester，使用 `eval tester-fork --tester <local-id>` 預覽／expect：新建 Tester、只接回該 Agent 已映射的 Cases，讀回後換映射。KB 則用 `kb upload --fork` 建立新 KB／file IDs；仍需核對／重建 FAQ，再預覽並套用 Agent 的新引用，才算完成分離。保留舊資源；中斷用已知 ID reconcile，未知新增結果不盲目重送。
-
-`imports/` 保存遠端觀察，未變 pull 重用快照並更新觀察時間；`receipts/` 保存請求、ID、讀回與恢復資訊，不只是 logs。新版省略可衍生的比較副本；固定證據引用的 receipt 在恢復時另建衍生紀錄，保留原路徑／SHA-256。不要直接刪 `.codeer/` 或 state 來處理未知結果。
-
-清理先用 `codeer --binding <name> clean --dry-run` 查看檔案、bytes 與保留理由，再同條件 `--expect <token>`；可加 `--older-than 30d`。只清所選 binding 已完成、未被引用的機器歷史，JSON／Markdown／裸路徑／hash、所有 binding 的 state 與人工 `clean --keep <path> --reason <reason>` 都會保護內容。原件、run／release、固定歷史不列候選。CLI 取本機鎖後重驗；直接寫檔的 skill audit／pin、舊 CLI 或 standalone 工具仍需在清理／整理期間停止。本機鎖不保證遠端交易或其他操作者安全。
-
-可攜匯入透過 resource export API 保存 KB 原件、未改寫文字及完整 FAQ。`kb import --local-id <id> --kb-id <id>` 先預覽再用 expect，分別保存原件、FAQ 定義與來源／完整性證據。目標 KB 上傳或綁定後，`kb faq-sync --remote` 可採納平台 FAQ 至本機；`--keep-local` 保存待套用提案，再另外預覽並確認 `--apply` 才重建。既有 FAQ 必須明確映射 ID，重建文字範圍前須核對目標文字一致；未知新增身分會阻擋重試。調查後明確提供 ID，可恢復原紀錄的操作，即使較新的本機提案已移除該 FAQ。恢復不會採納其他平台變動，須重新比較並決定。部分 KB 匯入會保留可取得檔案並逐項記錄缺口；宣告的 FAQ／manifest 必須齊備，才能通過驗證與交付。網站爬取設定先排除並記錄缺口。API 或原件缺失仍保留缺口，不用文字或來源 URL 代替已核對原件。詳見 [KB／FAQ 流程](../../skills/codeer-agent/reference/project.md#portable-kb-text-originals-and-faq)。
-
-平台有人修改時先 pull 觀察，再以 `agent adopt --resource agent --fields description --remote --dry-run` 預覽，重複相同命令加 `--expect <token>` 才採納。`--keep-local` 保留本地提案為待套用；Case／Tester／配對明確指定 ID，不依名稱配對。`kb bind` 可核對來源檔與 node ID，並採納文字快照。已對齊、待套用與尚未決定分開保存；採納不寫平台，未決欄位阻擋整份資源更新。任一側改變即須重做預覽；結果不明先恢復，不推送另一環境。
-
-接手既有附件使用 `agent attachment --local-id <id> --remote-id <uuid>`，先預覽，再用 expect 核對下載 bytes 與本地原件，不重新上傳。已部署／接手的目標若要建立新附件或 KB，須明確加 `--new`；缺少映射不能當成重建理由。
-
-Release 採唯一平面 JSON 檔，保留 pending／unknown／讀回狀態，也能讀舊目錄。正式交付使用 `eval delivery --run-id <id> --release-id <id> --out-dir <新目錄>`，再以 `eval delivery --verify <目錄>` 讀回檢查。保存確切 result IDs、目標／內容指紋及必要 audit／結果／trace／發布證據；缺檔仍為不完整，摘要不能取代證據。不匯出 `.codeer/` 或其他試跑；原始證據需受控分享。此檢查證明離線完整性與身分核對，不是即時平台驗證。
-
-沒有原專案時，匯入的是現況：可下載的附件會核對 bytes，URL 過期／原件不可取仍列缺口；KB export 是 Markdown，不是原始 PDF。設計理由、需求確認與前任本機歷史不能反推。子 Agent 引用保留供唯讀診斷，阻擋專案部署；不遞迴建立或刪除引用。這類匯入不代表完整備份、接受業務規則或品質通過；既有 KB 內容也沒有原地替換 API。
+Clone、binding 切換、KB 可攜、操作恢復與交付，請依需求查閱
+[進階專案操作](#進階專案操作)。
 
 ## Codeer Agent Skill 會怎麼和你協作？
 
@@ -342,15 +326,12 @@ Release 採唯一平面 JSON 檔，保留 pending／unknown／讀回狀態，也
 Instructions 規則。你也可以要求只匯出或只診斷單一問題。
 
 既有專案不用重新初始化或搬檔。`codeer status --human` 提供離線引導；
-`codeer eval inspect-run --run-id <id>` 分開呈現現行契約 2 的紀錄與證據新判讀，不改 run、
+`codeer eval inspect-run --run-id <id>` 可讀取保存的測試證據，不修改原紀錄、
 不重跑模型，也不等於驗收。主要入口一致，KB／延伸分析可不同；有實質成果的
 批次集中一份主要 review，普通查詢不另寫報告。
 
-首輪比較會保留診斷當時的證據。現行契約 2 的 `passed`／`failed`／`stale` run 用連結與原檔
-SHA-256 固定；其他狀態仍可能被匯出更新，會在診斷或修正前保存一次原始
-`run.json` bytes 與雜湊，不覆寫封存，也不整包複製目錄。未變的封存驗證後
-直接沿用；資料不完整仍是不完整，不因此成為驗收通過。
-舊契約 run 一律唯讀原資訊／hash，不做新版判讀、refresh 或發布 clearance。
+診斷或修正會保留原始測試證據，方便之後比較。需要封存格式與完整性細節時，
+請見[測試證據與受控交付](#測試證據與受控交付)。
 
 Skill 的角色是把 Agent 改善流程拆成可以討論、可以確認的步驟。它不只是
 幫你下指令，也會協助判斷下一步該改什麼。
@@ -442,3 +423,104 @@ codeer agent list
 ```text
 請根據目前問題、測試結果與歷史紀錄，提出下一版修改計畫；先讓我看證據與會改哪些內容，再決定是否套用或發布。
 ```
+
+## 進階專案操作
+
+需要 Clone 專案、切換遠端 binding、分離共用資源、恢復操作或分享正式證據時，
+再查閱對應章節；coding agent 可以依本次目標協助選擇與操作。
+
+### 專案存放與既有路徑
+
+Agent 專案放在自己的管理 repo，例如 `projects/<stable-name>/`；root README 可提供索引，共同 AGENTS 保存維護規則。Repo root 的 ignore 也加 `.codeer/`，保護繼承的 profile 選取；project init 保留父目錄檔案。
+
+現行 `project.toml` 只有 schema 2，不保存目標或個人 profile；state／resources 等物件的 schema 1 是各自契約，不是舊專案。符合現行格式即可零變更使用；不支援的專案在認證前拒絕，必要時依[一次性整理手冊](../../skills/codeer-agent/reference/one-time-preparation.md)在副本備份、hash 核對與人工審核後處理。
+
+沒有日常 migrate 命令；歷史證據與內嵌設定保持原 bytes，不升級成新版 pass。
+
+上述為新專案預設。既有專案沿用 `[paths].design` 或舊 `[paths].contract` 指定的檔案；未指定時，若只有舊 `design/behavior-contract.md` 或其草稿，便沿用舊位置。
+
+新舊兩組檔案並存時，以 `[paths].design` 明確選定來源。待確認提案放在選定檔案旁的`<stem>.draft.md`，不另建第二份設計。
+
+更新 CLI 不會搬移既有檔案；純名稱調整不會使證據過期，設計內容或其他依賴改變時仍需重新驗證。
+
+### Clone 與連線選擇
+
+Clone 後沒有 `.codeer/` 是正常狀態。先沿用已明確設定的環境變數、最近父目錄／專案 profile 或全域預設，以 `profile current`、`check` 核對。
+
+只有缺設定才明確執行 `profile add <name>`，其他平台加 `--api-base`；未選取則用 `profile use`。缺失／遭拒的 key 應修正實際設定來源；切換 profile 不會消除環境覆蓋。
+
+互動式 add 才安全保存輸入至受限權限的使用者設定，不自動蒐集／保存 key。網路中斷、逾時或 5xx 表示尚無法驗證連線；權限不足與原因未明的 401／403 都不等於 key 過期。
+
+Binding 是本專案對一個遠端 Agent 的命名映射，不是環境名稱。`agent bind beta-customer-a-main --agent <id>` 接手既有 Agent；`agent bind beta-customer-a-candidate --new-agent` 先建立本地映射，之後 apply 才建立遠端 Agent。
+
+同 workspace 可有 main／candidate，多 workspace 可另取 `beta-customer-b-main`。名稱限專案內唯一、1–64 個英數／底線／連字號且以英數起頭。
+
+以 `agent use <name>` 或全域 `--binding <name>` 選取；`agent bindings` 離線顯示 API、workspace／Agent 名稱與 ID、選取及未知操作。實體仍用 `.codeer/deployments/<name>/`，名稱不是平台身分。
+
+全域 `--profile <name>` 只影響這次命令，涵蓋 check、bind、預覽及 status refresh，不改預設或保存 key。明確 profile 若遇到任何 CODEER_API_KEY 覆蓋，或不同的非空 CODEER_API_BASE，會在認證前拒絕；尾端斜線視為等價。
+
+未用旗標仍沿用環境／目錄／全域優先序。Binding 不保存 profile 清單；同 API／workspace 的合法 key 可使用，但換連線需重看預覽。
+
+共同遠端寫入仍需操作者協調，本機鎖不提供遠端交易保證。
+
+### 共用 Tester 與 KB
+
+共用 Tester／KB 本身是合理選擇。只改 candidate 的 Rubric 不會改共用 Tester；共同更新 Tester 時，預覽會列出可讀到的 Agent／Case 影響，影響改變需重新確認。
+
+若只改 candidate 的 Tester，使用 `eval tester-fork --tester <local-id>` 預覽／expect：新建 Tester、只接回該 Agent 已映射的 Cases，讀回後換映射。KB 則用 `kb upload --fork` 建立新 KB／file IDs；仍需核對／重建 FAQ，再預覽並套用 Agent 的新引用，才算完成分離。
+
+保留舊資源；中斷用已知 ID reconcile，未知新增結果不盲目重送。
+
+### 原件與可攜 FAQ
+
+在 `resources.json` 宣告必要原件與 KB 來源。Agent／Case 附件使用 `attachment:<local-id>`，知識工具使用 `kb:<local-id>[/path]`，環境值／憑證使用明確的 `env:<VARIABLE>`，只在 HTTP 邊界解析，不提交憑證。
+
+以 `agent attachment` 上傳原件，KB 則依宣告的 local ID／目錄／glob 上傳；都先預覽，再用已核對的 `--expect`。必要 PDF／附件可受控進 Git／儲存；新專案不加廣泛 PDF ignore，原始客服對話、一般 run／release 留本機。
+
+可攜匯入透過 resource export API 保存 KB 原件、未改寫文字及完整 FAQ。`kb import --local-id <id> --kb-id <id>` 先預覽再用 expect，分別保存原件、FAQ 定義與來源／完整性證據。
+
+目標 KB 上傳或綁定後，`kb faq-sync --remote` 可採納平台 FAQ 至本機；`--keep-local` 保存待套用提案，再另外預覽並確認 `--apply` 才重建。既有 FAQ 必須明確映射 ID，重建文字範圍前須核對目標文字一致；未知新增身分會阻擋重試。
+
+調查後明確提供 ID，可恢復原紀錄的操作，即使較新的本機提案已移除該 FAQ。恢復不會採納其他平台變動，須重新比較並決定。
+
+部分 KB 匯入會保留可取得檔案並逐項記錄缺口；宣告的 FAQ／manifest 必須齊備，才能通過驗證與交付。網站爬取設定先排除並記錄缺口。
+
+API 或原件缺失仍保留缺口，不用文字或來源 URL 代替已核對原件。詳見 [KB／FAQ 流程](../../skills/codeer-agent/reference/project.md#portable-kb-text-originals-and-faq)。
+
+### 接回平台修改
+
+平台有人修改時先 pull 觀察，再以 `agent adopt --resource agent --fields description --remote --dry-run` 預覽，重複相同命令加 `--expect <token>` 才採納。`--keep-local` 保留本地提案為待套用；Case／Tester／配對明確指定 ID，不依名稱配對。
+
+`kb bind` 可核對來源檔與 node ID，並採納文字快照。已對齊、待套用與尚未決定分開保存；採納不寫平台，未決欄位阻擋整份資源更新。
+
+任一側改變即須重做預覽；結果不明先恢復，不推送另一環境。
+
+接手既有附件使用 `agent attachment --local-id <id> --remote-id <uuid>`，先預覽，再用 expect 核對下載 bytes 與本地原件，不重新上傳。已部署／接手的目標若要建立新附件或 KB，須明確加 `--new`；缺少映射不能當成重建理由。
+
+沒有原專案時，匯入的是現況：可下載的附件會核對 bytes，URL 過期／原件不可取仍列缺口；KB export 是 Markdown，不是原始 PDF。設計理由、需求確認與前任本機歷史不能反推。
+
+子 Agent 引用保留供唯讀診斷，阻擋專案部署；不遞迴建立或刪除引用。這類匯入不代表完整備份、接受業務規則或品質通過；既有 KB 內容也沒有原地替換 API。
+
+### 操作紀錄與清理
+
+`imports/` 保存遠端觀察，未變 pull 重用快照並更新觀察時間；`receipts/` 保存請求、ID、讀回與恢復資訊，不只是 logs。新版省略可衍生的比較副本；固定證據引用的 receipt 在恢復時另建衍生紀錄，保留原路徑／SHA-256。
+
+不要直接刪 `.codeer/` 或 state 來處理未知結果。
+
+清理先用 `codeer --binding <name> clean --dry-run` 查看檔案、bytes 與保留理由，再同條件 `--expect <token>`；可加 `--older-than 30d`。只清所選 binding 已完成、未被引用的機器歷史，JSON／Markdown／裸路徑／hash、所有 binding 的 state 與人工 `clean --keep <path> --reason <reason>` 都會保護內容。
+
+原件、run／release、固定歷史不列候選。CLI 取本機鎖後重驗；直接寫檔的 skill audit／pin、舊 CLI 或 standalone 工具仍需在清理／整理期間停止。
+
+本機鎖不保證遠端交易或其他操作者安全。
+
+### 測試證據與受控交付
+
+首輪比較會保留診斷當時的證據。現行契約 2 的 `passed`／`failed`／`stale` run 用連結與原檔SHA-256 固定；其他狀態仍可能被匯出更新，會在診斷或修正前保存一次原始`run.json` bytes 與雜湊，不覆寫封存，也不整包複製目錄。
+
+未變的封存驗證後直接沿用；資料不完整仍是不完整，不因此成為驗收通過。舊契約 run 一律唯讀原資訊／hash，不做新版判讀、refresh 或發布 clearance。
+
+Release 採唯一平面 JSON 檔，保留 pending／unknown／讀回狀態，也能讀舊目錄。正式交付使用 `eval delivery --run-id <id> --release-id <id> --out-dir <新目錄>`，再以 `eval delivery --verify <目錄>` 讀回檢查。
+
+保存確切 result IDs、目標／內容指紋及必要 audit／結果／trace／發布證據；缺檔仍為不完整，摘要不能取代證據。不匯出 `.codeer/` 或其他試跑；原始證據需受控分享。
+
+此檢查證明離線完整性與身分核對，不是即時平台驗證。

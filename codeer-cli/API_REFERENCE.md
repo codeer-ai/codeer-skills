@@ -492,8 +492,8 @@ instead of a report"):
    ```json
    {"data": {
      "original_name": "cat.jpg", "content_type": "image/jpeg", "size": 43853,
-     "file_url": "https://codeer-media.s3.amazonaws.com/.../cat.jpg?...",
-     "uuid": "ab155432-5119-4070-bc12-65794ecef970",
+     "file_url": "https://files.example.com/attachments/cat.jpg?...",
+     "uuid": "00000000-0000-4000-8000-000000000001",
      "scope": "persistent"
    }}
    ```

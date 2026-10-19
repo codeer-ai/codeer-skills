@@ -1,8 +1,9 @@
 # Codeer Agent Onboarding
 
 The Codeer Agent Skill works through the installed `codeer` CLI. Install the
-CLI, store the Codeer API key in a local CLI profile, then install this skill in
-Codex or Claude Code.
+CLI on the computer where the coding agent runs, then install this skill for
+Codex or Claude Code. Configure a CLI profile when Codeer API access is needed;
+local project and skill management do not need an API key.
 
 Keep API keys outside the repo and outside agent chat. Do not paste API keys
 into Codex, Claude Code, `.claude/settings.json`, project `.env` files, or Git
@@ -23,20 +24,17 @@ the design and pending decisions for you; you do not need to learn mode names,
 fill an Agent design template or reapprove a clear instruction to save it.
 Commands below can be run by the coding agent as part of that work.
 
-Project commands below are available in the development source checkout. This
-change does not release them to PyPI; verify `codeer init --help` on the installed
-CLI and use the repository's development install if unavailable.
-
-You can first run `codeer init <customer-directory>`, `codeer status` and
-`codeer validate` without credentials. Put original SOP/PDF files in
-`sources/documents/` and list paths or external URLs in `sources/index.md`.
-Read [project mechanics](reference/project.md) for the file contract and existing
-Agent adoption. Select a profile only when server reads/writes are needed.
+Local project commands and skill management require CLI **0.1.17 or newer**.
+Install from PyPI by default. If PyPI has no matching release, use a source
+checkout at a revision containing these commands. Updating this skill alone
+does not add commands to an older CLI.
 
 Install the CLI from PyPI with `pipx`:
 
 ```bash
-pipx install codeer-cli
+pipx install 'codeer-cli>=0.1.17'
+codeer skill --help
+codeer init --help
 ```
 
 If `pipx` is not installed:
@@ -46,7 +44,23 @@ python -m pip install --user pipx
 python -m pipx ensurepath
 ```
 
-Then restart the terminal and run `pipx install codeer-cli` again.
+Then restart the terminal and run `pipx install 'codeer-cli>=0.1.17'` again.
+For an existing installation, use `pipx upgrade codeer-cli` and repeat the help
+checks. `pipx list` shows the installed package version.
+
+Start a local project without credentials, then work from its directory:
+
+```bash
+codeer init ./support-agent
+cd support-agent
+codeer status
+codeer validate
+```
+
+Put original SOP/PDF files in `sources/documents/` and list paths or external URLs
+in `sources/index.md`. Read [project mechanics](reference/project.md) for the file
+contract and existing Agent adoption. Select a profile only when server reads or
+writes are needed.
 
 Reuse an already configured environment, nearest parent/project profile or
 global default; clone missing `.codeer/` does not imply missing credentials.
@@ -152,9 +166,11 @@ is visible to agents or committed.
 Both CLI targets default to `--scope user`. Add `--scope project` to install
 under the current directory's `.agents/skills/` or `.claude/skills/`. Use
 `codeer skill list` to inspect status. Install defaults to `--ref main`; select
-`--ref <tag-or-commit>` when a fixed revision is needed. The revision must use
-the repository's `skills/codeer-agent` layout. `--dry-run` validates the remote
-source without changing installation files.
+`--ref <tag-or-commit>` when a fixed skill revision is needed; a branch is also
+accepted. The revision must use the repository's `skills/codeer-agent` layout
+and support the installed CLI. `--ref` selects only skill files, not the CLI
+version; upgrade the CLI separately with `pipx upgrade codeer-cli`.
+`--dry-run` validates the remote source without changing installation files.
 
 Install again to update an unchanged CLI-managed copy; no uninstall is needed.
 Preview with `codeer skill install codeer-agent --target codex --dry-run`, then
