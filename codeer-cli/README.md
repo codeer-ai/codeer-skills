@@ -4,17 +4,25 @@ Standalone CLI for managing Codeer agents over the Codeer API.
 
 ## User install
 
-Install the CLI from PyPI with `pipx`:
+This guide requires CLI **0.1.17 or newer** for local Agent projects and skill
+management. Install the CLI from PyPI with `pipx`:
 
 ```bash
-pipx install codeer-cli
+pipx install 'codeer-cli>=0.1.17'
 ```
 
 Verify that the command is available:
 
 ```bash
 codeer --help
+codeer skill --help
+codeer init --help
 ```
+
+If PyPI has no matching release, use the [source installation](#development-install)
+from a revision that includes these commands. If an older CLI is already installed,
+run `pipx upgrade codeer-cli` and repeat these checks. `pipx list` shows the installed
+package version.
 
 If `pipx` is not installed:
 
@@ -26,14 +34,333 @@ python -m pipx ensurepath
 Then restart the terminal and run:
 
 ```bash
-pipx install codeer-cli
+pipx install 'codeer-cli>=0.1.17'
 ```
 
 As a fallback, you can install into your user Python environment:
 
 ```bash
-python -m pip install --user codeer-cli
+python -m pip install --user 'codeer-cli>=0.1.17'
 ```
+
+## Local skill management
+
+CLI 0.1.17 adds local installation management for the three skills in this
+repository. No Codeer API key or profile is needed for these commands:
+
+```bash
+codeer skill list
+codeer skill list --target codex --scope project
+codeer skill install codeer-agent --target codex --dry-run
+codeer skill install codeer-agent --target codex
+codeer skill install codeer-agent --target claude --scope project
+codeer skill install codeer-presentations --target codex --ref <tag-or-commit>
+codeer skill uninstall codeer-agent --target codex --dry-run
+codeer skill uninstall codeer-agent --target codex
+```
+
+Supported names are `codeer-agent`, `codeer-audience-value-narrative`, and
+`codeer-presentations`. Install/uninstall require `--target codex|claude`;
+list shows both targets unless filtered. `--scope user` is the default:
+
+| Target | User scope | Project scope (current directory) |
+| --- | --- | --- |
+| Codex | `~/.agents/skills/<name>` | `.agents/skills/<name>` |
+| Claude Code | `~/.claude/skills/<name>` | `.claude/skills/<name>` |
+
+List and uninstall are offline. Install resolves `--ref` (default `main`) to an
+immutable GitHub commit, validates and copies the complete selected folder from
+`skills/<name>`, and records provenance and SHA-256 hashes in
+`.codeer-skill-install.json` inside the installation. The CLI package does not
+bundle skill content. The selected GitHub revision must contain the `skills/`
+layout; unpublished local moves and older revisions are not installable through
+this command. Public GitHub access is required, and anonymous API rate limits
+may apply. Install `--dry-run` reads GitHub but writes no installation files.
+
+Install handles both first installation (`installed`) and replacement of an
+unchanged managed copy (`updated`). Identical contents return `already_installed`
+without writing, even if the source commit differs. Changed content is replaced
+as a complete package so obsolete files do not remain. `--dry-run` reports
+`would_install`, `would_update`, or `already_installed` without changing files.
+Updates download and validate the new package first, recheck the old installation,
+then retain a backup while replacing it. Publication failures restore the old
+copy. If restoration also fails, the error gives the retained backup's path for
+manual recovery. `--ref` accepts a GitHub branch, tag or commit and can select an
+older revision as well as a newer one. It selects the skill files only; it does
+not install or upgrade the CLI. Choose a source revision compatible with the
+installed CLI and containing `skills/<skill-name>`. Upgrade the CLI separately
+with `pipx upgrade codeer-cli`.
+
+Modified, unmanaged, or symlinked directories are refused; preserve custom work
+and resolve those installations manually. Uninstall checks hashes and removes
+only the selected unchanged managed directory; it leaves
+other skills and Codeer profiles intact. Other installers' locations and
+receipts are not adopted automatically. `skill list` reports `installed`,
+`modified`, `unmanaged`, or `not_installed` for each selected location; it does
+not check GitHub for updates.
+
+If discovery does not refresh, restart Codex or use `/reload-skills` in Claude
+Code. These filesystem commands do not install account-level Cowork skills.
+
+## Local Agent projects
+
+Use `codeer status --human` for readable offline guidance; default JSON and exit
+codes are unchanged. Init creates compact navigation, preserving authored README
+and configured/legacy paths. Existing projects need no reinitialization.
+
+Active audit metadata may remain in `reviews/*.audit.json` or use
+`reviews/batches/<batch-id>/*.audit.json`, with its report beside it. Status, run
+and publish share discovery and validity; historical copies in
+`reviews/evidence/` grant no active clearance. Routine reads create no reviews.
+
+For current contract-2 evidence, `eval export --run-id` leaves canonical `passed`, `failed` and `stale`
+records unchanged, but can update other statuses while resuming evidence. Before
+diagnosis or repair, link fixed records with their raw-file SHA-256; preserve one
+original JSON byte snapshot and hash for still-updateable records. Reuse verified
+pins without overwriting them or copying whole run trees. See the
+[batch evidence rules](../skills/codeer-agent/reference/project.md#batch-reviews-and-project-entry).
+
+`codeer eval inspect-run --run-id <id>` makes no network calls or writes. It shows
+original status/states, derived evidence states, snapshot/result/missing origins
+and source SHA-256 for current runs. It does not judge answer quality or permit
+publication. Old runs expose stored metadata/hash only and cannot be refreshed
+or used by current publication/delivery; their original bytes are retained.
+New runs record `evidence_contract_version: 2`: input/rubric can come from the
+exact fingerprinted snapshot; output/tool_steps come from the bound result.
+Version, pair and triggered-result IDs must match. Formal current delivery still
+requires exact identity and file integrity; old bundles are checked for stored
+metadata/file integrity only and grant no new clearance.
+
+Local Agent project continuation uses `codeer status` for recorded evidence and
+an actionable `next_action` with a completion condition. It groups shared
+Tester/variable gaps by affected-pair count; `status --full` includes identities
+and full run details. Status also compares explicitly referenced `env:` values
+with the last snapshot without connecting or exposing values. A change adds
+`environment` to `local_changes`; `latest_run.environment_stale` independently
+compares the original run's environment, even after refresh. Original run bytes,
+recorded outcomes and portable content revision remain unchanged. Restoring the
+reviewed values can reuse unchanged evidence; unrelated variables do not affect it.
+`codeer validate` preserves combined `issues` and nonzero
+exit for unresolved content, while separating `structural_issues`, `design_issues`,
+`evidence_issues` and `operation_issues`. Structural validity is not complete
+Eval design or apply/run readiness. Unresolved candidates stay in case drafts;
+only admitted pairs enter the configured manifest. These checks do not perform
+semantic review, verify live state or authorize mutations.
+
+Agent create/update preflight accepts at most three suggested questions, each
+at most 200 characters. A structured API validation 422 received before a
+mutation is acknowledged is recorded as `rejected`, with safe validation
+details; timeouts, unstructured errors, and readback failures remain
+`outcome_unknown`. A rejected request still requires a fresh preview before retry.
+
+For older receipts that lost the 422 details, `agent recover-rejected-create`
+supports only the investigated maximum-three-question create rejection. It
+requires explicit operator evidence containing `schema_version: 1`, the original
+`receipt_sha256`, exact `scope` and `request_token`, observed `http_status: 422`,
+`message: "Invalid request payload"`, `operator_attested_validation_rejection: true`,
+and a project-relative `verification` report. The old request must contain more
+than three suggested questions, the new settings must be valid, and a same-name
+Agent must not exist. Listing absence alone is insufficient evidence. Review
+with `codeer agent recover-rejected-create --evidence reviews/rejection.json --dry-run`,
+then apply that exact preview with `--expect <token>`. Recovery performs only
+server reads and a local state update, preserves the original receipt bytes,
+writes a separate recovery receipt, and never retries creation itself. Known
+server IDs, response-bearing receipts, other scopes and transient failures
+are refused; use their existing identity-based reconciliation workflows.
+
+The same recovery command also accepts a recorded pre-create HTTP 400 with the
+exact backend message `Tool validation failed: One or more knowledge node files
+are not in the workspace`; the evidence must match the receipt's retained HTTP
+error. This validation happens before Agent creation. Select KB file nodes,
+using `kb:<local-id>/<filename>` references, rather than the KB folder itself.
+Other HTTP 400 messages remain uncertain and are not cleared by this path.
+
+The following commands require CLI 0.1.17 or newer. Install from PyPI and verify
+the commands as described in [User install](#user-install); a compatible source
+checkout is an alternative. Initialization, status and structural validation
+work offline:
+
+```bash
+codeer init ./support-agent
+cd support-agent
+codeer status
+codeer validate
+```
+
+`project.toml` describes one Agent design and supports custom paths. Current schema 2
+stores each remote Agent binding under `.codeer/deployments/<name>/`; unsupported
+project formats stop before authentication. Conforming data needs zero conversion;
+see the [one-time preparation runbook](../skills/codeer-agent/reference/one-time-preparation.md)
+for copy/backup/hash/review/switch/rollback boundaries. Fixed historical evidence
+and embedded project.toml remain read-only. Child directories
+discover it upward. API base, workspace and explicit Agent mismatches are
+rejected; profile/connection changes invalidate previews. No profile allowlist or
+default is stored in bindings. Use global `--outside-project` only for an intentional standalone
+operation. `status --refresh` explicitly queries remote configuration; offline
+status reports the last observation time and cannot assert live remote validity.
+Init preserves existing `.gitignore` content and appends private-output defaults
+after existing rules; repeating init without further edits is idempotent.
+
+Use `agent bind <name> --new-agent|--agent <id>`, `agent use <name>`, `agent bindings`
+and global `--binding <name>`. Names identify remote Agent mappings; include a
+workspace/customer and main/candidate role when one environment has many Agents.
+Global `--profile <name>` selects one connection for this invocation only, including
+check, first bind and refresh. Environment API key or differing API base conflicts
+fail before authentication. Bindings accept any valid key for their actual API/workspace;
+key changes require fresh previews. Saved list names are observations, not identity.
+
+For shared dependencies, Rubric-only writes change one Case/Tester pair. Shared
+Tester updates preview readable users; candidate-only changes use
+`eval tester-fork --tester <local-id>` with preview/expect/readback and known-ID
+reconcile. `kb upload --fork` creates new KB/files for one binding, followed by
+FAQ review/rebuild and separately reviewed Agent reference apply. See the
+[shared-resource rules](../skills/codeer-agent/reference/project.md#shared-resources-and-candidate-separation).
+
+Unchanged pulls reuse snapshots; receipts keep required recovery inputs while
+omitting derived comparison copies. `clean --dry-run` lists exact eligible completed,
+unreferenced machine history/bytes, then `clean --expect <token>` rechecks under the
+local project lock. Optional `--older-than 30d` filters age; `--keep <path> --reason
+<text>` persists manual retention. All bindings' state, structured/Markdown/path/hash
+references and fixed evidence protect content. Unknown scope retains a binding;
+corrupt roots/symlinks refuse cleanup. Current CLI project writers share the lock;
+direct skill/file/old/standalone writers must stop during clean/preparation.
+
+`history negative-feedback` requires an explicit Agent or a bound project; a
+missing target is rejected before querying History. Outside a project,
+`eval export` and `eval reconcile` retain their `CODEER_AGENT_ID` fallback;
+an explicit `--agent` takes precedence. Other commands that require an Agent
+continue to require `--agent` when no project target is bound.
+
+Original documents and extracted derivatives stay under `sources/`; curated
+uploads belong in `kb/`. When working through the skill, the coding agent reads
+your material, helps resolve material gaps and maintains the design record;
+you need not learn its internal terminology or fill a template. Explicit
+instructions are recorded with their basis without another document approval.
+Unclear intent or conflicting sources still require a decision. The builder
+keeps established decisions in
+`design/agent-design.md`, pending decisions in its `.draft.md` counterpart,
+and important milestones/reasons in `logs/YYYY-MM.md` (continue existing
+`log.md`). The single prompt authority is
+`agent/instructions.md`; omit `system_prompt` from `agent/settings.json`.
+Structured Eval design lives in `evals/design.json`. Important understanding and
+proposals are saved during discovery, so a new conversation can resume them.
+Design decisions do not themselves authorize remote writes or publication.
+
+These are new-project defaults. Override the design path with `[paths].design`;
+the older `[paths].contract` key remains supported. Explicit settings take
+precedence; if both keys are present they must resolve to the same path. Without
+either key, an existing `design/behavior-contract.md` or its `.draft.md` selects
+the old pair. If both naming pairs exist, set `[paths].design` to resolve the
+ambiguity. Pending proposals use the selected file's sibling `<stem>.draft.md`.
+Existing files are never automatically renamed. Updating the CLI or renaming
+only the design file without changing content preserves its revision; changes
+to content or dependent Eval references still require renewed validation. See
+[the path rules](../skills/codeer-agent/reference/project.md#agent-design-paths-and-existing-projects).
+
+To adopt an existing Agent without overwriting local work:
+
+```bash
+codeer agent bind prod-customer-a-main --agent <id>
+codeer agent use prod-customer-a-main
+codeer agent pull --agent <id>
+codeer eval pull
+codeer agent diff --local
+```
+
+Import preserves raw editable/Published snapshots and marks them unvalidated.
+KB import/export is separate. Agent and Eval apply compare base/local/current
+remote fields and preserve stable server IDs. Arrays require explicit conflict
+resolution. Missing local files do not delete resources. KB project upload
+requires `--local-id`; existing targets require explicit `--kb-id`, never a name
+match. The existing API supports new files, not safe in-place content replacement.
+
+```bash
+codeer agent apply --dry-run
+codeer agent apply --expect <preview-token>
+codeer eval cases-apply --dry-run
+codeer eval cases-apply --expect <preview-token>
+codeer kb upload --dir kb --name Support --local-id support --dry-run
+codeer kb upload --dir kb --name Support --local-id support --expect <preview-token>
+```
+
+Tokens bind the reviewed preview to content, API, workspace and selected profile;
+Agent update previews also include `--note`. They are not user approval. Partial
+success and unknown outcomes retain receipts. Reconcile unknown identities before
+retrying; client preflight/readback provides neither a transaction nor atomic CAS.
+Separate local and remote checkpoints preserve web-only changes across repeated
+apply without rewriting authored files. Resource commands retain reviewed local
+proposals even when a later resource fails. Case attachment/label response objects
+are compared as ID lists; Rubrics belong to Tester pairs, so project mode rejects
+legacy `case-update --rubric`.
+Project `cases-apply --cases` must resolve to the configured `[paths].evals`
+file. Change that setting to adopt another design before preview/apply; default
+and explicit applies then share one local authority.
+Project `case-delete` requires a unique imported Case mapping, matching scope and
+fresh remote ownership by the bound Agent, for both preview and deletion.
+Intentional operations on another Agent use global `--outside-project`.
+Explicit deletion journals intent before writing and retires the Case/pair mappings
+only after reading back absence. It preserves authored design and historical IDs.
+Remove the retired Case from the design before applying again; an intentional
+replacement needs a new local ID and changed acceptance coverage needs review.
+Unknown deletion outcomes block retry until `eval pull --reconcile` observes the
+known ID: absence retires it, while presence restores checkpoints for fresh review.
+Recovery never repeats DELETE or treats an unrecorded missing Case as authorization.
+Retired mappings do not block other resources' recovery; original receipt evidence
+remains available alongside reconciliation observations.
+
+Status only reports a recorded release as current when its exact history, revision
+and remote configuration fingerprint match the current passing run. A newer passing
+configuration still requires publication review.
+
+`agent pull --agent <known-id> --reconcile` and `eval pull --reconcile` read back
+known identities, including a newly created Tester not yet assigned to any Case.
+For an upload interrupted after file IDs were saved:
+
+```bash
+codeer kb upload --dir kb --name Support --local-id support --reconcile
+```
+
+This reads saved IDs without uploading again. A lost upload response with unknown
+file IDs remains blocked. Managed KB bindings retain their source directory/glob;
+added, changed or missing source files affect revision and offline dirty status.
+Run/publish reject unapplied changes in referenced managed KBs. Missing files do
+not authorize remote deletion; existing bindings cannot silently switch source
+directories or globs.
+Upload stages private temporary copies while computing the content hashes;
+multipart requests use those exact bytes and original filenames even if source
+files change during a request. Temporary copies are removed when the command ends.
+
+Tester means the existing Evaluator/Judge. Select/reuse/design it, verify its
+evidence producer and delivery, author Case/Rubric pairs, then review. Case local
+IDs survive wording changes. Verified local source/report references must exist;
+their content participates in revision identity. Structural validity does not
+establish semantic correctness or evidence completeness.
+
+```bash
+codeer eval snapshot --history <exact-history-id> --out reviews/anchor.json
+# Skill authors a scope-bound semantic audit; CLI cannot create this clearance.
+codeer eval run --history <exact-history-id>
+codeer eval export --run-id <saved-run-id> --out-dir reviews/export
+codeer agent publish --history <exact-history-id> --dry-run
+codeer agent publish --history <exact-history-id> --expect <preview-token>
+```
+
+Runs retain exact trigger result IDs, configuration, evidence requirements and
+thresholds. Old results do not satisfy new runs; missing evidence, skipped pairs,
+errors and failed behavior remain distinct. A Judge score is not independent
+proof of a tool call or external completion. Publication checks a current audit,
+confirmed `design/acceptance.json` scope and a passing covering run, then records
+actual Published-history readback separately. `--reconcile` resolves publication
+observations after unknown or mismatched outcomes; both block another preview or
+publish until reconciled. The receipt retains the original readback alongside
+the later observation. KB dependencies include search tools' `knowledge_node_ids`
+and tabular tools' single `knowledge_node_id`, with the same readiness and source
+freshness checks. Current KB/Tester state and `use_search`
+cannot all be fixed by AgentHistory; fingerprints record observations, not
+reproducibility guarantees.
+
+See [schema, audit and acceptance formats](../skills/codeer-agent/reference/project.md)
+and [local end-to-end fixtures](../examples/agent-workflow/README.md).
 
 ## Credentials
 
@@ -238,7 +565,7 @@ replaces the list; omitting a contract entry resets that input to ordinary strin
 GET responses and writable payloads have different shapes; reconstruct attachment
 IDs and other absent writable fields from current version evidence as needed.
 Do not apply an update if a current setting cannot be preserved by the CLI. See
-[the skill workflow](../codeer-agent/reference/http-input-contracts.md) for details.
+[the skill workflow](../skills/codeer-agent/reference/http-input-contracts.md) for details.
 
 Dry-run's `http_inputs` lists tool indexes and each generated key's effective
 `type` / `format` / `json_type`, with `configured: false` for defaults. It excludes
@@ -438,6 +765,40 @@ codeer kb node-delete --node-id <node-id> --dry-run
 
 `node-delete` deletes the target node and all descendants. Review the dry-run
 output before rerunning without `--dry-run`.
+
+## Portable KB originals and FAQ
+
+In a schema 2 project, `codeer kb import --local-id manual --kb-id <id>` saves
+originals, exact saved text and complete FAQ, with a provenance/integrity manifest.
+Run `--dry-run`, then repeat with the reviewed `--expect <token>`. The first
+portable `agent pull` also imports referenced KB resources when no Agent definition
+exists. Existing definitions and originals are preserved. `kb export` remains
+the separate legacy text export.
+
+Knowledge definitions may declare a `faq_file` and `manifest` path in
+`resources.json`. For the format and complete workflow, see
+[portable KB/FAQ](../skills/codeer-agent/reference/project.md#portable-kb-text-originals-and-faq).
+After target KB upload/binding, use `kb faq-sync --local-id manual --keep-local`
+with preview/expect to keep a pending proposal; then preview/expect the same command
+with `--apply` to rebuild. `--remote` adopts target text/FAQ locally without remote
+writes. Existing target FAQ need explicit `--ids` mappings; questions are never
+matched. Target saved text must match before recreating ranges. Reconcile known
+interrupted operations with `--reconcile`; unknown creates need investigated IDs,
+never a blind retry. Recovery uses the recorded identities even if newer local
+proposals remove a FAQ. Unrelated platform changes remain undecided and do not
+advance recovery bases; compare and choose again before applying.
+
+The CLI uses conditioned same-service resource downloads and the single-file
+text/FAQ export, staging and checking bytes before saving. Export API absence,
+missing originals and permission failures remain explicit gaps; no `source_url`
+fallback is used. A missing server digest is recorded separately from verified
+hashes. Website crawl settings are excluded and recorded as a gap. Export
+revisions identify environment observations; portable definitions use local hashes.
+Partial imports retain available files and per-resource gaps. Direct file
+references reuse covering folder mappings when available. FAQ definitions/manifests
+enter immutable run inputs and selected delivery bundles; declared files must
+exist, and resolved input paths must remain outside deployment state and inside
+the project. Offline bundle verification checks those declared dependencies too.
 
 ## Context Object FAQ
 

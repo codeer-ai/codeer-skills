@@ -321,7 +321,7 @@ and follows every page. The artifact preserves `generation_instruction`,
 `dismiss_feedback`, refinement ancestry, lifecycle outcome, tool activities,
 proposed actions, and correlated delivery. Those are recorded improvement
 signals, not a server-generated recommendation. Compare them with the History
-parts and accepted Behavior Contract before proposing an Agent change. Default
+parts and accepted Agent design before proposing an Agent change. Default
 stdout exposes only structural flags and counts; `--full --out <path>` opts into
 bounded sensitive text previews. Because this endpoint has no revision token,
 the artifact is marked `snapshot_consistency: best-effort`; total-count changes
@@ -492,8 +492,8 @@ instead of a report"):
    ```json
    {"data": {
      "original_name": "cat.jpg", "content_type": "image/jpeg", "size": 43853,
-     "file_url": "https://codeer-media.s3.amazonaws.com/.../cat.jpg?...",
-     "uuid": "ab155432-5119-4070-bc12-65794ecef970",
+     "file_url": "https://files.example.com/attachments/cat.jpg?...",
+     "uuid": "00000000-0000-4000-8000-000000000001",
      "scope": "persistent"
    }}
    ```

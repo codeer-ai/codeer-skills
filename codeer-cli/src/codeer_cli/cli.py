@@ -1,6 +1,7 @@
 """Codeer CLI — unified interface for agent lifecycle operations.
 
     codeer check
+    codeer skill list|install|uninstall
     codeer agent list|get|apply|diff|versions
     codeer model list
     codeer kb list|files|export|upload|node-rename|node-delete|faq-list|faq-get|faq-create|faq-update|faq-delete
@@ -13,10 +14,12 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from contextlib import nullcontext
 
 from .client import AuthError, CodeerClient, CodeerError
-from .commands import check
+from .commands import check, skill
 from .histories import HistoryExportError
+from .project import ProjectError, discover
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -26,6 +29,8 @@ def main(argv: list[str] | None = None) -> int:
         description="Codeer CLI — self-describing agent lifecycle tools.",
         epilog="""\
 Safe workflow for coding agents:
+  codeer skill list
+  codeer skill install codeer-agent --target codex --dry-run
   codeer check --json
   codeer model list --type text
   codeer agent list
@@ -56,9 +61,16 @@ Preview mutations before applying:
 Use --out <path> for large raw artifacts; stdout defaults to compact summaries.
 """,
     )
+    parser.add_argument("--outside-project", action="store_true", help="Explicitly operate outside the discovered project binding")
+    parser.add_argument("--deployment", help="Alias of --binding; select one remote Agent mapping")
+    parser.add_argument("--binding", help="Select this project's remote Agent binding for this operation")
+    parser.add_argument("--profile", help="Use a named API connection for this invocation only")
     sub = parser.add_subparsers(dest="group")
+    from .commands import project as project_cmd
+    project_cmd.register(sub)
 
     check.register(sub)
+    skill.register(sub)
 
     try:
         from .commands import model as model_cmd
@@ -103,12 +115,69 @@ Use --out <path> for large raw artifacts; stdout defaults to compact summaries.
         parser.print_help()
         return 2
 
+    from .commands.profile import selected_profile
+    try:
+        with selected_profile(args.profile):
+            return execute(args, parser)
+    except (ValueError, OSError) as e:
+        print(f"configuration error: {e}", file=sys.stderr)
+        return 2
+
+
+def execute(args, parser):
+
+    try:
+        if args.binding and args.deployment and args.binding != args.deployment:
+            raise ProjectError("--binding conflicts with --deployment")
+        args.deployment = args.binding or args.deployment
+        if args.group == "agent" and getattr(args, "action", None) == "bind":
+            if args.name and args.alias and args.name != args.alias:
+                raise ProjectError("Binding name conflicts with --alias")
+            args.alias = args.name or args.alias
+            if not args.alias:
+                raise ProjectError("Specify a binding name: codeer agent bind <name> --new-agent or --agent <id>")
+        project = None if args.outside_project else discover()
+        if args.deployment:
+            if not project:
+                raise ProjectError("--binding/--deployment requires a project")
+            project.select(args.deployment)
+        if project and args.group == "agent" and getattr(args, "action", None) == "bind":
+            if args.deployment and args.deployment != args.alias:
+                raise ProjectError("Selected binding conflicts with the bind name")
+            project.select(args.alias)
+        args.project = project
+        if project and args.group == "eval" and getattr(args, "action", None) == "export" and getattr(args, "run_id", None):
+            from .project import read_json
+            record = read_json(project.resolve_path("run", f"runs/{args.run_id}/run.json"), {})
+            if record and record.get("evidence_contract_version") != 2:
+                raise ProjectError("Historical run is read-only; use eval inspect-run for stored metadata/hash")
+        if project and not getattr(args, "no_client", False):
+            expected = project.target.get("agent_id")
+            for field in ("agent", "agent_id"):
+                if hasattr(args, field):
+                    explicit = getattr(args, field)
+                    if args.group == 'agent' and getattr(args, 'action', None) == 'apply' and explicit and (not expected):
+                        raise ProjectError("Explicit Agent requires takeover configuration with agent bind --agent <id>; a new deployment cannot ignore it")
+                    if expected and explicit and explicit != expected:
+                        raise ProjectError("Agent differs from project binding; use --outside-project for a separate operation")
+                    if not explicit:
+                        setattr(args, field, expected)
+        # Legacy export/reconcile resolve client/env fallbacks in their handlers.
+        # Required targets are declared by each command, independent of its group.
+        if getattr(args, "requires_agent", False) and not args.agent:
+            parser.error("--agent is required outside a bound project")
+    except ProjectError as e:
+        print(f"project: {e}", file=sys.stderr)
+        return 2
+
     if getattr(args, "no_client", False):
         client = None
     else:
         try:
             client = CodeerClient.from_env()
         except AuthError as e:
+            from .setup import diagnostic
+            detail = diagnostic(e)
             if args.group == "check":
                 if getattr(args, "json", False):
                     print(json.dumps({
@@ -117,28 +186,47 @@ Use --out <path> for large raw artifacts; stdout defaults to compact summaries.
                             "ok": False,
                             "error": str(e),
                         },
-                        "next_step": "Configure CODEER_API_KEY or a codeer profile",
+                        "connection": detail,
+                        "next_step": detail["next_step"],
                     }, ensure_ascii=False, indent=2))
                     return 1
                 print(f"FAIL  Auth: {e}", file=sys.stderr)
-                print("      Configure CODEER_API_KEY or a codeer profile", file=sys.stderr)
+                print(detail["next_step"], file=sys.stderr)
                 return 1
             print(f"auth error: {e}", file=sys.stderr)
+            print(detail["next_step"], file=sys.stderr)
+            return 2
+        except (ValueError, OSError) as e:
+            print(f"configuration error: {e}", file=sys.stderr)
             return 2
 
     try:
-        return args.func(args, client)
+        from .project_lock import project_lock, writes_project
+        guard = project_lock(project.root) if project and writes_project(args) else nullcontext()
+        with guard:
+            if project and client is not None and args.group != "check":
+                project.check_scope(client)
+            if project and client is not None and args.group == "check" and project.target.get("agent_id"):
+                client.agent_id = project.target["agent_id"]
+            return args.func(args, client)
     except HistoryExportError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
     except AuthError as e:
+        from .setup import diagnostic
         print(f"auth: {e}", file=sys.stderr)
+        print(diagnostic(e)["next_step"], file=sys.stderr)
         return 3
     except CodeerError as e:
+        from .setup import diagnostic
         print(f"error: {e}", file=sys.stderr)
-        if e.body:
+        print(diagnostic(e)["next_step"], file=sys.stderr)
+        if e.body and (not project):
             print(json.dumps(e.body, ensure_ascii=False, indent=2, default=str), file=sys.stderr)
         return 1
+    except (ProjectError, OSError, ValueError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
     finally:
         if client is not None:
             client.close()

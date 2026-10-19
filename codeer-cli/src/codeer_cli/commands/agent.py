@@ -7,7 +7,7 @@ from typing import Optional
 
 from .. import agents as agents_mod
 from .._http_contracts import validate_http_input_contracts
-from .._validate import validate_human_handoff, validate_unified_tools
+from .._validate import validate_human_handoff, validate_suggested_questions, validate_unified_tools
 from ..client import CodeerClient
 from ._util import log, print_json, strip_noisy_fields, truncate, write_json
 
@@ -15,6 +15,49 @@ from ._util import log, print_json, strip_noisy_fields, truncate, write_json
 def register(subparsers):
     agent = subparsers.add_parser("agent", help="Agent CRUD and versioning")
     sub = agent.add_subparsers(dest="action", required=True)
+
+    p = sub.add_parser("bind", help="Bind this project to a remote Agent; only records local state")
+    p.add_argument("name", nargs="?")
+    p.add_argument("--alias", help="Alias for the positional binding name")
+    group = p.add_mutually_exclusive_group(required=True)
+    group.add_argument("--new-agent", "--new", dest="new", action="store_true", help="Prepare creation; agent apply creates the remote Agent")
+    group.add_argument("--agent")
+    p.set_defaults(func=run_bind)
+    p = sub.add_parser("use", help="Select this project's Agent binding (offline; does not select credentials)")
+    p.add_argument("alias")
+    p.set_defaults(func=run_use_deployment, no_client=True)
+    p = sub.add_parser("bindings", help="List this project's remote Agent bindings and saved identities (offline)")
+    p.set_defaults(func=run_bindings, no_client=True)
+    p = sub.add_parser("adopt", help="Compare and explicitly adopt remote content or retain local proposals; no remote writes")
+    p.add_argument("--resource", required=True, help="agent, case:<local-id>, tester:<local-id>, pairs:<local-id>")
+    p.add_argument("--remote-id", help="Explicit ID for a previously unmapped resource")
+    p.add_argument("--fields", help="Comma-separated fields; default all")
+    group = p.add_mutually_exclusive_group()
+    group.add_argument("--remote", action="store_true")
+    group.add_argument("--keep-local", action="store_true")
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--expect")
+    p.set_defaults(func=run_adopt)
+    p = sub.add_parser("recover-rejected-create", help="Recover an evidenced legacy validation-rejected Agent create; no remote writes")
+    p.add_argument("--evidence", required=True, help="Project-relative operator evidence bound to the original receipt SHA-256")
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--expect")
+    p.add_argument("--out")
+    p.set_defaults(func=run_recover_rejected_create)
+    p = sub.add_parser("attachment", help="Upload an original declared in resources.json")
+    p.add_argument("--local-id", required=True)
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--expect")
+    p.add_argument("--reconcile", action="store_true")
+    mapping = p.add_mutually_exclusive_group()
+    mapping.add_argument("--remote-id", help="Take over this existing original after byte verification; no upload")
+    mapping.add_argument("--new", action="store_true", help="Explicitly create a new attachment on an existing deployment")
+    p.set_defaults(func=run_attachment)
+
+    p = sub.add_parser("pull", help="Import Agent editable/Published snapshots without remote writes")
+    p.add_argument("--agent", default=None)
+    p.add_argument("--reconcile", action="store_true", help="After inspecting a receipt, accept observed remote as sync base; preserve local files")
+    p.set_defaults(func=run_pull, requires_agent=True)
 
     # codeer agent list
     p = sub.add_parser(
@@ -42,50 +85,56 @@ def register(subparsers):
 
     # codeer agent apply --payload agent.json
     p = sub.add_parser("apply", help="Create or update agent from JSON payload; run --dry-run first")
-    p.add_argument("--payload", required=True, help="Path to agent payload JSON")
+    p.add_argument("--payload", default=None, help="Path to agent payload JSON (project defaults to configured settings)")
     p.add_argument("--agent-id", default=None, help="If set, PATCH (update). Else POST (create).")
     p.add_argument("--note", default="", help="version_note for PATCH")
     p.add_argument("--dry-run", action="store_true",
                    help="Validate payload and print intended mutation without writing server state.")
     p.add_argument("--out", default=None, help="Write result JSON to this file too")
+    p.add_argument("--expect", help="Project dry-run token for exactly the reviewed change")
+    p.add_argument("--remove-tools", help="Comma-separated IDs explicitly removed from the complete tool list")
     p.set_defaults(func=run_apply)
 
     # codeer agent diff --from-version 41 --to-version 42
     p = sub.add_parser("diff", help="Diff system_prompt + tools between two versions")
-    p.add_argument("--agent", required=True)
+    p.add_argument("--agent", default=None)
+    p.add_argument("--local", action="store_true", help="Compare base/local/current remote for all managed settings")
+    p.add_argument("--remove-tools", help="Explicit tool removal IDs included in local preview")
     p.add_argument("--from", dest="frm", default=None, help="From history_id")
     p.add_argument("--to", default=None, help="To history_id")
     p.add_argument("--from-version", type=int, default=None)
     p.add_argument("--to-version", type=int, default=None)
     p.add_argument("--field", choices=("system_prompt", "tools", "all"), default="all")
-    p.set_defaults(func=run_diff)
+    p.set_defaults(func=run_diff, requires_agent=True)
 
     # codeer agent versions --agent <id>
     p = sub.add_parser(
         "versions",
         help="List version metadata; use agent get --history <id> for a stored snapshot.",
     )
-    p.add_argument("--agent", required=True)
+    p.add_argument("--agent", default=None)
     p.add_argument("--full", action="store_true",
                    help="Add prompt/tool size metadata when included by the server.")
     p.add_argument("--out", default=None,
                    help="Write the full version listing (metadata, not snapshots); stdout stays compact.")
-    p.set_defaults(func=run_versions)
+    p.set_defaults(func=run_versions, requires_agent=True)
 
     p = sub.add_parser("impact", help="Check downstream agents affected by this agent")
-    p.add_argument("--agent", required=True)
+    p.add_argument("--agent", default=None)
     p.add_argument("--out", default=None, help="Write full impact detail to this file too")
-    p.set_defaults(func=run_impact)
+    p.set_defaults(func=run_impact, requires_agent=True)
 
     p = sub.add_parser("publish", help="Publish an agent version; run --dry-run first")
-    p.add_argument("--agent", required=True)
+    p.add_argument("--agent", default=None)
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--history", default=None, help="AgentHistory UUID to publish")
     g.add_argument("--version", type=int, default=None, help="AgentHistory version_number to publish")
     p.add_argument("--dry-run", action="store_true",
                    help="Resolve target version and print intended mutation without writing server state.")
     p.add_argument("--out", default=None, help="Write result JSON to this file too")
-    p.set_defaults(func=run_publish)
+    p.set_defaults(func=run_publish, requires_agent=True)
+    p.add_argument("--expect", help="Reviewed project publication evidence token")
+    p.add_argument("--reconcile", action="store_true", help="Read back an interrupted publication without publishing again")
 
 
 def _tool_summary(tools: list[dict] | None) -> list[dict]:
@@ -98,7 +147,7 @@ def _tool_summary(tools: list[dict] | None) -> list[dict]:
             "id": t.get("id"),
             "type": t.get("type"),
             "name": t.get("name"),
-            "knowledge_node_count": len(t.get("knowledge_node_ids") or []),
+            "knowledge_node_count": len(agents_mod.referenced_knowledge_nodes([t])),
             "form_title": form.get("title"),
             "invocation_preview": truncate(t.get("invocation_instruction") or "", 160),
         })
@@ -145,6 +194,68 @@ def _agent_summary(agent: dict, *, full: bool = False) -> dict:
 
 
 
+def run_bind(args, client):
+    from ..deployment import configure
+    if not args.project:
+        raise ValueError("agent bind requires codeer init")
+    print_json(configure(args.project, client, alias=args.alias, agent_id=args.agent, new=args.new))
+    return 0
+
+
+def run_recover_rejected_create(args, client):
+    from ..deployment import rejected_create_plan, recover_rejected_create
+    if not args.project:
+        raise ValueError("Recovery requires a portable project/deployment")
+    plan = rejected_create_plan(args.project, client, args.evidence)
+    result = plan if args.dry_run else recover_rejected_create(args.project, client, plan, args.expect)
+    print_json(result)
+    write_json(args.out, result)
+    return 0
+
+
+def run_use_deployment(args, client):
+    from ..deployment import use
+    if not args.project:
+        raise ValueError("agent use requires a project")
+    print_json(use(args.project, args.alias))
+    return 0
+
+
+def run_bindings(args, client):
+    from ..deployment import list_bindings
+    if not args.project:
+        raise ValueError("agent bindings requires a local project")
+    print_json(list_bindings(args.project))
+    return 0
+
+
+def run_adopt(args, client):
+    from ..deployment import adoption_plan, adopt
+    if not args.project:
+        raise ValueError("agent adopt requires a portable project/deployment")
+    choice = "remote" if args.remote else "local" if args.keep_local else None
+    plan = adoption_plan(args.project, client, args.resource, remote_id=args.remote_id,
+                         fields=args.fields.split(",") if args.fields else None, choice=choice)
+    print_json(plan if args.dry_run else adopt(args.project, client, plan, args.expect))
+    return 0
+
+
+def run_attachment(args, client):
+    from ..project_attachments import upload
+    if not args.project:
+        raise ValueError("agent attachment requires a project")
+    print_json(upload(args.project, client, args.local_id, dry_run=args.dry_run, expected=args.expect, reconcile=args.reconcile, remote_id=args.remote_id, new=args.new))
+    return 0
+
+
+def run_pull(args, client) -> int:
+    from ..project_agent import pull
+    if not getattr(args, "project", None):
+        raise ValueError("agent pull requires codeer init")
+    print_json(pull(args.project, client, args.agent, reconcile=args.reconcile))
+    return 0
+
+
 def run_list(args, client) -> int:
     ws, org = client.resolve_scope()
     result = agents_mod.list_all(client, workspace_id=ws, organization_id=org)
@@ -166,6 +277,18 @@ def run_get(args, client) -> int:
 
 
 def run_apply(args, client) -> int:
+    project = getattr(args, "project", None)
+    if project:
+        from .. import project_agent
+        if args.payload and Path(args.payload).resolve() != project.path("agent"):
+            raise ValueError("Project apply uses the configured agent path; change [paths].agent to adopt another file")
+        plan = project_agent.preview(project, client, remove_tools=(args.remove_tools or "").split(",") if args.remove_tools else [], note=args.note)
+        result = plan if args.dry_run else project_agent.apply(project, client, plan, args.expect, args.note)
+        print_json(result)
+        write_json(args.out, result)
+        return 1 if result.get("conflicts") or result.get("status") in ("readback_mismatch", "outcome_unknown") else 0
+    if not args.payload:
+        raise ValueError("--payload is required outside a project")
     body = json.loads(Path(args.payload).read_text())
     missing = [field for field in ("name", "system_prompt") if not body.get(field)]
     if missing:
@@ -175,6 +298,7 @@ def run_apply(args, client) -> int:
     try:
         validated_tools = validate_unified_tools(body.get("unified_tools") or [])
         validated_handoff = validate_human_handoff(body.get("human_handoff"))
+        validate_suggested_questions(body.get("suggested_questions"))
     except ValueError as exc:
         log(f"error: invalid agent payload: {exc}")
         return 2
@@ -326,6 +450,12 @@ def _resolve_history_for_publish(
 def run_publish(args, client) -> int:
     history = _resolve_history_for_publish(client, args.agent, args.history, args.version)
     history_id = history["id"]
+    if getattr(args, "project", None):
+        from ..evidence import publish
+        result = publish(args.project, client, history_id, dry_run=args.dry_run, expected=args.expect, reconcile=args.reconcile)
+        print_json(result)
+        write_json(args.out, result)
+        return 1 if result.get("status") in ("outcome_unknown", "readback_mismatch") else 0
     summary = {
         "agent_id": args.agent,
         "history_id": history_id,
@@ -387,7 +517,7 @@ def _diff_text(a: str, b: str, label_a: str, label_b: str) -> str:
 
 def _summarize_tool(t: dict) -> str:
     keep_keys = ("type", "name", "description", "invocation_instruction",
-                 "knowledge_node_ids", "domain", "agent_id",
+                 "knowledge_node_ids", "knowledge_node_id", "domain", "agent_id",
                  "custom_form_schema", "http_request")
     safe = {k: t.get(k) for k in keep_keys if t.get(k) is not None}
     # HTTP placeholder keys depend on template insertion order. Sorting would
@@ -396,6 +526,13 @@ def _summarize_tool(t: dict) -> str:
 
 
 def run_diff(args, client) -> int:
+    if getattr(args, "local", False):
+        from ..project_agent import preview
+        if not getattr(args, "project", None):
+            raise ValueError("--local requires a project")
+        plan = preview(args.project, client, remove_tools=(args.remove_tools or "").split(",") if args.remove_tools else [])
+        print_json(plan)
+        return 1 if plan["conflicts"] else 0
     snap_a = _resolve(client, args.agent, args.frm, args.from_version)
     snap_b = _resolve(client, args.agent, args.to, args.to_version)
     la, lb = _label(snap_a), _label(snap_b)

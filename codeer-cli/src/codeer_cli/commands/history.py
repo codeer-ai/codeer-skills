@@ -77,7 +77,7 @@ def register(subparsers):
 
     # codeer history negative-feedback
     p = sub.add_parser("negative-feedback", help="Surface assistant turns with negative feedback")
-    p.add_argument("--agent", required=True)
+    p.add_argument("--agent", default=None, help="Agent ID (defaults to the bound project; required otherwise)")
     p.add_argument("--exclude-users", default=None,
                    help="Comma-separated external_user_ids to exclude")
     p.add_argument("--limit", type=int, default=50,
@@ -86,7 +86,7 @@ def register(subparsers):
                    help="Include longer excerpts; still avoids raw conversation payloads.")
     p.add_argument("--out", default=None,
                    help="Write the same compact negative-feedback rows to this file.")
-    p.set_defaults(func=run_negative_feedback)
+    p.set_defaults(func=run_negative_feedback, requires_agent=True)
 
     # codeer history create --agent <id> --message ...
     p = sub.add_parser("create", help="Create a real persisted conversation history")

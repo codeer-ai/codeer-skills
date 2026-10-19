@@ -99,12 +99,49 @@ def register(subparsers):
     )
     p.set_defaults(func=run_export)
 
+    p = sub.add_parser("import", help="Save portable KB originals, exact text and complete FAQ; no remote writes")
+    p.add_argument("--local-id", required=True)
+    p.add_argument("--kb-id", required=True)
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--expect")
+    p.set_defaults(func=run_import)
+
+    p = sub.add_parser("faq-sync", help="Compare/adopt/rebuild declared FAQ against exact KB snapshots")
+    p.add_argument("--local-id", required=True)
+    p.add_argument("--ids", help="JSON file path → local FAQ ID → explicit remote FAQ ID")
+    choice = p.add_mutually_exclusive_group()
+    choice.add_argument("--keep-local", action="store_true")
+    choice.add_argument("--remote", action="store_true")
+    p.add_argument("--apply", action="store_true", help="Write the reviewed pending local FAQ proposal")
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--expect")
+    p.add_argument("--reconcile", action="store_true")
+    p.set_defaults(func=run_faq_sync)
+
+    p = sub.add_parser("bind", help="Explicitly map local KB sources to existing file IDs without remote writes")
+    p.add_argument("--local-id", required=True)
+    p.add_argument("--kb-id", required=True)
+    p.add_argument("--files", required=True, help="JSON relative source path → remote node ID")
+    choice = p.add_mutually_exclusive_group()
+    choice.add_argument("--keep-local", action="store_true")
+    choice.add_argument("--remote-text", action="store_true")
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--expect")
+    p.set_defaults(func=run_bind)
+
     p = sub.add_parser("upload", help="Create/reuse KB and upload files from a directory; run --dry-run first")
+    p.add_argument("--new", action="store_true", help="Explicitly create new KB/files after deployment or takeover")
+    p.add_argument("--fork", action="store_true", help="Project only: create separate KB/files for the selected binding; Agent/FAQ references require subsequent review")
+    p.add_argument("--kb-id", help="Explicit KB ID (required to reuse an existing KB in project mode)")
+    p.add_argument("--local-id", help="Stable project KB identity")
+    p.add_argument("--expect", help="Reviewed project dry-run token")
+    upload_mode = p.add_mutually_exclusive_group()
+    upload_mode.add_argument("--reconcile", action="store_true", help="Project only: read back saved file IDs without uploading again")
     p.add_argument("--dir", required=True, help="Directory containing files to upload")
     p.add_argument("--name", required=True, help="KB display name (idempotent on name)")
     p.add_argument("--description", default=None)
     p.add_argument("--glob", default="*", help="File glob within --dir (default: all files)")
-    p.add_argument("--dry-run", action="store_true",
+    upload_mode.add_argument("--dry-run", action="store_true",
                    help="Validate directory/glob and print intended upload without writing server state.")
     p.add_argument("--out", default=None, help="Write result JSON to this file too")
     p.add_argument("--poll-timeout", type=int, default=POLL_TIMEOUT)
@@ -518,6 +555,9 @@ def _compact_export_result(result: dict) -> dict:
 
 
 def _print_export_result(args, result: dict) -> None:
+    if getattr(args, "project", None):
+        from ..project_kb import record_export
+        record_export(args.project, result)
     write_json(args.out, result)
     print_json(result if args.full else _compact_export_result(result))
 
@@ -734,7 +774,46 @@ def run_export(args, client) -> int:
     )
 
 
+def run_bind(args, client):
+    from ..project import read_json
+    from ..project_kb import bind
+    if not args.project:
+        raise ValueError("kb bind requires a local project")
+    choice = "local" if args.keep_local else "remote" if args.remote_text else None
+    print_json(bind(args.project, client, args.local_id, args.kb_id, read_json(args.files),
+                    choice=choice, dry_run=args.dry_run, expected=args.expect))
+    return 0
+
+
+def run_import(args, client):
+    from ..project_knowledge import import_kb
+    if not args.project:
+        raise ValueError("kb import requires a local project")
+    print_json(import_kb(args.project, client, args.local_id, args.kb_id,
+                         dry_run=args.dry_run, expected=args.expect))
+    return 0
+
+
+def run_faq_sync(args, client):
+    from ..project import read_json
+    from ..project_knowledge import faq_sync
+    if not args.project:
+        raise ValueError("kb faq-sync requires a local project")
+    print_json(faq_sync(args.project, client, args.local_id, dry_run=args.dry_run, expected=args.expect,
+                        choice="local" if args.keep_local else "remote" if args.remote else None,
+                        ids=read_json(args.ids) if args.ids else None, apply=args.apply, reconcile=args.reconcile))
+    return 0
+
+
 def run_upload(args, client) -> int:
+    if getattr(args, "project", None):
+        from ..project_kb import upload
+        result = upload(args.project, client, args)
+        print_json(result)
+        write_json(args.out, result)
+        return 1 if result.get("status") == "not_ready" or result.get("unsupported_replacements") or result.get("missing_sources") else 0
+    if args.reconcile or getattr(args, "fork", False):
+        raise ValueError("--reconcile requires a local project and saved upload receipt")
     workspace_id, organization_id = client.resolve_scope()
     kb_dir = Path(args.dir).resolve()
     if not kb_dir.is_dir():

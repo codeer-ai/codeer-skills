@@ -20,6 +20,16 @@ POLL_INTERVAL = 5
 POLL_TIMEOUT = 900
 
 
+def run_tester_fork(args, client):
+    from ..project_fork import tester_fork
+    if not args.project:
+        raise ValueError("tester-fork requires a local Agent project")
+    result = tester_fork(args.project, client, args.tester, dry_run=args.dry_run,
+                         expected=args.expect, reconcile=args.reconcile)
+    print_json(result)
+    return 1 if result.get("status") in ("readback_mismatch", "outcome_unknown", "pending") else 0
+
+
 def _ids(csv_text: str | None) -> list[str] | None:
     if not csv_text:
         return None
@@ -30,12 +40,35 @@ def register(subparsers):
     ev = subparsers.add_parser("eval", help="Eval suite operations")
     sub = ev.add_subparsers(dest="action", required=True)
 
+    p = sub.add_parser("tester-fork", help="Create a separate Tester and reconnect this binding's mapped Cases")
+    p.add_argument("--tester", required=True, help="Declared local Tester ID")
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument("--dry-run", action="store_true")
+    p.add_argument("--expect")
+    mode.add_argument("--reconcile", action="store_true", help="Read back known identities without remote mutations")
+    p.set_defaults(func=run_tester_fork)
+
+    p = sub.add_parser("pull", help="Import cases, related Testers and stable pair mappings without remote writes")
+    p.add_argument("--agent", default=None)
+    p.add_argument("--reconcile", action="store_true", help="Accept observed resource baselines after inspecting receipts; preserve design")
+    p.set_defaults(func=run_pull, requires_agent=True)
+
+    p = sub.add_parser("snapshot", help="Read exact history/current evaluation dependencies for semantic audit")
+    p.add_argument("--agent", default=None)
+    p.add_argument("--history", required=True)
+    p.add_argument("--out", required=True)
+    p.set_defaults(func=run_snapshot, requires_agent=True)
+
+    p = sub.add_parser("inspect-run", help="Inspect saved run evidence offline without rewriting historical results")
+    p.add_argument("--run-id", required=True)
+    p.set_defaults(func=run_inspect, no_client=True)
+
     # codeer eval list
     p = sub.add_parser(
         "list",
         help="List eval cases. Defaults to compact case summaries for Codex/Claude lifecycle work.",
     )
-    p.add_argument("--agent", required=True)
+    p.add_argument("--agent", default=None)
     p.add_argument("--limit", type=int, default=50,
                    help="Number of cases to print by default (default: 50; use --all for every case).")
     p.add_argument("--all", action="store_true",
@@ -44,7 +77,7 @@ def register(subparsers):
                    help="Print stripped full case payloads.")
     p.add_argument("--out", default=None,
                    help="Write stripped full case payloads to this file; stdout stays compact unless --full.")
-    p.set_defaults(func=run_list)
+    p.set_defaults(func=run_list, requires_agent=True)
 
     # codeer eval label-list/create/update/delete
     p = sub.add_parser("label-list", help="List eval case labels in the workspace")
@@ -100,6 +133,7 @@ def register(subparsers):
     p.add_argument("--dry-run", action="store_true",
                    help="Validate inputs and print intended mutation without writing server state.")
     p.add_argument("--out", default=None)
+    p.add_argument("--expect", help="Reviewed project change token")
     p.set_defaults(func=run_case_update)
 
     # codeer eval case-delete
@@ -108,6 +142,7 @@ def register(subparsers):
     p.add_argument("--dry-run", action="store_true",
                    help="Print intended deletion without writing server state.")
     p.add_argument("--out", default=None)
+    p.add_argument("--expect", help="Reviewed portable-project deletion token")
     p.set_defaults(func=run_case_delete)
 
     # codeer eval evaluators
@@ -136,6 +171,8 @@ def register(subparsers):
     )
     p.add_argument("--dry-run", action="store_true",
                    help="Validate inputs and print intended mutation without writing server state.")
+    p.add_argument("--local-id", help="Stable Tester ID in the project design")
+    p.add_argument("--expect", help="Reviewed project change token")
     p.set_defaults(func=run_evaluator_create)
 
     # codeer eval evaluator-update
@@ -160,11 +197,12 @@ def register(subparsers):
     )
     p.add_argument("--dry-run", action="store_true",
                    help="Validate inputs and print intended mutation without writing server state.")
+    p.add_argument("--expect", help="Reviewed project change token")
     p.set_defaults(func=run_evaluator_update)
 
     # codeer eval run
     p = sub.add_parser("run", help="Trigger eval run, poll for results, print scores")
-    p.add_argument("--agent", required=True)
+    p.add_argument("--agent", default=None)
     g = p.add_mutually_exclusive_group()
     g.add_argument("--history", default=None, help="History UUID to pin the run to")
     g.add_argument("--latest", action="store_true",
@@ -178,7 +216,7 @@ def register(subparsers):
                    help="Use longer previews in stdout. Raw outputs/tool calls still require --out.")
     p.add_argument("--out", default=None,
                    help="Write complete eval result artifact, including raw outputs/tool calls, to this file.")
-    p.set_defaults(func=run_run)
+    p.set_defaults(func=run_run, requires_agent=True)
 
     # codeer eval export
     p = sub.add_parser("export", help="Export eval table (CSV + JSON + summary MD)")
@@ -186,10 +224,18 @@ def register(subparsers):
     g = p.add_mutually_exclusive_group()
     g.add_argument("--version", type=int, help="AgentHistory version_number")
     g.add_argument("--published", action="store_true", help="Use the published history")
+    g.add_argument("--run-id", help="Refresh/export exact project run result IDs without triggering again")
     p.add_argument("--cases", default=None, help="Comma-separated case UUIDs")
     p.add_argument("--evaluators", default=None, help="Comma-separated evaluator UUIDs")
     p.add_argument("--out-dir", default=".codeer/eval_table")
     p.set_defaults(func=run_export)
+
+    p = sub.add_parser("delivery", help="Export or verify selected formal evidence offline; excludes deployment state")
+    p.add_argument("--run-id")
+    p.add_argument("--release-id")
+    p.add_argument("--out-dir")
+    p.add_argument("--verify", help="Verify an existing delivery bundle")
+    p.set_defaults(func=run_delivery, no_client=True)
 
     # codeer eval reconcile
     p = sub.add_parser("reconcile", help="Audit local manifest vs server eval suite (read-only)")
@@ -201,8 +247,9 @@ def register(subparsers):
 
     # codeer eval cases-apply
     p = sub.add_parser("cases-apply", help="Create/update eval cases from JSON manifest; run --dry-run first")
-    p.add_argument("--cases", required=True, help="Path to eval_cases.json")
-    p.add_argument("--agent", required=True)
+    p.add_argument("--cases", default=None, help="Outside project: legacy manifest; inside project: must match the configured evals path")
+    p.add_argument("--expect", help="Reviewed project design apply token")
+    p.add_argument("--agent", default=None)
     p.add_argument("--attachments-dir", default=None, dest="attachments_dir")
     p.add_argument("--allow-duplicates", action="store_true")
     p.add_argument("--create-labels", action="store_true",
@@ -210,11 +257,11 @@ def register(subparsers):
     p.add_argument("--dry-run", action="store_true",
                    help="Validate manifest and print intended mutations without writing server state.")
     p.add_argument("--out", default=None)
-    p.set_defaults(func=run_cases_apply)
+    p.set_defaults(func=run_cases_apply, requires_agent=True)
 
     # codeer eval rubrics
     p = sub.add_parser("rubrics", help="Read assigned per-(case, evaluator) rubrics")
-    p.add_argument("--agent", required=True)
+    p.add_argument("--agent", default=None)
     p.add_argument("--evaluators", default=None, help="Comma-separated evaluator UUIDs")
     p.add_argument("--cases", default=None, help="Comma-separated case UUIDs")
     p.add_argument("--all-pairs", action="store_true",
@@ -223,7 +270,7 @@ def register(subparsers):
                    help="Print complete rubric text. Default prints matrix summaries/previews.")
     p.add_argument("--out", default=None,
                    help="Write complete rubric matrix to this file.")
-    p.set_defaults(func=run_rubrics)
+    p.set_defaults(func=run_rubrics, requires_agent=True)
 
     # codeer eval rubrics-apply
     p = sub.add_parser("rubrics-apply", help="Apply rubric changes from JSON file")
@@ -231,6 +278,7 @@ def register(subparsers):
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--force", action="store_true", help="Write all rubrics even if unchanged")
     p.add_argument("--out", default=None)
+    p.add_argument("--expect", help="Reviewed project pair change token")
     p.set_defaults(func=run_rubrics_apply)
 
 
@@ -279,6 +327,33 @@ def _evaluator_summary(evaluator: dict, *, full: bool = False) -> dict:
     else:
         row["system_prompt_template_preview"] = truncate(template, 240)
     return row
+
+
+def run_snapshot(args, client) -> int:
+    from ..evidence import snapshot
+    if not getattr(args, "project", None):
+        raise ValueError("eval snapshot requires a bound project")
+    result = snapshot(args.project, client, args.history)
+    write_json(args.out, result)
+    print_json({"revision": result["revision"], "remote_fingerprint": result["remote_fingerprint"], "history_id": args.history,
+                "pair_count": len(result["snapshot"]["pairs"]), "out": args.out})
+    return 0
+
+
+def run_inspect(args, client=None) -> int:
+    from ..evidence import inspect_run
+    if not args.project:
+        raise ValueError("eval inspect-run requires a project")
+    print_json(inspect_run(args.project, args.run_id))
+    return 0
+
+
+def run_pull(args, client) -> int:
+    from ..project_eval import pull
+    if not getattr(args, "project", None):
+        raise ValueError("eval pull requires a bound project")
+    print_json(pull(args.project, client, reconcile=args.reconcile))
+    return 0
 
 
 def run_list(args, client) -> int:
@@ -448,6 +523,15 @@ def run_case_update(args, client) -> int:
         value is not None
         for value in (input_text, expected_output, rubric, note, meta, attachment_ids, label_ids)
     ) or args.clear_labels
+    if getattr(args, "project", None) and has_update:
+        from ..project_eval import command_apply, mapped_key
+        fields = {k: v for k, v in {"input": input_text, "expected_output": expected_output, "rubric": rubric,
+                  "note": note, "meta": meta, "attachment_ids": attachment_ids, "label_ids": label_ids}.items() if v is not None}
+        key = mapped_key(args.project, "case", args.case_id)
+        result = command_apply(args.project, client, {key: fields}, dry_run=args.dry_run, expected=args.expect)
+        print_json(result)
+        write_json(args.out, result)
+        return 1 if result.get("conflicts") or result.get("complete") is False else 0
     if not has_update:
         log(
             "error: provide at least one of --input, --input-file, --expected-output, "
@@ -501,6 +585,15 @@ def run_case_update(args, client) -> int:
 
 
 def run_case_delete(args, client) -> int:
+    if getattr(args, "project", None):
+        from ..project_eval import delete_case
+        result = delete_case(args.project, client, args.case_id, dry_run=args.dry_run, expected=args.expect)
+        if args.dry_run:
+            result["case_id"] = args.case_id
+            result["current"] = _case_summary(strip_noisy_fields(result["current"]), full=True)
+        print_json(result)
+        write_json(args.out, result)
+        return 1 if result.get("status") == "readback_mismatch" else 0
     if args.dry_run:
         current = strip_noisy_fields(eval_mod.get_case(client, args.case_id))
         out = {
@@ -546,6 +639,18 @@ def run_evaluator_create(args, client) -> int:
         system_prompt_template = Path(args.system_prompt_template_file).read_text()
     else:
         system_prompt_template = args.system_prompt_template
+    if getattr(args, "project", None):
+        from ..project_eval import command_apply
+        if not args.local_id:
+            raise ValueError("Project evaluator-create requires --local-id in the designed Tester list")
+        fields = {"name": args.name, "system_prompt_template": system_prompt_template}
+        if args.description is not None:
+            fields["description"] = args.description
+        if args.judge_model is not None:
+            fields["judge_llm_model_id"] = args.judge_model
+        result = command_apply(args.project, client, {f"tester:{args.local_id}": fields}, dry_run=args.dry_run, expected=args.expect)
+        print_json(result)
+        return 1 if result.get("conflicts") or result.get("complete") is False else 0
     if args.dry_run:
         print_json({
             "dry_run": True,
@@ -604,6 +709,16 @@ def run_evaluator_update(args, client) -> int:
         judge_model = {"action": "set", "model_id": args.judge_model}
     else:
         judge_model = {"action": "unchanged"}
+
+    if getattr(args, "project", None):
+        from ..project_eval import command_apply, mapped_key
+        fields = {k: v for k, v in {"name": args.name, "description": args.description, "system_prompt_template": system_prompt_template}.items() if v is not None}
+        if args.clear_judge_model or args.judge_model is not None:
+            fields["judge_llm_model_id"] = None if args.clear_judge_model else args.judge_model
+        key = mapped_key(args.project, "tester", args.evaluator)
+        result = command_apply(args.project, client, {key: fields}, dry_run=args.dry_run, expected=args.expect)
+        print_json(result)
+        return 1 if result.get("conflicts") or result.get("complete") is False else 0
 
     if args.dry_run:
         print_json({
@@ -753,6 +868,11 @@ def _remove_non_runnable_skipped_pairs(
 
 
 def run_run(args, client) -> int:
+    if getattr(args, "project", None):
+        from ..evidence import run
+        result = run(args.project, client, args)
+        print_json(result)
+        return 0 if result["status"] == "passed" else 1
     workspace_id, _ = client.resolve_scope()
     if args.latest or not args.history:
         history_id = agents_mod.get_latest_history_id(client, args.agent)
@@ -1013,6 +1133,13 @@ def _pick_history(versions: list[dict], args) -> dict:
 
 
 def run_export(args, client) -> int:
+    if getattr(args, "run_id", None):
+        from ..evidence import export_run
+        if not getattr(args, "project", None):
+            raise ValueError("--run-id requires a project")
+        result = export_run(args.project, client, args.run_id, args.out_dir)
+        print_json(result)
+        return 0 if result["status"] == "passed" else 1
     agent_id = args.agent or client.agent_id or os.environ.get("CODEER_AGENT_ID")
     workspace_id, _ = client.resolve_scope()
     if not agent_id:
@@ -1193,6 +1320,14 @@ def _duplicate_inputs(grouped: dict[str, list[dict]], *, kind: str) -> list[dict
 
 
 def run_reconcile(args, client) -> int:
+    if getattr(args, "project", None):
+        from ..project import read_json
+        from ..project_eval import preview
+        payload = read_json(args.project.path("evals"))
+        plan = preview(args.project, client, payload)
+        print_json(plan)
+        write_json(args.out, plan)
+        return 1 if plan["conflicts"] else 0
     manifest_path = Path(args.manifest)
     if not manifest_path.exists():
         log(f"error: manifest not found: {manifest_path}")
@@ -1387,7 +1522,36 @@ def _resolve_case_label_ids(case: dict, labels_by_name: dict[str, dict]) -> tupl
     return _dedupe_preserve_order(resolved_ids), label_names
 
 
+def run_delivery(args, client=None):
+    from ..delivery import export, verify
+    if args.verify:
+        if args.run_id or args.release_id or args.out_dir:
+            raise ValueError("--verify cannot be combined with export arguments")
+        result = verify(args.verify)
+    else:
+        if not args.project or not args.run_id or not args.out_dir:
+            raise ValueError("Delivery export requires a project, --run-id and --out-dir")
+        result = export(args.project, args.run_id, args.release_id, args.out_dir)
+    print_json(result)
+    return 0 if result["complete"] else 1
+
+
 def run_cases_apply(args, client) -> int:
+    if getattr(args, "project", None):
+        from ..project import read_json
+        from ..project_eval import preview, apply
+        if args.cases and Path(args.cases).resolve() != args.project.path("evals"):
+            raise ValueError("Project apply uses the configured evals path; change [paths].evals to adopt another file")
+        design = read_json(args.project.path("evals"))
+        if not isinstance(design, dict) or design.get("schema_version") != 1:
+            raise ValueError("Adopt legacy cases through explicit remote IDs with eval pull; project apply requires stable schema_version 1")
+        plan = preview(args.project, client, design)
+        result = plan if args.dry_run else apply(args.project, client, plan, args.expect)
+        print_json(result)
+        write_json(args.out, result)
+        return 1 if result.get("conflicts") or result.get("complete") is False else 0
+    if not args.cases:
+        raise ValueError("--cases is required outside a project")
     payload = json.loads(Path(args.cases).read_text())
     cases = payload.get("cases") or []
     if not cases:
@@ -1729,6 +1893,29 @@ def run_rubrics(args, client) -> int:
 
 def run_rubrics_apply(args, client) -> int:
     payload = json.loads(Path(args.rubrics).read_text())
+    if getattr(args, "project", None):
+        from ..project import read_json
+        from ..project_eval import command_apply, mapped_key
+        design = read_json(args.project.path("evals"))
+        changes = {}
+        if payload.get("agent_id") not in (None, args.project.target.get("agent_id")):
+            raise ValueError("Rubric manifest belongs to another Agent")
+        for item in payload.get("cases", []):
+            key = mapped_key(args.project, "case", item["case_id"])
+            cid = key.split(":", 1)[1]
+            case = next(c for c in design["cases"] if c["local_id"] == cid)
+            pairs = list(case["pairs"])
+            for sid, rubric in item.get("rubrics_by_evaluator", {}).items():
+                tid = mapped_key(args.project, "tester", sid).split(":", 1)[1]
+                matches = [p for p in pairs if p["tester"] == tid]
+                if not matches:
+                    raise ValueError("Design a new pair and evidence requirements before rubric apply")
+                matches[0]["rubric"] = rubric
+            changes[f"pairs:{cid}"] = {"pairs": pairs}
+        result = command_apply(args.project, client, changes, dry_run=args.dry_run, expected=args.expect)
+        print_json(result)
+        write_json(args.out, result)
+        return 1 if result.get("conflicts") or result.get("complete") is False else 0
     cases = payload.get("cases") or []
     if not cases:
         log("error: no cases in payload")

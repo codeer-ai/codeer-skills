@@ -312,10 +312,12 @@ class CodeerClient:
 
     def _raise_for_error(self, status: int, payload: Any) -> None:
         message = payload if isinstance(payload, str) else (payload or {}).get("message") if isinstance(payload, dict) else None
+        if isinstance(message, str) and self.api_key:
+            message = message.replace(self.api_key, "<redacted>")
         if status in (401, 403):
             raise AuthError(
                 status,
-                f"{message or 'auth rejected'}. API key may be missing, invalid, expired, or revoked.",
+                message or "Authentication or access rejected; the response does not establish the cause",
                 payload,
             )
         raise CodeerError(status, message or f"HTTP {status}", payload)
