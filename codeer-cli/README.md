@@ -122,7 +122,13 @@ metadata/file integrity only and grant no new clearance.
 Local Agent project continuation uses `codeer status` for recorded evidence and
 an actionable `next_action` with a completion condition. It groups shared
 Tester/variable gaps by affected-pair count; `status --full` includes identities
-and full run details. `codeer validate` preserves combined `issues` and nonzero
+and full run details. Status also compares explicitly referenced `env:` values
+with the last snapshot without connecting or exposing values. A change adds
+`environment` to `local_changes`; `latest_run.environment_stale` independently
+compares the original run's environment, even after refresh. Original run bytes,
+recorded outcomes and portable content revision remain unchanged. Restoring the
+reviewed values can reuse unchanged evidence; unrelated variables do not affect it.
+`codeer validate` preserves combined `issues` and nonzero
 exit for unresolved content, while separating `structural_issues`, `design_issues`,
 `evidence_issues` and `operation_issues`. Structural validity is not complete
 Eval design or apply/run readiness. Unresolved candidates stay in case drafts;

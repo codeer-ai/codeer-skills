@@ -153,6 +153,8 @@ def validate_design(design, state=None, root=None):
 
 
 def pull(project, client, *, reconcile=False):
+    from .portable import logical_remote, redact
+
     scope = project.check_scope(client)
     agent_id = scope["agent_id"]
     if not agent_id:
@@ -208,11 +210,11 @@ def pull(project, client, *, reconcile=False):
     design = {"schema_version": 1, "testers": [], "cases": []}
     for sid, tester in testers.items():
         tid = local_id("tester", sid)
-        record(f"tester:{tid}", sid, select(tester, TESTER_FIELDS))
-        design["testers"].append({"local_id": tid, **select(tester, TESTER_FIELDS),
+        tester = logical_remote(project, select(tester, TESTER_FIELDS))
+        record(f"tester:{tid}", sid, tester)
+        design["testers"].append({"local_id": tid, **tester,
                                    "rationale": "Imported existing shared Tester; review suitability", "evidence": []})
     for case in cases:
-        from .portable import logical_remote
         case = {**case, **logical_remote(project, select(case, CASE_FIELDS))}
         sid = case["id"]
         cid = local_id("case", sid)
@@ -222,7 +224,6 @@ def pull(project, client, *, reconcile=False):
         design["cases"].append({"local_id": cid, **select(case, CASE_FIELDS),
                                 "source": {"remote_case_id": sid},
                                 "pairs": [{"tester": local_id("tester", p["evaluator_id"]), "rubric": p.get("rubric", ""), "required_evidence": []} for p in pairs]})
-    from .portable import logical_remote, redact
     safe_cases = [{**redact(project, row), **logical_remote(project, select(row, CASE_FIELDS))} for row in cases]
     from .operation_records import import_snapshot
     imported = import_snapshot(project, "eval", {"scope": scope, "cases": safe_cases, "infos": infos,

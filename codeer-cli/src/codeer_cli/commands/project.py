@@ -153,12 +153,14 @@ def run_status(args, client=None):
         if result["next_action"]["code"] == "verify_evidence_contracts":
             result["next_action"]["evidence"] = result["eval_design"]["evidence_gaps"]
     if result["latest_run"] and not args.full:
-        result["latest_run"] = {k: result["latest_run"].get(k) for k in ("id", "history_id", "status", "counts", "revision", "local_stale", "remote_stale_at_last_query", "comparison")}
+        result["latest_run"] = {k: result["latest_run"].get(k) for k in ("id", "history_id", "status", "counts", "revision", "local_stale", "environment_stale", "remote_stale_at_last_query", "comparison")}
     if args.human:
         print(f"Project: {result['project']} (binding: {result.get('binding') or 'unselected'})")
         print(f"Offline evidence; last remote query: {result.get('last_remote_query') or 'none'}")
         run = result.get("latest_run")
         print(f"Latest run: {run['id']} — {run['status']} {run.get('counts') or {}}" if run else "Latest run: none recorded")
+        if run and run.get("environment_stale"):
+            print("Run environment differs from the current referenced variables.")
         issues = sum(len(result.get(k, [])) for k in ("structural_issues", "design_issues", "operation_issues"))
         print(f"Local issues: {issues}; evidence issues: {result.get('evidence_issue_count', len(result.get('evidence_issues', [])))}")
         print(f"Next: {result['next_action']['action']}")

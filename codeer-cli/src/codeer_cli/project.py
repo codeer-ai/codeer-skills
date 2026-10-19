@@ -340,9 +340,18 @@ class Project:
                     if not sid or base.get(sid) != pair.get("rubric"):
                         local_changes.append(key)
                         break
-                if any(tid not in entry.get("removed_ids", []) for tid in case.get("remove_tester_ids", [])):
-                    local_changes.append(key)
+                for reference in case.get("remove_tester_ids", []):
+                    sid = state.get("resources", {}).get(reference, {}).get("server_id")
+                    # Authored removals use logical IDs; receipts/observations use server IDs.
+                    if not sid or sid not in entry.get("removed_ids", []) or sid in entry.get("observed", {}):
+                        local_changes.append(key)
+                        break
         cached = state.get("last_anchor", {})
+        from .portable import connection_fingerprint
+        current_environment = connection_fingerprint(self)
+        cached_environment = cached.get("snapshot", {}).get("environment_fingerprint")
+        if cached_environment is not None and cached_environment != current_environment:
+            local_changes.append("environment")
         from .evidence import audit_matches, confirmed_acceptance
         wanted = cached.get("snapshot", {}).get("pairs", [])
         audit_local = any(audit_matches(self, read_json(path), {**cached, "revision": revision}, wanted, remote=False) for path in audits)
@@ -365,7 +374,9 @@ class Project:
                 audit_acceptance = any(audit_matches(self, read_json(path), {**cached, "revision": revision},
                                                      acceptance_pairs) for path in audits)
         if run:
+            run_environment = run.get("snapshot", {}).get("environment_fingerprint")
             run = {**run, "local_stale": run.get("revision") != revision,
+                   "environment_stale": run_environment is not None and run_environment != current_environment,
                    "remote_stale_at_last_query": bool(cached and cached.get("remote_fingerprint") != run.get("remote_fingerprint"))}
             if len(runs) > 1:
                 previous = read_json(runs[-2])

@@ -42,11 +42,15 @@ def next_action(status, *, release_matches_run=False, referenced_kb=()):
                       "Check deployment capabilities and mappings, preview local Agent/KB/Eval proposals, then apply only authorized changes and verify readback.",
                       "Required resources have explicit mappings and matching readback; local checks do not establish semantic acceptance.")
     if status["local_changes"]:
+        if "environment" in status["local_changes"]:
+            return advice("review_local_changes", status["local_changes"],
+                          "Review changes to explicitly referenced environment variables and compare effective deployment settings before apply or Eval.",
+                          "Restoring the reviewed values permits reuse of unchanged evidence; changed settings require verified readback and renewed affected audit/run evidence.")
         return advice("review_local_changes", status["local_changes"],
                       "Review local proposals and compare current remote changes before apply.",
                       "The reviewed, authorized changes have matching readback; only affected audit/run evidence is renewed.")
-    if run and (run.get("local_stale") or run.get("remote_stale_at_last_query") or run.get("status") == "stale"):
-        return advice("renew_verification", [run.get("id"), "configuration evidence changed"],
+    if run and (run.get("local_stale") or run.get("environment_stale") or run.get("remote_stale_at_last_query") or run.get("status") == "stale"):
+        return advice("renew_verification", [run.get("id"), "environment settings changed" if run.get("environment_stale") else "configuration evidence changed"],
                       "Identify changes since this run, review their affected scope and renew audit/run evidence for the intended version.",
                       "Current version and pair scope have valid audit and matching run evidence; unchanged design is retained.")
     not_ready = [k for k, v in resources.items() if k.startswith("kb:")

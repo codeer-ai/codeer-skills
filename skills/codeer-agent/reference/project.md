@@ -638,6 +638,13 @@ These machine checks never replace semantic review or waive existing gates.
 `next_action` (evidence, action, completion condition and limits); `next_step`
 retains the action text. `status --full` includes per-pair issues and identities
 plus the full recorded run; `validate` retains all unresolved details.
+Offline status checks the current values of explicitly referenced `env:` variables
+against the last snapshot, reporting `environment` in `local_changes` when they
+differ. The derived `latest_run.environment_stale` separately compares against
+the run's saved environment fingerprint, so refresh cannot make an old run current
+for different settings. Status exposes no resolved values and rewrites no run,
+outcome or content revision. Restoring the reviewed settings permits reuse of
+otherwise unchanged evidence; unreferenced variables do not invalidate it.
 Advice is derived from recorded operations, changes, audit and runs, not a manual
 phase field. Offline status does not check live dependencies or infer an execution
 error's root cause. Check the artifacts and current task before acting.
