@@ -1,0 +1,13 @@
+# Local OS files and credentials
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Personal CLI state at any depth; includes recovery receipts, not just cache
+.codeer/
+
+# Align with the current CLI's project defaults
+/projects/*/sources/history/
+/projects/*/runs/
+/projects/*/releases/

@@ -264,6 +264,20 @@ carries forward for its reviewed scope; publication needs explicit authorization
 
 See [CLI usage](codeer-cli/README.md#local-agent-projects) and
 [reproducible synthetic journeys](examples/agent-workflow/README.md).
+To create your own Agent development management folder, copy the
+[Agent management template](examples/agent-management-template/README.md).
+It provides shared coding-agent rules, a usage guide, an empty project index and
+Git ignore defaults. Keep `AGENTS.md` and `README.md` as the standard entry points;
+choose your own folder name and customize the documents for your team.
+
+From this checkout's root, for example:
+
+```bash
+cp -R examples/agent-management-template ../my-agents
+```
+
+Choose a new destination that does not already exist. After copying, open that
+folder and follow its README to initialize individual projects under `projects/`.
 
 ## Prerequisites
 
@@ -278,6 +292,9 @@ See [CLI usage](codeer-cli/README.md#local-agent-projects) and
 ```bash
 codeer-skills/
 ├── codeer-cli/               # standalone CLI package
+├── examples/
+│   ├── agent-management-template/ # starter for your own Agent management folder
+│   └── agent-workflow/       # synthetic CLI and skill scenarios
 ├── skills/
 │   ├── codeer-audience-value-narrative/
 │   │   ├── SKILL.md          # cross-format audience-value contract and checks
