@@ -25,7 +25,7 @@ _MIME_OVERRIDES = {
 }
 
 
-def _guess_mime(filename: str) -> str:
+def guess_upload_mime(filename: str) -> str:
     ext = Path(filename).suffix.lower()
     if ext in _MIME_OVERRIDES:
         return _MIME_OVERRIDES[ext]
@@ -189,7 +189,7 @@ def upload_files(
       Ninja's default for a ``Schema``-typed form param), not flattened.
     - Each file must include an explicit ``Content-Type``; httpx's default
       ``application/octet-stream`` gets rejected by the KB validator.
-      :func:`_guess_mime` supplies a sensible default per extension.
+      :func:`guess_upload_mime` supplies a sensible default per extension.
     - The response is ``{"nodes": [{"node_id": "...", "status": "PENDING", ...}]}``.
     - Upload kicks off async indexing. Poll :func:`file_status` on the returned
       ``node_id`` values until each is ``READY``/``FAILED``.
@@ -207,7 +207,7 @@ def upload_files(
     url = f"{_base(organization_id, workspace_id)}/files:upload"
     open_handles = [p.open("rb") for p in paths]
     try:
-        files = [("files", (p.name, fh, _guess_mime(p.name))) for p, fh in zip(paths, open_handles)]
+        files = [("files", (p.name, fh, guess_upload_mime(p.name))) for p, fh in zip(paths, open_handles)]
         data = {"parent_id": parent_id}
         return client.post(url, files=files, data=data)
     finally:

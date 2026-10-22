@@ -1,6 +1,5 @@
 """Original attachment bytes with per-deployment upload receipts."""
 import hashlib
-import mimetypes
 import uuid
 
 import httpx
@@ -8,6 +7,7 @@ import httpx
 from .portable import definitions
 from .project import ProjectError, fingerprint, now, read_json, save_json
 from .client import CodeerError
+from .kb import guess_upload_mime
 
 
 def download(client, attachment_id, expected_size=None, *, record=None):
@@ -115,7 +115,7 @@ def upload(project, client, local_id, *, dry_run, expected=None, reconcile=False
     save_json(receipt_path, receipt)
     project.save_state(state)
     try:
-        response = client.post("/external/files", files={"file": (path.name, content, mimetypes.guess_type(path.name)[0] or "application/octet-stream")},
+        response = client.post("/external/files", files={"file": (path.name, content, guess_upload_mime(path.name))},
                                params={"scope": "persistent", **({"purpose": definition["purpose"]} if definition.get("purpose") else {})})
         receipt["response"] = response
         save_json(receipt_path, receipt)
