@@ -867,6 +867,11 @@ def _remove_non_runnable_skipped_pairs(
     return [pair for pair in pairs if _pair_key(pair) not in non_runnable]
 
 
+def _result_is_terminal(row: dict) -> bool:
+    # A failed run never gets a score, so waiting for one only burns the poll timeout.
+    return row.get("score") is not None or row.get("status") == "failed"
+
+
 def run_run(args, client) -> int:
     if getattr(args, "project", None):
         from ..evidence import run
@@ -992,7 +997,7 @@ def run_run(args, client) -> int:
             results_by_eval[ev_id] = rows
             for row in rows:
                 key = (row.get("case_id") or row.get("evaluation_case_id"), ev_id)
-                if key in target_pair_keys and row.get("score") is not None:
+                if key in target_pair_keys and _result_is_terminal(row):
                     done_pairs.add(key)
         log(f"  progress: {len(done_pairs)}/{total}")
         if len(done_pairs) >= total:

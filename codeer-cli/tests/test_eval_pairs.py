@@ -8,6 +8,7 @@ from codeer_cli.commands.eval_cmd import (
     _pairs_from_rubric_batches,
     _planned_eval_pairs,
     _remove_non_runnable_skipped_pairs,
+    _result_is_terminal,
     _skipped_pairs_from_trigger_response,
 )
 
@@ -215,6 +216,14 @@ class EvalPairPlannerTests(unittest.TestCase):
                 {"case_id": "case-3", "evaluator_id": "eval-1"},
             ],
         )
+
+
+class EvalRunPollingTests(unittest.TestCase):
+    def test_failed_result_without_score_stops_polling_for_that_pair(self) -> None:
+        self.assertTrue(_result_is_terminal({"status": "finished", "score": 0.0}))
+        self.assertTrue(_result_is_terminal({"status": "failed", "score": None}))
+        self.assertFalse(_result_is_terminal({"status": "running", "score": None}))
+        self.assertFalse(_result_is_terminal({"status": "pending"}))
 
 
 if __name__ == "__main__":
