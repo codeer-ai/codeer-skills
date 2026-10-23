@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import csv
 import json
-import mimetypes
 import os
 import time
 from collections import defaultdict
@@ -13,6 +12,7 @@ from typing import Any
 from .. import agents as agents_mod
 from .. import eval_ as eval_mod
 from ..client import CodeerClient
+from ..kb import guess_upload_mime
 from ..parse import parse_eval_result, parse_eval_tool_calls, summarize_eval_tool_calls
 from ._util import log, print_json, strip_noisy_fields, truncate, write_json
 
@@ -1472,9 +1472,7 @@ def run_reconcile(args, client) -> int:
 # ---------------------------------------------------------------------------
 
 def _upload_attachment(client: CodeerClient, *, file_path: Path, workspace_id: str) -> str:
-    ct, _ = mimetypes.guess_type(file_path.name)
-    ct = ct or "application/octet-stream"
-    files = {"file": (file_path.name, file_path.read_bytes(), ct)}
+    files = {"file": (file_path.name, file_path.read_bytes(), guess_upload_mime(file_path.name))}
     data = {"scope": "persistent", "purpose": "evaluation_context"}
     uploaded = client.post("/external/files", files=files, data=data)
     uuid = uploaded.get("uuid") if isinstance(uploaded, dict) else None
