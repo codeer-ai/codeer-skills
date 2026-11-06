@@ -1060,7 +1060,7 @@ def run_run(args, client) -> int:
         score_str = f"{score:.2f}" if score is not None else "  - "
         log(f"{score_str:>6}  {r['evaluator_name'][:35]:<35}  {r['case_label']}")
 
-    non_perfect = [r for r in flat if (r.get("score") or 0.0) < 1.0]
+    non_perfect = [r for r in flat if not _result_is_successful(r) or (r.get("score") or 0.0) < 1.0]
     if non_perfect:
         log("\nNON-PERFECT RESULTS:\n")
         for r in non_perfect:

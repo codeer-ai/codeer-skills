@@ -113,6 +113,7 @@ class EvalRunTerminalTests(unittest.TestCase):
         )
         self.assertEqual(code, 1)
         self.assertFalse(output["all_perfect"])
+        self.assertEqual(output["non_perfect_count"], 1)
         self.assertEqual((len(polls), sleeps), (1, 0))
 
     def test_running_with_stale_score_keeps_polling(self):
