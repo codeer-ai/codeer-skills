@@ -622,6 +622,14 @@ event. If the stream times out, reports `response.failed`, or disconnects
 early, inspect the history before retrying: the server may already have
 persisted the turn.
 
+Standalone `eval run` waits for every requested Case/Tester pair to reach
+`finished` or `failed`. A failed pair retains its null score and error reason,
+and does not prevent other pairs from finishing. Exit code 0 requires every
+requested pair to finish successfully with a score of at least 1; failures,
+missing scores, and polling timeouts return 1. A score on a still-running or
+failed result cannot make the command succeed. Legacy responses without a
+status retain score-based completion.
+
 Eval case label commands always operate on the active API-key workspace. They
 do not accept a workspace override; switch CLI profiles to target another
 workspace.

@@ -868,8 +868,16 @@ def _remove_non_runnable_skipped_pairs(
 
 
 def _result_is_terminal(row: dict) -> bool:
-    # A failed run never gets a score, so waiting for one only burns the poll timeout.
-    return row.get("score") is not None or row.get("status") == "failed"
+    status = str(row.get("status") or "").lower()
+    if status:
+        return status in ("finished", "failed")
+    # Older API responses omit status; retain their score-based completion contract.
+    return row.get("score") is not None
+
+
+def _result_is_successful(row: dict) -> bool:
+    status = str(row.get("status") or "").lower()
+    return status in ("", "finished") and row.get("score") is not None
 
 
 def run_run(args, client) -> int:
@@ -1041,7 +1049,7 @@ def run_run(args, client) -> int:
     }
     all_perfect = (
         len(scored_pair_keys) == len(target_pair_keys)
-        and all((r.get("score") or 0.0) >= 1.0 for r in flat)
+        and all(_result_is_successful(r) and (r.get("score") or 0.0) >= 1.0 for r in flat)
     )
     log("\n" + "=" * 80)
     log(f"RESULTS  agent={args.agent}  history={args.history}")
@@ -1052,7 +1060,7 @@ def run_run(args, client) -> int:
         score_str = f"{score:.2f}" if score is not None else "  - "
         log(f"{score_str:>6}  {r['evaluator_name'][:35]:<35}  {r['case_label']}")
 
-    non_perfect = [r for r in flat if (r.get("score") or 0.0) < 1.0]
+    non_perfect = [r for r in flat if not _result_is_successful(r) or (r.get("score") or 0.0) < 1.0]
     if non_perfect:
         log("\nNON-PERFECT RESULTS:\n")
         for r in non_perfect:
