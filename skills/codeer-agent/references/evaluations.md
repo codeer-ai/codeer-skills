@@ -1,0 +1,8 @@
+# Evaluation cases, runs, and scores
+
+- Resolve an Agent and the exact saved version. Use `external_get_agent` for the draft and `list_agent_versions` for saved version selection. If you just updated the draft, use the update result's `draft_version_id` for the retest.
+- Discover `external_eval_list_cases` and `external_eval_list_evaluators` to resolve the intended test inputs. To create a case, use `external_eval_create_case` with the requested input and expected behavior. Use `external_eval_get_case` and `external_eval_get_case_evaluator_infos` to verify the saved case and its evaluator pairings before reporting setup complete. Give evaluators observable criteria grounded in the intended behavior.
+- When a run is requested, call `start_evaluation_batch` with the precise `arguments.agent_history_id` and `arguments.case_evaluator_pairs`. Preserve the returned `batch_id`, result IDs, and any skipped pairs. Use those rather than starting a second batch to check progress.
+- To check current or follow-up scores, discover `get_evaluation_results` and call it with `arguments.batch_id` (or exact result IDs) and a Sandbox `destination`. Read the returned result file. Its `results` list contains result IDs, pair and version IDs, statuses, scores, and reasons. Distinguish completed scores from pending, failed, or absent results. Report which version and evaluator actually ran.
+
+For example, after fixing a returns-policy Agent's holiday cutoff, run the existing holiday-return case against the saved draft version with its assigned policy evaluator. Retrieve that batch's results by batch ID, and use its reason to explain any failed criterion.
