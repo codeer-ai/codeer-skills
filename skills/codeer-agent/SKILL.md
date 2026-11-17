@@ -5,6 +5,35 @@ description: Build and maintain Codeer agents from customer sources, design Case
 
 # Codeer Agent
 
+## Codeer Copilot
+
+In Copilot, run Codeer operations using tools. Use the CLI instructions below
+as workflow guidance and follow the tool names and inputs in
+[Copilot runtime](reference/copilot-runtime.md). Discover `read_skill_file`
+with `search_tools` (ToolSearch), then call it with
+`{"arguments":{"path":"reference/copilot-runtime.md"}}` for Agent, knowledge,
+evaluation, attachment, or Sandbox work. For any reference with
+`has_more: true`, pass its `continuation` as the next `arguments`.
+
+For conversation exports and statistics, follow this path:
+
+1. Read `reference/copilot-conversations.md` with `read_skill_file`. Discover
+   `export_conversation_events` and `skill_file` with `search_tools`.
+2. Call `export_conversation_events` for the requested scope with timezone-aware
+   date filters. Apply the scope once, in the export call, and process the
+   returned file as scoped. Use `agent_id` only for an Agent-specific request.
+3. For event and message metrics, call `skill_file` with
+   `{"arguments":{"path":"scripts/summarize_conversation_events.py"},"destination":"summarize_conversation_events.py"}`.
+   Run `python3 summarize_conversation_events.py <export-path>` with
+   `run_command`. Read stdout after exit code 0. Use both user and assistant
+   message bodies for workspace-wide message counts and sizes unless the
+   requested population says otherwise. Investigate a zero result when the
+   export and sampled rows show messages.
+
+Use read-only `RuntimeClient` for scripts that need to fetch Codeer data and
+platform tools for writes. Use the standalone CLI and CLI project bootstrap
+only in a CLI session.
+
 Skill modes are conversation entry points. Read only the modules relevant to
 the current outcome. Preserve a requested local scope and existing decisions.
 
@@ -19,26 +48,6 @@ and the design record. Follow the shared [design discovery and source rules](ref
 read first, summarize established intent, recommend useful choices and ask only
 material unresolved questions. Save important understanding and proposals as
 work proceeds; clear instructions do not need approval again to be recorded.
-
-## Codeer Copilot
-
-Use `search_tools` (ToolSearch) to discover `read_skill_file` and the required
-Codeer operations. Before retrieving or modifying Codeer data, read
-[Copilot runtime](reference/copilot-runtime.md) by calling `read_skill_file`
-with `{"arguments":{"path":"reference/copilot-runtime.md"}}`. If any reference
-returns `has_more: true`, use its `continuation` as the next `arguments`.
-
-For conversation work, read [Copilot conversation export](reference/copilot-conversations.md)
-with the same tool. Export the requested scope directly with
-`export_conversation_events` using timezone-aware date filters. Process the
-scoped export as returned. For message and event metrics, run the bundled
-summary script described in that reference.
-
-Follow the mode, design, and evidence guidance below. Carry out CLI examples
-through the corresponding Copilot tools. For scripts that need to fetch saved
-data themselves, use the read-only `RuntimeClient`. Use the Sandbox shell for
-file processing and platform tools for writes. The Codeer CLI and CLI project
-bootstrap steps apply to the standalone CLI environment.
 
 ## Start and resume in the CLI
 
