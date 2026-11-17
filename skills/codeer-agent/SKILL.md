@@ -1,18 +1,158 @@
 ---
 name: codeer-agent
-description: Work with Codeer workspace data in Copilot. Use for conversation reports, Agent drafts and versions, user attachments, knowledge bases, evaluations, and files produced in the Sandbox.
+description: Build and maintain Codeer agents from customer sources, design Case/Rubric/Tester evaluations, audit evidence, apply reviewed changes, evaluate exact versions, diagnose failures, publish and analyze production feedback. Use explicit build/cases/audit/apply/eval/improve/publish/observe modes or equivalent natural language, including scoped work on existing Agents.
 ---
 
 # Codeer Agent
 
-1. Identify the requested workspace and resources. The submitted page workspace is the default. Use page context to resolve names or IDs, and retrieve the saved records for analysis. Use `list_workspaces` when an explicitly requested workspace needs resolution. For a different workspace, pass its ID in `target.workspace_id` where the tool supports `target`.
-2. Start by calling `search_tools` (ToolSearch) for `read_skill_file` and the needed Codeer operation names. Call `read_skill_file` for the relevant reference before retrieving or changing workspace data. For example, call it with `{"arguments":{"path":"references/conversations.md"}}`. While `has_more` is true, pass `continuation` as the next `arguments`.
-3. Invoke the discovered Codeer tool with its input schema. For a conversation export, apply the requested scope filters directly to `export_conversation_events`, using timezone offsets on date filters. Use web search for public web information. The Sandbox runs shell commands and scripts, and the Codeer CLI is unavailable there. For exact statistics, run a Python script in the Sandbox and read its output. For conversation metrics, start with the bundled script described in the conversation reference. Process the scoped export as returned.
-4. Complete explicitly requested operations in the turn and confirm the result from tools. Use platform tools for writes. Identify the exact publish, delete, or paid operation and obtain an explicit instruction for it. Report the actual saved version, result, or missing data.
+Skill modes are conversation entry points. Read only the modules relevant to
+the current outcome. Preserve a requested local scope and existing decisions.
 
-| Work | Reference |
-|---|---|
-| Sandbox files, shell commands, RuntimeClient, or deliverables | `references/sandbox.md` |
-| Conversation export, event schema, analysis, or human edits | `references/conversations.md` |
-| Agent drafts, source attachments, or knowledge base changes | `references/agents-and-knowledge.md` |
-| Evaluation cases, retests, and scores | `references/evaluations.md` |
+Read the compact [platform basics](reference/platform-basics.md) and
+[collaboration rules](reference/collaboration.md) at entry. Explain behavior,
+consequences and a recommended next step in the user's working language;
+project-document and customer-facing Agent languages may differ.
+
+Users can start with sources and an ordinary description of the Agent they
+want; they need not know mode names or “Agent design.” You own discovery
+and the design record. Follow the shared [design discovery and source rules](reference/agent-design.md#discover-and-ground-the-design):
+read first, summarize established intent, recommend useful choices and ask only
+material unresolved questions. Save important understanding and proposals as
+work proceeds; clear instructions do not need approval again to be recorded.
+
+## Codeer Copilot
+
+Use `search_tools` (ToolSearch) to discover `read_skill_file` and the required
+Codeer operations. Before retrieving or modifying Codeer data, read
+[Copilot runtime](reference/copilot-runtime.md) by calling `read_skill_file`
+with `{"arguments":{"path":"reference/copilot-runtime.md"}}`. If any reference
+returns `has_more: true`, use its `continuation` as the next `arguments`.
+
+For conversation work, read [Copilot conversation export](reference/copilot-conversations.md)
+with the same tool. Export the requested scope directly with
+`export_conversation_events` using timezone-aware date filters. Process the
+scoped export as returned. For message and event metrics, run the bundled
+summary script described in that reference.
+
+Follow the mode, design, and evidence guidance below. Carry out CLI examples
+through the corresponding Copilot tools. For scripts that need to fetch saved
+data themselves, use the read-only `RuntimeClient`. Use the Sandbox shell for
+file processing and platform tools for writes. The Codeer CLI and CLI project
+bootstrap steps apply to the standalone CLI environment.
+
+## Start and resume in the CLI
+
+Find `project.toml` from the current directory upward. Resolve Agent design through
+the [new/legacy path rules](reference/project.md#agent-design-paths-and-existing-projects)
+before saving; module paths are defaults, not instructions to move existing files.
+Read the configured sources index, applicable accepted design, pending proposals and recent
+`logs/YYYY-MM.md` entries (continue existing `log.md`); inspect actual receipts/runs behind status claims. Use
+`codeer status` and `codeer validate` offline. The log explains reasons and past
+milestones; structured evidence determines current machine state.
+For a build or a request to continue/choose the next step, use the
+[evidence-based continuation rules](workflows/lifecycle.md#choose-the-next-action-from-evidence).
+Report established progress, the actual missing prerequisite, the concrete next
+action and its completion condition. Status advice is offline evidence, not
+semantic acceptance or new authorization; inspect the relevant artifacts.
+
+For a new development directory use `codeer init <directory>` without credentials.
+Use the current schema-2 project contract. Verify connection with an explicit
+single-invocation `--profile` when needed, configure `agent bind <name> --agent <id>`
+or `--new-agent`, and select it with `agent use <name>` (or global `--binding`).
+Inspect `agent bindings` for actual API/workspace/Agent IDs. Names identify remote
+Agent mappings, not environments; one workspace/environment may have many bindings.
+Unsupported projects require a reviewed one-time preparation copy; conforming
+projects need zero conversion. Old evidence stays read-only, never upgraded into
+current clearance. Read the [preparation runbook](reference/one-time-preparation.md)
+before any authorized tool/data switch.
+An existing Agent then starts with read-only `agent pull`, then relevant
+KB exports and `eval pull`. Import preserves IDs and local work; it does not
+approve behavior or recreate shared resources. Missing historical Agent design does
+not block scoped diagnosis or a confirmed repair. Read
+[project mechanics](reference/project.md) for paths, adoption and evidence.
+
+For “someone changed this on the platform; bring it back,” use the selected
+deployment's pull/compare/adopt flow. Present Draft/Published and local differences;
+carry forward explicit field choices, ask only unresolved material choices,
+and preserve unselected proposals. Adoption writes local content only, never
+another deployment. Clone without state requires explicit resource IDs and
+alignment decisions; names/profile labels are not identity. Sub-Agent references
+remain read-only and block project deployment. Mark missing originals and
+unavailable history; an import is not a complete backup.
+
+Without a project, perform bounded local design or existing resource reads
+directly; initialization is not required for a question. Explain when a requested
+tracked mutation needs initialization. Before the first server operation run
+`codeer check`; local work does not need auth. See [onboarding](onboarding.md).
+
+## Mode routing
+
+Choose from the objective, retaining the requested analysis unit and target. For
+cross-mode work use the smallest relevant sequence; transitions grant no extra
+mutation scope.
+
+| Mode / equivalent request | Read | Inputs → output / completion | Server effect |
+| --- | --- | --- | --- |
+| `build` / design an Agent from this SOP | [design discovery](reference/agent-design.md), [settings](modules/agent-settings.md), [KB/Agent](modules/kb-and-agent.md) | Sources and goals → grounded design basis and open decisions, local Instructions/settings/KB and acceptance design | Local drafts; apply separately |
+| `cases` / turn this failure into a test | [cases](modules/eval-cases.md); [portfolio](modules/eval-portfolio.md) for architecture/coverage review | Source/behavior → Tester, evidence, Case/Rubric, pairs, review; unresolved candidates stay in the draft, admitted pairs enter configured `evals/design.json` | Local design; apply separately |
+| `audit` / check only this case | [static audit](modules/static-audit.md), [Agent design](reference/agent-design.md) | Scoped configuration → findings in `reviews/`; full pre-eval clearance binds snapshot, revision, history, covered pairs | Read-only diagnosis |
+| `apply` / apply these confirmed changes | [project](reference/project.md), owning module | Reviewed diff and existing confirmation → receipts, readback, remaining gaps; report partial outcomes | Only confirmed KB/Agent/Tester/case/pair batch |
+| `eval` / test this exact draft | [cases execution](modules/eval-cases.md), [project evidence](reference/project.md), [debug](modules/eval-debug.md), [assessment](modules/eval-review.md) | Valid audit, exact history, selected pairs → run evidence, bounded assessment, batch conclusion and necessary customer clarification draft; completed differs from passed | Authorized trigger only; no repairs |
+| `improve` / explain and fix these failures | [debug](modules/eval-debug.md), [repair](modules/repair-planner.md); [triage](modules/regression-triage.md) for comparable runs | Dynamic evidence or sufficient static findings → cause/uncertainty, local repair diff, affected regression plan | Diagnose/design; confirmed apply separately |
+| `publish` / publish the accepted version | [publish](modules/kb-and-agent.md), [project evidence](reference/project.md) | Confirmed acceptance set, current audit/run, exact history → preview, separately authorized publish/readback/release | Explicit publication only |
+| `observe` / analyze histories or AI Draft | [history](modules/history.md) | Population/horizon and raw source → de-identified candidates in `reviews/` with provenance, owner and reproduction/protection scope | Reads; no automatic case or prompt changes |
+
+Cases are design-complete only when Tester suitability, per-case requirements,
+pairing and evidence are reviewed. Distinguish design-complete, apply-ready and
+unresolved using the [completion meanings](workflows/lifecycle.md#completion-meanings).
+Authoring a draft is not complete Eval design. Input/Rubric JSON, a template mentioning `{tool_steps}`, or a reply
+saying “transferred” does not establish tool evidence. One common tool Tester
+can serve many cases with different Rubrics.
+
+For a cross-module build, repair or feedback journey read
+[lifecycle](workflows/lifecycle.md). Use [consultative guidance](modules/consultative-guidance.md)
+for query-led discovery; [query distribution](modules/query-distribution.md) only
+for decisions needing demand/allocation evidence. Read
+[coordination](reference/coordination.md) when independent investigations help;
+parents retain canonical writes and mutations.
+
+For a readable Eval report, missing-information questionnaire or returned customer
+answers, use [assessment and clarification](modules/eval-review.md). It carries
+results into decisions and verification without requiring another mode.
+
+## Shared boundaries
+
+Portable KB import/redeployment includes originals, exact saved text and complete
+FAQ through resource export; follow [the KB/FAQ contract](reference/project.md#portable-kb-text-originals-and-faq).
+Rebuild FAQ only after target text/range verification. Website crawl settings
+are excluded; preserve the gap. Unavailable APIs never authorize URL fallbacks.
+
+Show concrete target, scope, effect and diff before mutations. Carry forward
+explicit authorization for the same operation or bounded batch; ask only for a
+new material scope, business decision or effect. Publish needs separate
+authorization. A dry-run token binds the reviewed diff; it is not user approval.
+Reads need no confirmation, including reads implemented as POST.
+
+Before a build's first remote resource write, including KB upload, complete or
+reuse the [full local alignment review](modules/static-audit.md#local-alignment-before-first-apply).
+It compares sources, established design, KB, Instructions and acceptance cases;
+unchanged, covered inputs reuse recorded findings rather than restarting review.
+Local design precedes confirmed apply; readback/KB readiness and semantic audit
+precede Eval. Audit diagnoses, eval measures, improve proposes; none silently
+applies or publishes. Preserve unknown outcomes and reconcile before retry.
+Resolve scope mismatches explicitly; never silently switch customer targets.
+
+Save important pending proposals. Accepted behavior belongs in Agent design;
+implementation in settings/KB; Tester/Rubric decisions in Eval design. Preserve
+confirmation source, exact reviewed content and scope in `reviews/`; append
+short reasons, status and evidence links to the current `logs/YYYY-MM.md`
+(or existing `log.md`) without copying full
+settings/results. Imported behavior is not accepted business policy. Revise the
+Agent design only when intended behavior changes or is materially ambiguous.
+
+Apply [evidence and autonomy boundaries](reference/agent-design.md#evidence-and-autonomy-boundaries).
+Use [commands](reference/commands.md), [concepts](reference/concepts.md),
+[HTTP input contracts](reference/http-input-contracts.md) and
+[errors](reference/errors.md) as needed in a CLI session. In Copilot, use
+[Copilot runtime](reference/copilot-runtime.md) for server operations. Report
+any capability gap explicitly.

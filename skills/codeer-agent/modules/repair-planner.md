@@ -1,0 +1,340 @@
+# Repair Planner
+
+Use this module after Static Audit or Eval Debug has produced one or more
+evidence-backed findings and the user wants to decide what, if anything, should
+change. It turns findings into a coherent target state, reviewable diffs, and a
+proportionate verification plan. It does not treat the closest symptom as the
+owner and does not apply a change merely because it can propose one.
+
+Explain the concrete behavior change, why the evidenced owner should change,
+which correct behavior must remain and the smallest useful verification. Carry
+findings forward in the existing batch report instead of inventing another
+proposal authority. If the cause remains uncertain, propose the discriminating
+check before a speculative Instructions repair.
+
+For customer information or acceptance decisions still missing, use
+[assessment and clarification](eval-review.md). Carry returned answers through
+its source/authority checks before planning repairs; a filled questionnaire is
+not remote mutation authorization.
+
+Planning is read-only. Before any later server mutation, follow the skill's
+mutation and diff guardrails, use the module that owns the affected component,
+show the complete diff, and carry forward authorization for that reviewed scope;
+ask only for a new material decision or effect.
+
+---
+
+## Flexible entry point
+
+Accept findings in the form available: a natural-language report, bullets, a
+table, selected objects, or another review artifact. Do not require issue codes,
+a fixed taxonomy, JSON, or a rigid input/output schema.
+
+The planner still needs enough meaning to recover:
+
+- what was observed and why it matters;
+- the evidence supporting the finding;
+- the target outcome, relevant entry condition and Agent decision point,
+  expected guardrails, and any proposed alternative action policy;
+- the likely owner and material uncertainty; and
+- the current objects that would be affected by a change.
+
+For any Agent, also read the established design basis in
+`design/agent-design.md` when it is relevant to the finding. Read
+optional `design/query_distribution.csv` and
+`design/query_examples.csv` artifacts only when they exist and the
+finding depends on demand, allocation, or concrete-input evidence. They are
+design anchors, not runtime components or instructions to copy into the system
+prompt.
+
+Read current affected state before drafting a diff. A finding is evidence about
+the system, not a command to preserve its wording or proposed remedy. If the
+finding and current state disagree, surface the mismatch and return it to
+Static Audit or Eval Debug instead of planning against stale evidence.
+
+Treat a History-derived behavioral treatment and likely owner as a candidate,
+not as an instruction to patch that component. Confirm that the evidence links
+the observable entry condition, decision policy, and expected outcome strongly
+enough to justify a repair rather than another contrast, boundary probe,
+production read, or experiment.
+
+---
+
+## Step 1 — Establish the repair set
+
+Review all findings in scope together. Combine findings that share one causal
+owner, separate similar symptoms with different causes, and preserve successful
+behavior that the change must not regress.
+
+Distinguish:
+
+- direct observations;
+- supported causal findings;
+- unresolved source-truth or ownership decisions;
+- hypotheses that still require static context or dynamic evidence; and
+- findings for which no change is the best outcome.
+
+Do not plan an exact repair when source truth is unresolved or the available
+evidence cannot distinguish plausible owners. In those cases, recommend the
+smallest decision, read, trace, or probe needed to unblock planning.
+
+If the accepted finding is that the Agent design itself is ambiguous or
+should change, stop runtime repair planning. Use
+[shared confirmation rules](../reference/agent-design.md#confirmation-and-progressive-revision)
+to resolve the decision, carrying forward clear instructions. Use
+[consultative-guidance.md](consultative-guidance.md) only for query-led guidance.
+Update acceptance eval cases first. Re-enter the
+planner with the accepted design and sufficient existing or new evidence.
+Use the parent skill's pre-change-run decision: a known mismatch need not be
+rerun solely to fail again. Do not hide an unapproved design change inside
+Agent Settings, KB, Tools, or a rubric.
+
+If the accepted finding is a scenario-coverage gap, route it to
+[eval-cases.md](eval-cases.md) when the existing Agent design already
+determines correct handling; route it first to
+[design discovery](../reference/agent-design.md#discover-and-ground-the-design) when it requires a new
+outcome, behavior path, or stable boundary. If the decision also requires
+demand or allocation evidence, use the optional
+[query-distribution.md](query-distribution.md) module. Do not plan a runtime
+repair for a distribution-only change unless it also changes the Agent design, an operational dependency, capacity, Tool path, or another runtime
+owner. When the finding requires broader evaluator architecture, portfolio
+allocation, representativeness, deduplication, or retirement decisions, use
+[eval-portfolio.md](eval-portfolio.md) before drafting the maintained-suite
+diff.
+
+---
+
+## Step 2 — Confirm component ownership
+
+Read the complete relevant configuration, not only the line nearest the
+symptom. Use the ownership model in [agent-settings.md](agent-settings.md):
+
+- system prompt for stable operational invariants and cross-component choices;
+- tool configuration for tool purpose, invocation, inputs, and limits;
+- KB for authoritative domain content and evidence;
+- file structure, retrieval routes, and Context Object FAQ for routing to
+  existing canonical content;
+- model selection for capability, latency, and cost;
+- handoff settings for transfer availability and operational triggers;
+- evaluator and rubric for observable pass/fail criteria; and
+- eval cases for reproduction, boundary, and regression probes.
+
+When an agent-settings change is in scope, read
+[agent-settings.md](agent-settings.md) in full and apply every section relevant
+to the affected settings, including its full target-state gate, before
+presenting a diff. Do not copy failure wording into the system prompt or use one
+component to conceal a contract defect owned by another.
+
+---
+
+## Step 3 — Design the target state
+
+Describe the simplest coherent state that resolves the accepted findings while
+preserving required behavior. State which Agent decision changes, the outcome
+it is expected to advance, and the guardrails and successful behavior it must
+protect. Prefer the earliest adequate intervention:
+
+1. make no change when the behavior is acceptable or the finding does not
+   justify a repair;
+2. remove a contradiction, obsolete instruction, or unnecessary constraint;
+3. consolidate, clarify, or reorder existing information;
+4. move responsibility to the component that should own it;
+5. replace a narrow workaround with a stable invariant at the broadest scope
+   supported by evidence;
+6. add a new rule only when the requirement is genuinely absent; and
+7. use a case-specific exception or temporary containment only as a labeled
+   last resort.
+
+Consider genuinely different repair approaches when ownership, maintenance,
+latency, context cost, evaluator visibility, or regression risk creates a real
+tradeoff. State the recommendation, decisive reasons, rejected alternatives,
+and remaining uncertainty. Optimize the resulting system, not the number of
+changed lines or the pass rate of one case.
+
+---
+
+## Step 4 — Plan by affected owner
+
+### Rubric, expected output, case, or evaluator
+
+First describe the simplest coherent target design for the affected cases,
+rubrics, and evaluators: the core purpose each case serves, the few necessary
+conditions that distinguish its success from failure, and the visible evidence
+each evaluator owns. Apply the intervention order above to that target, rather
+than preserving the current design and appending a rule for each finding. Check
+whether existing cases or pairs can be reused or reorganized before adding
+coverage, without losing distinct boundaries or historical failure protection.
+Use [core-first rubric design](eval-cases.md#core-first-rubric-design) to decide
+whether an observed gap warrants a changed condition, a different assignment,
+or separate coverage; do not grow a rubric for unrelated defects or merely
+helpful detail.
+
+For a rubric edit, show the before/after text, relevant source truth, evaluator
+visibility, and why each mandatory criterion is necessary. A correct, relevant,
+concise answer should not fail for omitting merely helpful detail.
+
+Use the [acceptance-criteria basis](consultative-guidance.md#basis-for-acceptance-criteria)
+and [semantic acceptance rules](eval-cases.md#semantic-acceptance-and-material-omissions).
+If the rubric itself demands unnecessary detail, repair that criterion. If the
+criterion is adequate but the judge rejects equivalent meaning, address the
+evaluator's interpretation and calibration. Do not turn either problem into a
+new Agent requirement to repeat fixed wording. When judging changes, compare
+fixed responses and traces where the CLI supports it, including concise passes
+and genuine failures; otherwise label local review and the capability gap.
+
+When the decision involves broader coverage or evaluator architecture, read
+[eval-portfolio.md](eval-portfolio.md) and preserve its accepted coverage
+universe, unique-value findings, and comparison constraints. Several local
+edits sharing one clear mechanism do not by themselves require a separate
+portfolio review. Do not optimize one pair in isolation when the actual
+decision is whether the suite should keep, merge, retire, add, or recalibrate
+a broader set.
+
+If the evaluator cannot see the evidence required by a criterion, compare at
+least the plausible choices: make the rubric self-sufficient, assign an
+evaluator that receives the evidence, change the criterion to something
+observable, or mark the requirement unsuitable for automated judgment. Do not
+silently copy volatile source content into a rubric.
+
+Changing an evaluator template or judge model establishes a new baseline.
+Changing the agent and evaluator together removes causal attribution; separate
+those changes or explicitly declare the new baseline.
+
+### KB, file structure, retrieval, and routing
+
+Fix missing, ambiguous, duplicated, stale, or contradictory canonical content
+at the source. Do not add a route to content that does not exist, and do not add
+a prompt rule when the source itself owns the error.
+
+Use a Context Object FAQ only when the finding establishes that:
+
+- the canonical file is uploaded, attached, and `READY`;
+- the agent issued a reasonable query;
+- semantic retrieval missed or under-ranked that source; and
+- the platform's FAQ/filter contract works for the relevant snapshot.
+
+Do not use it when content is missing, the agent never queried, the target is a
+stale or cross-version snapshot, file structure is the real defect, source
+truth is unresolved, or platform filtering blocks the route.
+
+When justified, read the current canonical file and `snapshot_object_id`, then
+preview the representative question and target with `codeer kb faq-create ...
+--dry-run` or `faq-update ... --dry-run`. Use a line range only when the passage
+is stable and the question should land on that specific section. Present the
+preview and reconcile it with the existing authorization; obtain approval if
+the reviewed change is not already covered before applying it.
+
+### Agent settings, tools, handoff, or model
+
+Apply [agent-settings.md](agent-settings.md) to the complete resulting
+configuration. Explain information removed, merged, moved, replaced, or added;
+why the chosen component owns it; and why the result is simpler or more
+coherent. Label urgent workarounds as containment and state the design debt.
+
+### Platform defects
+
+Prefer a platform correction backed by reproduction evidence. Do not encode a
+platform bug as an agent prompt rule. If the user explicitly chooses temporary
+containment, label its scope, expiry or removal condition, known limitations,
+and the regression risk it introduces.
+
+---
+
+## Step 5 — Present the repair proposal
+
+Use the clearest format for the decision; prose, bullets, a table, or a diff are
+all acceptable. Do not force a machine-readable envelope. A complete proposal
+should make these ideas reviewable when they are material:
+
+- the findings being addressed and any findings intentionally left unchanged;
+- the proposed target state and component ownership;
+- the recommended changes, grouped so their combined effect is visible;
+- before/after diffs for every object that would change;
+- alternatives, tradeoffs, uncertainty, and containment debt;
+- successful behavior and compatible baselines to protect; and
+- the verification and rollback or stop conditions.
+
+A repair proposal is not approval. Do not call a mutating command until the
+user has seen the complete diff and explicitly approved the change.
+
+---
+
+## Step 6 — Plan impact-based verification
+
+### Pre-change impact hypothesis
+
+Before the approved change is applied, create a reviewable comparison map for
+every changed owner:
+
+- the intended Agent decision or action-policy change;
+- the observable response, Tool, retrieval, handoff, or evaluator behavior
+  expected to move and in which direction;
+- the exact affected cases and case/evaluator pairs;
+- nearby boundaries and previously passing impacted behavior to protect;
+- negative controls expected to remain stable; and
+- the pinned Agent/version, case, evaluator-template, judge-model, and run
+  context required for a comparable post-change result, or the preserved static
+  evidence and reason a new pre-change run would add no decision value.
+
+This is a prediction, not a success claim. Do not rewrite it after seeing the
+results. If Agent and evaluator changes cannot be separated, state that Agent-
+effect attribution will be unavailable and establish a new baseline. After the
+focused and full runs, use
+[regression-triage.md](regression-triage.md) to compare this map and the approved
+diff with the observed result deltas before Eval Debug assigns a causal owner.
+
+Every proposed repair needs, where applicable:
+
+- the exact reproduction;
+- a paraphrase or generalization;
+- a nearby boundary;
+- a negative control; and
+- impacted cases that previously passed.
+
+When the motivating claim concerns a delayed or longitudinal outcome, separate
+verification into two gates: focused and regression Evals show that the Agent
+implements the accepted action policy; production measurement shows whether
+the real outcome moves and supports monitoring or association claims; and an
+appropriate controlled or credible quasi-experimental design is required to
+attribute causal improvement to the policy. Do not present the first gate, or
+uncontrolled monitoring alone, as causal outcome evidence.
+
+Choose the additional impact set from the changed owner:
+
+| Changed owner | Minimum impact set |
+| --- | --- |
+| Agent design scenario or outcome | Core path, material branch, nearby boundary, accepted alternative outcome, and protected guardrails; update Evals before runtime changes |
+| Optional Query Distribution or eval-portfolio allocation | Changed cells, neighboring allocation boundaries, risk reserves, and distribution-to-portfolio audit; runtime regression only when the Agent also changes |
+| One case rubric | The pair plus calibration examples and adjacent cases using the same criterion |
+| FAQ/routing target | Reproduction, same-source variants, similar routes, boundary, negative control |
+| One KB policy/file | Dependent Content/Source pairs and routes to that source |
+| Handoff policy/settings | Should-transfer, should-not-transfer, boundary, and affected Content pairs |
+| Global KB/tool configuration | All KB/tool-backed cases; full regression is usually required |
+| System prompt or model | Full regression for the agreed acceptance/protection scope |
+| Evaluator template or judge model | All pairs assigned to it and a new baseline |
+| Retrieval/platform contract | All cases using the affected KB, FAQ, filter, source, or evaluator trace; then full regression before release |
+
+Use dependency labels when they reliably identify a local impact set. Missing
+or untrusted dependency metadata expands the set; it does not justify testing
+less. For stochastic P0/P1 behavior, plan multiple trials and report the
+distribution; one passing trial is not completion.
+
+After an approved KB, settings, case, rubric, evaluator, assignment, or routing
+change is applied, run [static-audit.md](static-audit.md) before the next full
+regression. Before publish, cover the shared
+[regression scope](../reference/project.md#regression-scope) and reconcile
+planned versus completed counts. A Content-only sweep is insufficient when the
+required scope includes other Testers; exploratory assignments alone do not
+expand the release gate.
+
+---
+
+## Execution handoff
+
+After the user approves the proposal, use the module and registered CLI command
+that own each change. Read back the effective state, run the planned focused
+checks, re-audit changed static state, and then run the required regression.
+Use **regression-triage** after each comparable run to reconcile the predicted
+impact, protected controls, completed pairs, and observed deltas. Publish
+remains a separate action requiring explicit user confirmation. A completed
+plan, approved diff, or passing reproduction does not authorize publish.

@@ -1,0 +1,628 @@
+# Eval Case Design
+
+Build eval cases that cover the Agent's accepted operating scope. For a first
+version, begin with a proportionate end-to-end acceptance set for the agreed scope
+in the Agent design. Work one scenario or later portfolio group at a time
+so each review batch is mentally manageable.
+
+For any Agent, begin from the established design basis under the shared
+[source and discovery rules](../reference/agent-design.md#discover-and-ground-the-design).
+The builder-maintained `design/agent-design.md` records the applicable
+scenario, accepted outcome, guardrails, and correct Agent decision policies.
+When optional `design/query_distribution.csv` or
+`design/query_examples.csv` artifacts exist and apply, read them through
+[query-distribution.md](query-distribution.md); they can inform portfolio
+allocation and concrete inputs but are not prerequisites. Design the acceptance
+cases locally before the Agent exists. An `agent_id` is required to apply or run
+cases, not to decide the customer behavior they should test.
+Use `evals/cases.draft.md` for this human-reviewed design
+draft. It may preserve unresolved evaluator or runtime-evidence decisions that
+cannot yet be represented in the apply-ready JSON manifest.
+Keep these candidates in the draft until their pair admission is reviewed;
+the configured `evals/design.json` is the current admitted set, not a speculative
+portfolio. Report authored drafts separately from complete Eval design using
+[completion meanings](../workflows/lifecycle.md#completion-meanings).
+For an existing Agent, also inspect its current effective settings and relevant
+production or eval evidence.
+
+Use [eval-portfolio.md](eval-portfolio.md) first when the active decision is
+broader than authoring a bounded scenario batch—for example evaluator
+architecture, representative allocation, suite deduplication, pair retirement,
+or model-call and maintenance reduction. This module remains the owner of the
+concrete case, rubric, assignment, review, and apply-ready manifest.
+
+---
+
+## Diff rule
+
+Before applying case, Tester or Rubric changes, show the concrete diff and
+reconcile it with the user's authorization. Reuse authorization for the same
+reviewed content and scope; ask only for a material new decision or scope change.
+Preview tokens identify content and do not grant approval.
+
+---
+
+## Step 1 — Select minimum-sufficient scenario coverage
+
+### Find candidates from multiple angles
+
+Minimum-sufficient means distinct decision coverage, not only repeating SOP
+questions. First inspect user intent, task/journey state, missing or contradictory
+information, nearby policy thresholds, old-policy claims, cross-source reasoning,
+prior disclosure and material tool-success/failure/unknown branches. Select angles
+that change correct handling; do not multiply every task by every angle.
+
+Use authoritative customer material to establish expected behavior; use actual
+questions/feedback to discover friction, without adopting old replies as policy.
+When real questions are sparse, synthesize labeled situations and perform bounded
+public research when available and in scope. The
+[public research playbook](../reference/query-distribution/public-web-research-playbook.md)
+can be used directly without building Query Distribution. Comparable help centers
+and forums can suggest questions or boundaries, not this customer's prices,
+refund rules or demand frequencies. Record URL/access date, what was observed,
+whether it is analogy/synthetic/first-party and the authoritative basis of the
+expected handling. Paraphrase examples; do not redistribute a customer corpus.
+Unavailable browsing is a stated limit, never a fabricated citation.
+
+For each candidate explain the situation, expected next move and its source,
+distinct failure consequence and required observable evidence. Then deduplicate
+and author only the selected cases. If policy is absent, test honest uncertainty
+only when supported; explicitly retain the unmet substantive-answer requirement.
+If the goal is ambiguous, recommend a concrete outcome and ask its owner rather
+than deriving the answer from the current prompt. See
+[gap guidance](../reference/collaboration.md#discover-useful-gaps).
+
+For broad design use [case-development workers](../reference/coordination.md#case-development-workers)
+when they add complementary perspectives. Small changes do not require delegation.
+
+### Review accepted coverage
+
+Inspect the accepted scope, Agent design, and source material. When an
+Agent already exists, also inspect its settings, system prompt, KBs, and Tools,
+but do not let the current implementation silently redefine accepted behavior.
+When an accepted Eval Portfolio proposal exists, use its coverage universe,
+portfolio layers, unique-value findings, and keep/merge/retire/add boundaries as
+design input without treating the proposal as approval to mutate cases.
+
+Before proposing a new case, inspect related existing cases and evaluator
+pairs. Reuse coverage that already serves the purpose; otherwise prefer to
+clarify, extend, or reorganize existing cases when that achieves the same
+purpose without losing a distinct boundary or historical failure. Add a case
+only when those choices cannot supply the needed evidence. Do not force reuse
+by packing unrelated requirements into one rubric or overwriting a still-needed
+input or state. This is part of ordinary authoring, not a requirement for a
+separate portfolio review on every small change.
+
+For each scenario in the agreed scope, select only the variants needed to make
+its end-to-end behavior judgeable. A single-scenario starting recommendation
+must not remove tasks the user already requested:
+
+- a representative path from the observable starting state to the core or an
+  acceptable alternative outcome;
+- a missing-information or readiness branch only when it changes the next
+  correct move;
+- a high-consequence, consent, authority, or handoff boundary only when it is
+  material to this scenario; and
+- a paraphrase, disclosure-order, or nearby-boundary probe only when needed to
+  show that the decision policy generalizes beyond one wording.
+
+These are Eval variants of one scenario, not new Agent design scenarios.
+Do not require a MECE category map or invent additional journeys before the
+core path is stable. When grouping helps review several scenarios or a large
+suite, reuse existing categories or choose the smallest useful grouping.
+Organizing already agreed coverage does not require a separate approval;
+confirm only material changes to scope, coverage priorities or allocation.
+
+End-to-end acceptance may use a small set of state-complete cases, each carrying
+the prior facts needed to judge one material decision point. This can verify the
+ask, answer, recommend, Tool, consent, or handoff policies across the journey;
+it does not establish turn-to-turn memory or sequential conversation behavior.
+When prior assistant behavior or disclosure order materially changes the
+correct response, use the authentic multi-turn requirements below and keep the
+pair unresolved if the DRAFT runtime cannot supply that evidence.
+
+### Optional portfolio allocation
+
+When an accepted Query Distribution exists, use `target_cases` as the intended
+integer allocation and preserve deliberate high-consequence reserves. When no
+distribution exists, choose the smallest case set that covers the accepted
+core behavior and report results by meaningful slices such as representative,
+boundary, or high-risk; do not present the aggregate pass rate as traffic-
+weighted production quality.
+
+Do not infer real-world frequency from example or case count. Do not drop a
+material high-risk boundary merely because demand is low, and do not multiply
+every task by every risk or challenge. Treat accepted examples as candidate
+inputs, not automatically approved Eval cases.
+
+---
+
+## Step 2 — Scenario loop
+
+For the core scenario, and later for each accepted scenario or portfolio group:
+
+### 2a. Decide case changes
+
+Choose the needed reuse, revision, and additions from the coverage review above.
+State what each addition detects that the existing set cannot, and the resulting
+count and rationale — the user can adjust.
+
+### 2b. Generate cases + rubrics
+
+Write cases for this scenario or portfolio group only. Each case carries per-
+evaluator rubrics.
+On the server, that rubric row is also the case/evaluator assignment. A case
+only runs with evaluators it is assigned to, so every manifest case needs a
+`rubrics` entry for each tester that should judge it.
+Use server-side eval case labels when they make later filtering or reporting
+easier. Put reusable server labels in the manifest's `labels` array or
+`label_ids` array; keep `label` for the local case display name.
+
+**Evaluator priority**: Focus on the **Content Compliance Evaluator** unless
+the user explicitly cares about style. Style/Tone judges _how_; Content
+Compliance judges _what_.
+
+#### Core-first rubric design
+
+Start with the case's original core purpose and the few basic conditions needed
+to distinguish success from failure. Preserve known necessary facts, actions,
+and material boundaries from the start; do not begin with an exhaustive ideal
+answer and prune it only after false failures. Accept any way of meeting the
+core requirements, including reasonable approaches the author did not foresee.
+Minimal means sufficient for this purpose, not a fixed limit on criterion count.
+
+**Scope matching**: Require only what the question naturally asks for or the
+accepted product requirement depends on. Do not add prices, exhaustive lists,
+logistics details, or stock confirmation merely to make an answer more complete.
+For every mandatory criterion, identify its
+[accepted or inherited basis](consultative-guidance.md#basis-for-acceptance-criteria)
+and ask: if this meaning or action were omitted, would the answer become wrong,
+fail the user's request, produce a wrong next step, or hide a material risk?
+If not, make it optional or remove it.
+
+Expand or reorganize the design when concrete evidence exposes a material gap
+in that purpose: a historical failure, an observed false pass, or a specific
+counterexample that the current criteria cannot distinguish. A possible
+improvement in completeness is not such evidence. First check whether an
+existing criterion already rejects the behavior and was misapplied, or another
+case or pair should cover it. Prefer clarifying or replacing the relevant rule
+to appending another one. An unrelated defect is not automatically a new
+requirement for this case; use the coverage review above for a distinct purpose.
+
+**Evaluator-aware self-sufficiency rule**: Check the related evaluator's
+system prompt/template before writing the rubric. Do not assume the evaluator
+can see the agent prompt, KB files, retrieved chunks, tool traces, expected
+output, or diagnosis notes unless that information is explicitly included by
+the evaluator template. After accounting for the evaluator's actual inputs,
+include the facts needed to judge the core criteria. Keep that judging context
+distinct from what the answer must contain: reference facts, complete methods,
+and example answers are not a checklist of mandatory output. A fact being
+available to the evaluator does not by itself require the Agent to repeat it.
+
+Evaluator templates can be inspected before an Agent exists. If the required
+evaluator or its evidence contract is unavailable, do not invent an ID or
+claim the rubric is ready to apply. Keep the intended observable behavior in
+the Markdown local draft and identify the unresolved evaluator decision. Use
+the same unresolved state when the evaluator exists but a not-yet-selected or
+not-yet-configured Tool makes the actual runtime evidence shape unknowable.
+
+**Pair admission gate**: Before assigning an evaluator, be able to state all
+of the following for that case/evaluator pair:
+
+- the one material behavior or failure the pair is meant to detect;
+- the exact evaluator input that carries the evidence, such as `{output}` or
+  `{tool_steps}`;
+- the runtime component that produces that evidence and its actual shape; and
+- why an existing pair does not already cover the same decision consequence.
+
+Inspect documented tool/runtime behavior or available capability metadata when
+a tool can end generation, request interaction, replace the model response, or
+validate arguments after the model call. A template containing `{output}` is
+not sufficient when runtime replaces that output with a fixed or empty value.
+Likewise, do not require an argument that the live schema or validator cannot
+accept. Reject a pair when no plausible compliant live trace can satisfy its
+rubric, when the evaluator cannot observe the required evidence, or when the
+pair has no distinct material failure to catch.
+
+**Rubric quality standard**: Good rubrics should be easy to maintain:
+
+- Use short bullet points instead of dense prose.
+- Use positive criteria when unacceptable answers form an open-ended or
+  infinite set.
+- Use negative criteria when the prohibited behavior is narrow and concrete.
+
+Common check patterns:
+
+- **Content Accuracy Check**: Prefer positive expectations for what the answer
+  should include. Use "must not" only for specific known errors.
+- **Source Support Check**: Do not hard-code stale facts. Specify which claims
+  need source support and which sources count as valid.
+- **Tool Use Check**: Negative lists are acceptable because tool-call rules are
+  usually a finite set, e.g. "must not call request_form".
+- **Style & Format Check**: Positive or negative framing can both work; choose
+  whichever is clearer and easier to maintain.
+
+#### Semantic acceptance and material omissions
+
+Evaluate the required meaning and action in context, not keyword presence or
+similarity to a reference answer. Accept paraphrases, concise summaries, and
+natural references to information already supplied by the user. Apply these
+rules when writing and reviewing both rubrics and evaluator templates.
+
+For an omission-based failure, identify the missing meaning or action and the
+consequence for correctness, the requested outcome, the next step, or a material
+boundary. Do not require extra disclaimers solely to repeat a distinction the
+answer already preserves. Optional improvements can remain feedback without
+changing a passing score. Binary scoring is compatible with this rule: only
+material, supported acceptance criteria should be mandatory.
+
+Semantic acceptance does not excuse a missing necessary warning, a wrong amount
+or condition, an unsupported promise, or a tool call that never happened. User
+context can disambiguate an acknowledgement; it cannot supply a warning the
+Agent was required to give or prove an action it was required to take. Require
+exact strings only for an explicit wording/format requirement or an operational
+need such as a Tool argument, identifier, or machine-readable field.
+
+For handoffs, distinguish acknowledging the request, invoking the Tool, and
+preserving information for the receiver. If the concern is lost handoff context,
+check the actual context or payload available to the receiver. A missing word in
+the customer-facing acknowledgement does not prove that a request was lost;
+unavailable receiver evidence is a visibility gap, not an observed handoff
+failure. Neither a good summary nor a correct call proves that a human acted.
+
+When authoring or materially revising a case rubric or evaluator, check these
+distinctions with a small set of contrasting responses or traces: a correct
+answer deliberately omitting nonessential reference details, a different valid
+expression or approach, and a genuinely missing requirement or wrong action.
+Derive their expected judgments from the request, accepted requirements, and
+source facts, not from the rubric being tested. These examples challenge the
+design; they neither enumerate all reasonable answers nor form an acceptance
+whitelist. Reuse contrasts across shared decision rules and add them where a
+new boundary needs testing, rather than imposing a fixed quota per case. Do
+this within the existing local review, without a separate user-review ritual.
+
+Use the same fixed responses and traces to compare judge behavior when the
+registered CLI supports that operation. Otherwise perform local review and
+state the judge-calibration capability gap; an Agent rerun produces new answers
+and is not a controlled rejudgment of the same evidence.
+
+### 2c. Present for review
+
+Show the Markdown draft cases to the user. Keep the batch small enough to
+review without fatigue. Acceptance at this point covers the case input,
+intended behavior, prohibited outcome, and observable success; it does not
+pretend that an unresolved evaluator ID or runtime evidence shape is final.
+
+### 2d. Apply
+
+In a local project, follow [the stable design format](../reference/project.md#complete-evaluation-design).
+Complete: select/design Tester → required evidence producer/delivery →
+Case/Rubric → pairs → review. Save `evals/design.json` before remote changes.
+Inspect supported templates and evidence contracts before finalizing affected
+details; no Agent ID is needed to inspect an existing Tester. Convert only
+admitted pairs into the configured manifest. Keep deferred requirements visible
+in the draft and acceptance coverage discussion; do not silently remove existing
+managed pairs, reduce accepted scope or switch to another manifest to clear a
+gate. An existing unresolved manifest needs a reviewed correction, not fabricated
+verification flags. Group shared contract gaps by Tester/variable with affected
+pairs; repeated references are not independent defects.
+Use `codeer validate`, then preview `codeer eval cases-apply --dry-run` and
+apply the confirmed diff with `--expect <token>`. `codeer eval pull` imports
+IDs without overwriting local design. Missing Testers, pairs or observable
+required evidence stay unresolved and do not count as executable coverage.
+For a build's first remote apply, also complete or reuse the
+[full local alignment review](static-audit.md#local-alignment-before-first-apply).
+New or changed cases affect their source/design/implementation relationships;
+they do not require repeating unchanged covered portions of that review.
+
+The input-based `evals/legacy-cases.json` procedure below remains for commands
+**outside a project**. It is not the stable project format; do not bypass
+project validation to use it in a bound project. Legacy adoption explicitly
+reconciles server IDs and ambiguous duplicate inputs (see project reference).
+
+After the user approves the cases and the Agent has been created, read the
+DRAFT Agent and Tools with `codeer agent get <agent-id> --full` and read evaluator
+templates with `codeer eval evaluators --full`. Resolve every intended pair
+through the Pair Admission Gate, then convert the admitted cases into
+`evals/legacy-cases.json`. If the conversion changes the
+accepted behavior rather than only its evaluator/evidence binding, return the
+semantic change to the user for review. Cases with no admitted pair remain in
+the Markdown draft and do not count as applied coverage.
+
+Present the server diff and obtain the mutation approval required by the parent
+skill. Then apply the admitted cases using the new `agent_id`:
+
+```bash
+codeer eval cases-apply \
+    --cases evals/legacy-cases.json --agent <agent_id>
+```
+
+If the manifest references new server label names, preview label creation and
+case assignment first:
+
+```bash
+codeer eval cases-apply \
+    --cases evals/legacy-cases.json \
+    --agent <agent_id> \
+    --create-labels \
+    --dry-run
+```
+
+After apply, refresh the server cache:
+
+```bash
+codeer eval list --agent <agent_id> --out reviews/observations/eval_cases.json
+```
+
+Then output the eval-cases server link so the user can verify.
+
+### 2e. Optionally test this batch
+
+After a complete Agent version exists and Static Audit has passed, run eval on
+just the new cases. Use
+[regression-triage.md](regression-triage.md) first when a comparable prior run
+or substantial result set exists, then use **eval-debug** to diagnose every
+non-perfect dynamic finding. When a finding warrants a change, use
+**repair-planner** to design and review the target state before the owning
+module applies it. Do not describe a local draft or an unevaluated case batch
+as a baseline.
+
+### 2f. Next accepted scenario or group
+
+Stop when the agreed scope is covered. Otherwise, repeat from 2a for the next
+accepted scenario or portfolio group; do not expand
+the Agent design merely to continue the loop.
+
+---
+
+## Step 3 — Static preflight and full sweep
+
+Before the first baseline, a full regression, or a publish decision, run a full
+[static-audit.md](static-audit.md). After a bounded exploratory case or rubric
+change, a scoped audit is sufficient before a focused probe when it checks all
+affected static dependencies and no whole-system claim is made. Run a full
+audit after any accepted KB, FAQ, settings, evaluator, assignment, Agent design, or optional Query Distribution change before the next full sweep.
+Do not start a project run while the applicable audit verdict is `BLOCKED`;
+the current CLI has no exploratory override. For standalone exploratory work,
+follow [the audit verdict rules](static-audit.md#step-6--report-the-findings)
+and keep that run separate from clearance or publish evidence. Do not use
+`--outside-project` to bypass a project's blockers. Always include
+the Agent design's semantic alignment with affected acceptance cases;
+include distribution-to-portfolio alignment only when applicable.
+
+For a new Agent, after the accepted first-version scope is covered, cases are
+applied, and the first full DRAFT Agent passes Static Audit, run the agreed
+[acceptance and protection pairs](../reference/project.md#regression-scope).
+This is the first baseline: the pre-repair dynamic evidence for that scope,
+not proof of broader unmodeled scenario coverage. On later iterations, the same
+full sweep is a regression check. An unfiltered CLI run uses every assigned
+case/evaluator pair; select explicitly when the agreed set is smaller. For a
+run with many cases, use `--out` to avoid flooding the context window:
+
+```bash
+codeer eval run \
+    --agent <agent_id> --history <audited_agent_history_id> \
+    --out reviews/observations/eval_results.json
+```
+
+Supplying `--cases` or `--evaluator`/`--evaluators` narrows the run. Judge
+completion against the agreed pair set, not whether filters were used.
+Reconcile planned pairs with completed results; a Content-only run is not full
+coverage when other Testers are required by that scope.
+
+For a full export (user review, spreadsheet analysis), run:
+
+```bash
+codeer eval export \
+    --agent <agent_id> --version <evaluated_version_number> \
+    --out-dir reviews/observations/eval_table/
+```
+
+Resolve the version number from the run's AgentHistory UUID, not from whichever
+version is now latest or published. Before pinning, verify the export's
+`history.id` equals the run's `history_id` and compare result IDs for the run's
+case/evaluator pairs. For a focused export, preserve the case and evaluator
+selection as well. An export can select newer results from a rerun even on the
+same version; retain the original run's `--out` artifact and do not replace it
+with mismatched results.
+
+Before first-baseline diagnosis or repair, pin the exact run/result IDs and
+Agent/version, Tester and judge context using the
+[batch evidence rules](../reference/project.md#batch-reviews-and-project-entry).
+Link a `passed`, `failed` or `stale` project run with its raw-file SHA-256. Other
+statuses can still be overwritten by `eval export --run-id`: save one original
+`run.json` byte snapshot and hash before diagnosis, repair or refresh; never
+overwrite that pin. Reuse verified unchanged pins rather than copying the whole
+tree. Preserve missing supporting outputs or verified exports only when needed.
+Existing `reviews/evidence/` archives remain readable and untouched.
+Baseline preservation is not an unseen holdout.
+
+Then use **regression-triage** for baseline result clustering without claiming a
+prior-version effect, and hand every non-perfect score to **eval-debug**.
+For later focused and full runs, triage the approved Agent diff, predeclared
+impact map, protected controls, and observed deltas before deeper diagnosis.
+Findings that warrant a change go to **repair-planner** before any diff is
+drafted or applied.
+
+---
+
+## Cases from production history
+
+When building cases from production conversations (Phase 2):
+
+- Start from the accepted analysis outcome and the production finding's
+  treatment candidate. Identify the observable entry context, the Agent
+  decision being tested, the expected action policy, the prohibited or unsafe
+  alternative, the immediate observable outcome, and material guardrails.
+  Do not require a rigid case schema when the same meaning is clear in the
+  input, expected behavior, rubric, and metadata.
+- Create a reproduction case for each distinct failure mechanism. Deduplicate
+  histories that show the same decision-policy defect while retaining
+  materially different boundaries or contexts.
+- Each successful pattern becomes a case where the current agent should
+  pass (and must keep passing after changes).
+- Add only the paraphrase, generalization, boundary, or successful-contrast
+  probes needed to test a causal hypothesis or the scope of a proposed change.
+- Rewrite findings into the smallest input that makes the behavior
+  objectively judgeable. Don't copy production messages verbatim — isolate
+  the decision context and behavior being tested. A case that passes only on
+  the original wording does not establish a reusable policy.
+- Treat these cases as evidence and validation probes. Never copy their wording,
+  entities, or answer shapes into agent settings.
+- Use `meta.previous_conversations` in `codeer eval cases-apply` when the
+  failure requires multi-turn context.
+
+When several History findings create an allocation, representativeness,
+evaluator-design, deduplication, or retirement decision, use
+[eval-portfolio.md](eval-portfolio.md) before drafting concrete cases. A single
+clear reproduction or protection case does not require a portfolio review.
+
+An offline acceptance Eval verifies that the Agent reliably implements the
+intended decision policy and produces evidence visible to its evaluator. It
+does not by itself establish a delayed or longitudinal outcome such as
+retention, implementation, revenue, classroom change, or long-term time saved.
+Use an immediate observable outcome or faithful proxy in the case, then name
+the production measurement needed to see whether the real outcome moves. A
+causal improvement claim additionally requires an appropriate controlled or
+credible quasi-experimental design; uncontrolled monitoring can support trend
+or association claims only. Never require an evaluator to judge an outcome
+that its input contract cannot observe.
+
+---
+
+## Multi-Turn Follow-Up Cases
+
+When a case needs previous thread context, use a real persisted history as the
+source. If production traffic already has the right setup, use that history.
+For an existing Agent with a suitable published version, obtain explicit user
+approval immediately before creating or continuing a seed history, because
+these commands persist conversation state. Then create the seed through the
+published Agent:
+
+```bash
+codeer history create \
+    --agent <agent_id> \
+    --title "Seed conversation" \
+    --user "eval-seed@example.com" \
+    --message "First user turn" \
+    --timeout 240
+
+codeer history send <history_id> \
+    --message "Follow-up user turn" \
+    --timeout 240
+```
+
+This uses Chat V2 structured SSE to write real persisted conversation parts
+and returns the `history_id` plus conversation group/part IDs. The command uses
+the published agent version only; the API-key Chat V2 flow cannot pin an
+unpublished draft version.
+
+For a brand-new Agent with no suitable persisted history, this limitation makes
+an authentic multi-turn pair unresolved before first publish. Do not seed it
+through a different Agent or publish merely to create the prerequisite. Keep
+the case in `evals/cases.draft.md`, report the coverage
+blocker, and do not claim a complete multi-turn baseline or publish readiness.
+A deliberately limited first publish requires separate, explicit user risk
+acceptance. Full pre-publish coverage requires Codeer support for
+DRAFT-compatible history seeding or supported inline prior-turn replay.
+
+If either stream times out, reports `response.failed`, or disconnects before
+`response.completed`, inspect the history before retrying. The server may
+already have persisted the turn.
+
+For the eval case, set `meta.previous_conversations` to replay prior turns from
+the source history before the target conversation:
+
+```json
+{
+  "previous_conversations": {
+    "source_history_id": 123,
+    "target_conversation_id": 456,
+    "previous_conversation_count": 2
+  }
+}
+```
+
+The eval case `input` should be the follow-up user message being judged. The
+server uses the current eval run's agent version for the system prompt and
+replays only the prior user/assistant turns from `source_history_id`.
+
+---
+
+## Custom evaluators
+
+When the existing evaluators don't cover a needed dimension, create or
+modify an evaluator. Common reasons:
+
+- Need to evaluate tool-use behavior (requires `{tool_steps}` variable)
+- Need a domain-specific scoring rubric structure
+- Need a different scoring scale or pass/fail threshold
+
+Before proposing a new evaluator for a maintained suite, use the value and
+observability tests in [eval-portfolio.md](eval-portfolio.md). A new evaluator
+must detect a distinct material failure through evidence the runtime actually
+supplies; an existing pair with a clearer rubric or correct assignment is
+preferable when it provides the same decision value.
+
+Use `codeer eval evaluators` to list available evaluators. If the CLI
+supports evaluator creation/update, use it; otherwise say it is not
+supported by the CLI.
+
+---
+
+## Batch workflow
+
+When the eval suite has many cases (50+), split them into batches and
+work through one batch at a time. This keeps each review cycle
+manageable and avoids running expensive full-suite evals repeatedly
+during the improvement loop.
+
+During Phase 1, batches may organize case authoring, review, and apply, but do
+not repair the Agent between dynamic batches before the first full baseline.
+The batch → diagnose → repair loop below is for Phase 2 after the first baseline
+has been preserved. Otherwise the eventual full sweep is post-repair evidence,
+not the pre-repair first baseline defined by the parent skill.
+
+### Splitting into batches
+
+Use accepted scenarios or established portfolio categories as the natural batch
+boundaries. Each batch should be small enough to review without fatigue
+(typically 10–20 cases).
+
+### Running a batch
+
+Run eval on only the batch's case IDs. For small batches (≤20 cases),
+stdout is fine — the non-perfect analysis fits in context:
+
+```bash
+codeer eval run \
+    --agent <agent_id> --history <audited_agent_history_id> \
+    --cases <comma-separated-case-ids> \
+    --evaluator <evaluator_id>
+```
+
+When a comparable batch result exists, use **regression-triage** to organize
+deltas and controls. Diagnose every non-perfect finding within the batch before
+moving on (hand off to **eval-debug**, then to **repair-planner** when a change
+is warranted).
+
+### Tracking progress
+
+Use `codeer status` and inspect `runs/<run-id>/run.json` for planned, triggered,
+completed, skipped and passing pairs. Each run preserves its own inputs/results;
+never overwrite the preceding round. Keep only decision-useful batch narrative
+in `reviews/` and reasons/status/evidence links in `logs/YYYY-MM.md` (or existing
+`log.md`). A written summary
+cannot turn a missing or unjudgeable pair into completed coverage.
+
+### Full regression check
+
+After all batches are done, re-run [static-audit.md](static-audit.md), then run
+the confirmed acceptance and declared protection pairs as a covering regression
+before publishing. Account explicitly for exploratory/unresolved assignments;
+do not silently expand the agreed delivery scope.
+Reconcile planned and completed pair counts, then use **regression-triage** to
+compare the approved Agent diff and impact hypothesis with the full-suite
+deltas and protected controls. If the user wants to preserve the batch-level
+progress beyond the active cycle, pin
+`reviews/observations/progress.json` before it is replaced during later work.
