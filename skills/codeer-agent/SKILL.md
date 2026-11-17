@@ -5,36 +5,8 @@ description: Build and maintain Codeer agents from customer sources, design Case
 
 # Codeer Agent
 
-## Codeer Copilot
-
-In Copilot, run Codeer operations using tools. Use the CLI instructions below
-as workflow guidance and follow the tool names and inputs in
-[Copilot runtime](reference/copilot-runtime.md). Discover `read_skill_file`
-with `search_tools` (ToolSearch), then call it with
-`{"arguments":{"path":"reference/copilot-runtime.md"}}` for Agent, knowledge,
-evaluation, attachment, or Sandbox work. For any reference with
-`has_more: true`, pass its `continuation` as the next `arguments`.
-
-For conversation exports and statistics, follow this path:
-
-1. Read `reference/copilot-conversations.md` with `read_skill_file`. Discover
-   `export_conversation_events` and `skill_file` with `search_tools`.
-2. Call `export_conversation_events` for the requested scope with timezone-aware
-   date filters. Apply the scope once, in the export call, and process the
-   returned file as scoped. Use `agent_id` only for an Agent-specific request.
-3. For event and message metrics, call `skill_file` with
-   `{"arguments":{"path":"scripts/summarize_conversation_events.py"},"destination":"summarize_conversation_events.py"}`.
-   Run `python3 summarize_conversation_events.py <export-path>` with
-   `run_command`. Read stdout after exit code 0. Use both user and assistant
-   message bodies for workspace-wide message counts and sizes unless the
-   requested population says otherwise. Investigate a zero result when the
-   export and sampled rows show messages.
-
-Use read-only `RuntimeClient` for scripts that need to fetch Codeer data and
-platform tools for writes. Use the standalone CLI and CLI project bootstrap
-only in a CLI session.
-
-Skill modes are conversation entry points. Read only the modules relevant to
+Use the installed `codeer` CLI for Codeer server operations. Skill modes are
+conversation entry points, not CLI commands. Read only the modules relevant to
 the current outcome. Preserve a requested local scope and existing decisions.
 
 Read the compact [platform basics](reference/platform-basics.md) and
@@ -49,7 +21,7 @@ read first, summarize established intent, recommend useful choices and ask only
 material unresolved questions. Save important understanding and proposals as
 work proceeds; clear instructions do not need approval again to be recorded.
 
-## Start and resume in the CLI
+## Start and resume
 
 Find `project.toml` from the current directory upward. Resolve Agent design through
 the [new/legacy path rules](reference/project.md#agent-design-paths-and-existing-projects)
@@ -162,6 +134,5 @@ Agent design only when intended behavior changes or is materially ambiguous.
 Apply [evidence and autonomy boundaries](reference/agent-design.md#evidence-and-autonomy-boundaries).
 Use [commands](reference/commands.md), [concepts](reference/concepts.md),
 [HTTP input contracts](reference/http-input-contracts.md) and
-[errors](reference/errors.md) as needed in a CLI session. In Copilot, use
-[Copilot runtime](reference/copilot-runtime.md) for server operations. Report
-any capability gap explicitly.
+[errors](reference/errors.md) as needed. Unsupported capabilities remain explicit
+gaps; use registered CLI commands for server work.

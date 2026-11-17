@@ -1,9 +1,8 @@
 # Codeer platform basics
 
 Read this compact reference at entry. These are platform contracts, not evidence
-that a customer's environment supports or has configured them. Use the registered
-capabilities of the active runtime and verify actual readback. See the
-[Copilot runtime](copilot-runtime.md) for Copilot tool names and data access.
+that a customer's environment supports or has configured them. Use registered
+CLI capabilities and actual readback; never infer a command from an internal API.
 
 ## Objects and versions
 

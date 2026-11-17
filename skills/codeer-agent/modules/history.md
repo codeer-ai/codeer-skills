@@ -53,11 +53,6 @@ experiment decision. Otherwise omit it.
 
 ## Step 1 — Pull production data
 
-In Codeer Copilot, use [Copilot conversation export](../reference/copilot-conversations.md)
-for saved messages and draft evidence. Apply this module's sampling, provenance,
-and interpretation guidance to that data. The command examples below use the
-standalone CLI.
-
 Not all channels provide explicit feedback (thumbs up/down). Conversation
 history is the primary source of truth.
 
