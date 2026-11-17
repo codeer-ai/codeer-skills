@@ -42,11 +42,12 @@ For example, export all turns that began on April 6, 2026 in Taipei for an audit
 Read the file as UTF-8 with one JSON object per line. An example row:
 
 ```json
-{"workspace_id":"e391d173-b892-4b5d-802f-137db71afe35","history_id":102,"group_id":"48bdc0fc-4590-4c7d-9a47-87f293a59570","part_id":299,"sequence":0,"part_kind":"user-prompt","created_at":"2026-04-06T02:10:00Z","content":{"part_kind":"user-prompt","content":"Can I reschedule my delivery?"}}
+{"workspace_id":"e391d173-b892-4b5d-802f-137db71afe35","history_id":102,"group_id":"cvg-48bdc0fc-4590-4c7d-9a47-87f293a59570","part_id":299,"sequence":0,"part_kind":"user-prompt","created_at":"2026-04-06T02:10:00Z","content":{"content":"Can I reschedule my delivery?"}}
 ```
 
 - `workspace_id` and `history_id` identify the conversation. `group_id` groups events from one turn within a History. `part_id` identifies the event and `sequence` orders it within the turn. `created_at` is the event timestamp.
 - For message-body analysis, look for `part_kind` equal to `user-prompt` or `text` and a string at `row["content"]["content"]`. Measure the original string when the metric calls for it. Keep missing and empty bodies visible where they affect the denominator. Other kinds include tool events and carry different payloads. `part_count` is an event count.
-- Group or deduplicate according to the requested unit. Use History keys for conversations, group keys for turns, and part IDs for events. For overlapping export sources, deduplicate by workspace and part ID before calculating metrics. Keep user prompts and assistant text separate if the question asks for either population.
+- State the unit and denominator. Use History keys for conversations, group keys for turns, and message bodies for per-message metrics. Report empty Histories separately for per-message metrics. If the wording could refer to messages or conversations and the distinction matters, report both with their respective denominators. Deduplicate overlapping export sources by workspace and part ID.
+- Compute exact aggregates in the Sandbox using a script over the exported file. For character counts, apply `len(text)` to the original Unicode string, including whitespace and punctuation, unless the user specifies a different rule. Print the verified counts and aggregates.
 - For human edits, discover `external_history_ai_drafts` and compare `items[].content` (original AI draft) with `items[].delivery.actual_content` (actual sent text). Count verified differences and identify missing originals or deliveries separately.
 - Generate requested formats in the Sandbox. For a CSV, write headers and validate the transformed rows. For a Markdown report, include scope, denominators and source identifiers where useful. Freeze and deliver each requested file.
