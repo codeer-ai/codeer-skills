@@ -211,6 +211,29 @@ def check_agent(project, settings):
     translate(project, settings)
 
 
+def kb_folder_warnings(project, settings):
+    """Name the file references to use when a knowledge tool lists a folder reference.
+
+    The server attaches only file nodes to knowledge_base tools, so a folder
+    reference is rejected at apply. This only reports; it does not block preview.
+    """
+    refs = bindings(project)
+    warnings = []
+    for tool in settings.get("unified_tools", []) or []:
+        for reference in tool.get("knowledge_node_ids") or []:
+            if not isinstance(reference, str) or "/" in reference.removeprefix("kb:"):
+                continue
+            files = sorted(key for key in refs if key.startswith(f"{reference}/"))
+            if not files:
+                continue
+            shown = ", ".join(files[:5]) + (", ..." if len(files) > 5 else "")
+            warnings.append(
+                f"Tool {tool.get('id')!r}: {reference} is a knowledge base folder; the server accepts only files in "
+                f"knowledge_node_ids. Use file references such as {shown}. See `codeer agent schema`."
+            )
+    return warnings
+
+
 def check_models(project, client, settings):
     selected = translate(project, settings)
     wanted = {selected.get("llm_model"), selected.get("judge_llm_model_id")}

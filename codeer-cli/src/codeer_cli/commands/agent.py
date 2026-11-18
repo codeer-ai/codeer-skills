@@ -28,6 +28,8 @@ def register(subparsers):
     p.set_defaults(func=run_use_deployment, no_client=True)
     p = sub.add_parser("bindings", help="List this project's remote Agent bindings and saved identities (offline)")
     p.set_defaults(func=run_bindings, no_client=True)
+    p = sub.add_parser("schema", help="Print the agent/settings.json JSON Schema, rules and an example (offline)")
+    p.set_defaults(func=run_schema, no_client=True)
     p = sub.add_parser("adopt", help="Compare and explicitly adopt remote content or retain local proposals; no remote writes")
     p.add_argument("--resource", required=True, help="agent, case:<local-id>, tester:<local-id>, pairs:<local-id>")
     p.add_argument("--remote-id", help="Explicit ID for a previously unmapped resource")
@@ -218,6 +220,12 @@ def run_use_deployment(args, client):
     if not args.project:
         raise ValueError("agent use requires a project")
     print_json(use(args.project, args.alias))
+    return 0
+
+
+def run_schema(args, client):
+    from ..schemas import agent_schema
+    print_json(agent_schema())
     return 0
 
 

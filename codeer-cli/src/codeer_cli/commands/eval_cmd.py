@@ -36,9 +36,18 @@ def _ids(csv_text: str | None) -> list[str] | None:
     return [x.strip() for x in csv_text.split(",") if x.strip()]
 
 
+def run_schema(args, client):
+    from ..schemas import eval_schema
+    print_json(eval_schema())
+    return 0
+
+
 def register(subparsers):
     ev = subparsers.add_parser("eval", help="Eval suite operations")
     sub = ev.add_subparsers(dest="action", required=True)
+
+    p = sub.add_parser("schema", help="Print the evals/design.json JSON Schema, rules and an example (offline)")
+    p.set_defaults(func=run_schema, no_client=True)
 
     p = sub.add_parser("tester-fork", help="Create a separate Tester and reconnect this binding's mapped Cases")
     p.add_argument("--tester", required=True, help="Declared local Tester ID")

@@ -192,6 +192,11 @@ def preview(project, client, remove_tools=None, note=""):
     plan["remove_tools"] = remove_tools or []
     plan.pop("token")
     plan["token"] = fingerprint(plan)
+    # Advisory only and outside the reviewed token, so apply semantics are unchanged.
+    from .portable import kb_folder_warnings
+    warnings = kb_folder_warnings(project, local)
+    if warnings:
+        plan["warnings"] = warnings
     return plan
 
 
