@@ -17,6 +17,8 @@ from typing import Any, Iterable, Iterator, Literal, Mapping, Optional
 import httpx
 
 DEFAULT_CODEER_API_BASE = "https://api.codeer.ai"
+# Prefix of the short-lived key a Codeer Copilot Sandbox receives for one turn.
+COPILOT_TURN_KEY_PREFIX = "copilot-turn:"
 ApiVersion = Literal["v1", "v2"]
 
 
@@ -65,13 +67,21 @@ class CodeerClient:
 
     def __post_init__(self) -> None:
         self._me_cache: Optional[dict[str, Any]] = None
+        headers = {"x-api-key": self.api_key, "Accept": "application/json"}
+        # A Codeer Copilot Sandbox may reach the API only through a mounted Unix socket.
+        socket = os.environ.get("CODEER_RUNTIME_SOCKET")
+        copilot_turn = self.api_key.startswith(COPILOT_TURN_KEY_PREFIX)
+        workspace = os.environ.get("CODEER_WORKSPACE_ID")
+        if copilot_turn and workspace:
+            # A Copilot turn key acts for a person, not for one workspace, so name the target workspace.
+            headers["X-Codeer-Workspace-Id"] = workspace
         self._client = httpx.Client(
             base_url=self.base_url.rstrip("/"),
             timeout=self.timeout,
-            headers={
-                "x-api-key": self.api_key,
-                "Accept": "application/json",
-            },
+            headers=headers,
+            transport=httpx.HTTPTransport(uds=socket) if socket else None,
+            # Sandbox commands must not pick up proxy settings or a .netrc from the environment.
+            trust_env=not (socket or copilot_turn),
         )
 
     @classmethod

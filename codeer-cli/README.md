@@ -396,8 +396,16 @@ The CLI intentionally does not read repo-root credential files or caller CWD
 paste the API key into agent chat or commit it to the repository.
 
 Workspace and organization scope are inferred from the workspace API-key
-virtual user's profile. `--workspace`, `--org`, `CODEER_WORKSPACE_ID`, and
-`CODEER_ORGANIZATION_ID` are not used by the CLI.
+virtual user's profile. `--workspace`, `--org`, and `CODEER_ORGANIZATION_ID`
+are not used by the CLI. `CODEER_WORKSPACE_ID` is used only with a Codeer
+Copilot Sandbox key, described below.
+
+Inside a Codeer Copilot Sandbox, the key starts with `copilot-turn:` and acts
+for the person who sent the message, so the CLI sends `CODEER_WORKSPACE_ID` as
+the `X-Codeer-Workspace-Id` header to name the target workspace. When
+`CODEER_RUNTIME_SOCKET` is set, requests go through that Unix socket instead of
+the network. With either, the CLI ignores proxy and `.netrc` settings from the
+environment.
 
 Agent scope is optional and can be set as a non-secret environment variable:
 
