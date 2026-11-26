@@ -150,7 +150,11 @@ semantic review, verify live state or authorize mutations.
 Agent create/update preflight accepts at most three suggested questions, each
 at most 200 characters. A structured API validation 422 received before a
 mutation is acknowledged is recorded as `rejected`, with safe validation
-details; timeouts, unstructured errors, and readback failures remain
+details. Agent create also records any other 4xx answered in the Codeer API's
+`error_code` envelope as `rejected`: the create endpoint validates before writing
+and saves in one database transaction, so such an answer commits nothing.
+Timeouts, 408 and 499, 5xx, responses without that envelope (such as a proxy
+error page), readback failures, and client errors on other writes remain
 `outcome_unknown`. A rejected request still requires a fresh preview before retry.
 
 For older receipts that lost the 422 details, `agent recover-rejected-create`
@@ -168,12 +172,14 @@ writes a separate recovery receipt, and never retries creation itself. Known
 server IDs, response-bearing receipts, other scopes and transient failures
 are refused; use their existing identity-based reconciliation workflows.
 
-The same recovery command also accepts a recorded pre-create HTTP 400 with the
-exact backend message `Tool validation failed: One or more knowledge node files
-are not in the workspace`; the evidence must match the receipt's retained HTTP
-error. This validation happens before Agent creation. Select KB file nodes,
-using `kb:<local-id>/<filename>` references, rather than the KB folder itself.
-Other HTTP 400 messages remain uncertain and are not cleared by this path.
+The same recovery command also clears receipts written by older CLIs for an
+Agent create that recorded a Codeer API 4xx (other than 408 and 499), such as
+`Tool validation failed: One or more knowledge node files are not in the
+workspace` or `Agent creation requires an active text model.`; the evidence's
+`http_status` and `message` must match the receipt's retained HTTP error. For the
+knowledge node error, select KB file nodes, using `kb:<local-id>/<filename>`
+references, rather than the KB folder itself. A recorded timeout or 5xx remains
+uncertain and is not cleared by this path.
 
 The following commands require CLI 0.1.17 or newer. Install from PyPI and verify
 the commands as described in [User install](#user-install); a compatible source

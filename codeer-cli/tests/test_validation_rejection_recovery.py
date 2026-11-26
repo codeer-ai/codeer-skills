@@ -13,6 +13,11 @@ from codeer_cli.project_agent import preview
 from codeer_cli.sync import apply_change, plan_change
 
 
+def api_error(message, code=40000):
+    """The Codeer API's own error envelope."""
+    return {"error_code": code, "message": message, "data": []}
+
+
 def validation_error():
     return CodeerError(422, "Invalid request payload", {
         "message": "Invalid request payload",
@@ -136,7 +141,7 @@ class ValidationRejectionTests(unittest.TestCase):
         with self.assertRaisesRegex(ProjectError, "preview changed"):
             recover_rejected_create(self.project, self.client, plan, plan["token"])
 
-    def test_recorded_kb_validation_rejection_is_recoverable_but_not_an_arbitrary_400(self):
+    def test_recorded_kb_validation_rejection_is_recoverable_but_not_a_proxy_400(self):
         path, evidence = self.legacy_evidence()
         message = "Tool validation failed: One or more knowledge node files are not in the workspace"
         receipt = read_json(path)
@@ -149,7 +154,7 @@ class ValidationRejectionTests(unittest.TestCase):
         self.assertEqual(recover_rejected_create(self.project, self.client, plan, plan["token"])["status"], "rejected")
         self.project.save_state({"resources": {}})
         plan = self.make_plan()
-        error = CodeerError(400, message, {"message": message})
+        error = CodeerError(400, message, api_error(message))
         with self.assertRaises(CodeerError):
             apply_change(self.project, plan, plan["token"], Mock(side_effect=error), Mock())
         self.assertEqual(self.project.state()["resources"]["agent"]["status"], "rejected")
@@ -176,6 +181,69 @@ class ValidationRejectionTests(unittest.TestCase):
         self.client.get.return_value = [{"id": "existing", "name": "Support"}]
         with self.assertRaisesRegex(ProjectError, "same-name"):
             rejected_create_plan(self.project, self.client, "evidence.json")
+
+    def test_codeer_api_client_error_rejects_agent_create(self):
+        message = "Agent creation requires an active text model."
+        plan = self.make_plan()
+        with self.assertRaises(CodeerError):
+            apply_change(self.project, plan, plan["token"],
+                         Mock(side_effect=CodeerError(400, message, api_error(message))), Mock())
+        entry = self.project.state()["resources"]["agent"]
+        self.assertEqual(entry["status"], "rejected")
+        self.assertEqual(read_json(self.root / entry["receipt"])["http_error"]["message"], message)
+        self.assertNotIn("unreconciled_previous_operation", self.make_plan()["conflicts"])
+
+    def test_interrupted_or_unattributed_failures_keep_agent_create_unknown(self):
+        failures = (
+            CodeerError(0, "timeout"),
+            CodeerError(500, "error", api_error("error")),
+            CodeerError(408, "timeout", api_error("timeout")),
+            CodeerError(499, "closed", api_error("closed")),
+            CodeerError(400, "Bad Request", "<html>proxy</html>"),
+            CodeerError(400, "Bad Request", {"message": "gateway"}),
+        )
+        for error in failures:
+            with self.subTest(status=error.status, body=error.body):
+                self.project.save_state({"resources": {}})
+                plan = self.make_plan()
+                with self.assertRaises(CodeerError):
+                    apply_change(self.project, plan, plan["token"], Mock(side_effect=error), Mock())
+                self.assertEqual(self.project.state()["resources"]["agent"]["status"], "outcome_unknown")
+
+    def test_client_error_on_agent_update_stays_unknown(self):
+        plan = self.make_plan()
+        plan["server_id"] = "agent-1"  # an update: other endpoints are not verified as all-or-nothing
+        with self.assertRaises(CodeerError):
+            apply_change(self.project, plan, plan["token"],
+                         Mock(side_effect=CodeerError(400, "bad", api_error("bad"))), Mock())
+        self.assertEqual(self.project.state()["resources"]["agent"]["status"], "outcome_unknown")
+
+    def test_recorded_api_rejection_from_older_cli_is_recoverable(self):
+        path, evidence = self.legacy_evidence()
+        message = "Agent creation requires an active text model."
+        receipt = read_json(path)
+        receipt["plan"]["payload"]["suggested_questions"] = ["a"] * 3
+        receipt["http_error"] = {"status": 400, "message": message}
+        save_json(path, receipt)
+        evidence.update(http_status=400, message=message, receipt_sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+        save_json(self.root / "evidence.json", evidence)
+        plan = rejected_create_plan(self.project, self.client, "evidence.json")
+        self.assertEqual(recover_rejected_create(self.project, self.client, plan, plan["token"])["status"], "rejected")
+
+    def test_recovery_refuses_recorded_timeout_or_mismatched_message(self):
+        for recorded, claimed in (({"status": 408, "message": "timeout"}, (408, "timeout")),
+                                  ({"status": 400, "message": "recorded"}, (400, "claimed"))):
+            with self.subTest(recorded=recorded):
+                path, evidence = self.legacy_evidence()
+                receipt = read_json(path)
+                receipt["plan"]["payload"]["suggested_questions"] = ["a"] * 3
+                receipt["http_error"] = recorded
+                save_json(path, receipt)
+                evidence.update(http_status=claimed[0], message=claimed[1],
+                                receipt_sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+                save_json(self.root / "evidence.json", evidence)
+                with self.assertRaises(ProjectError):
+                    rejected_create_plan(self.project, self.client, "evidence.json")
 
 
 if __name__ == "__main__":

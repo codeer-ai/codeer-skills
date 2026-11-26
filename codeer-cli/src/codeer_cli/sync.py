@@ -7,6 +7,24 @@ import uuid
 
 from .project import ProjectError, fingerprint, now, save_json
 
+# A client error only proves "nothing written" when it is the Codeer API's own answer to the write.
+# 408 and 499 describe an interrupted exchange, so the server may still have committed.
+_AMBIGUOUS_CLIENT_ERRORS = (408, 499)
+
+
+def is_agent_create_rejection(exc):
+    """Whether an Agent create failed with the Codeer API's own 4xx answer.
+
+    The Agent create endpoint validates before writing and persists in one database
+    transaction, so its 4xx answers commit nothing. Transport errors, timeouts, 5xx and
+    responses without the API's ``error_code`` envelope (for example from a proxy) stay unknown.
+    Other resources keep their narrower rules until their endpoints are verified the same way.
+    """
+    body = getattr(exc, "body", None)
+    status = getattr(exc, "status", 0)
+    return (isinstance(body, dict) and "error_code" in body and isinstance(body.get("message"), str)
+            and 400 <= status < 500 and status not in _AMBIGUOUS_CLIENT_ERRORS)
+
 
 def merge(base, local, remote, local_base=None):
     """Omitted local keys retain the remote value; arrays are indivisible.
@@ -154,8 +172,7 @@ def apply_change(project, plan, expected, mutation, readback):
                                                      "validation_errors": details})
             if not mutation_completed and exc.status == 422 and body.get("message") == "Invalid request payload" and details:
                 receipt["status"] = entry["status"] = "rejected"
-            if (not mutation_completed and key == "agent" and not plan["server_id"] and exc.status == 400
-                    and body.get("message") == "Tool validation failed: One or more knowledge node files are not in the workspace"):
+            if not mutation_completed and key == "agent" and not plan["server_id"] and is_agent_create_rejection(exc):
                 receipt["status"] = entry["status"] = "rejected"
         raise
     finally:

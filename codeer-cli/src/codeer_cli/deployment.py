@@ -10,7 +10,7 @@ from .portable import connection_fingerprint, logical_remote
 def rejected_create_plan(project, client, evidence_path):
     """Explicit operator recovery for old receipts that lost a known 422.
 
-    Limited to the reproduced question-limit and recorded KB-file rejections.
+    Limited to the reproduced question-limit and recorded Codeer API 4xx rejections.
     An absence in Agent list alone never proves that a write was rejected.
     """
     scope = project.check_scope(client)
@@ -45,12 +45,15 @@ def rejected_create_plan(project, client, evidence_path):
     questions = plan.get("payload", {}).get("suggested_questions")
     legacy_questions = (evidence.get("http_status") == 422 and evidence.get("message") == "Invalid request payload"
                         and isinstance(questions, list) and len(questions) > 3)
-    kb_error = "Tool validation failed: One or more knowledge node files are not in the workspace"
+    # Receipts saved before the CLI classified every Codeer API 4xx on Agent create as rejected.
+    from .sync import _AMBIGUOUS_CLIENT_ERRORS
     recorded = receipt.get("http_error", {})
-    recorded_kb_rejection = (evidence.get("http_status") == recorded.get("status") == 400
-                             and evidence.get("message") == recorded.get("message") == kb_error)
-    if not (legacy_questions or recorded_kb_rejection):
-        raise ProjectError("Recovery only supports the evidenced question-limit or recorded KB-file validation rejection")
+    status = recorded.get("status")
+    recorded_rejection = (isinstance(status, int) and 400 <= status < 500 and status not in _AMBIGUOUS_CLIENT_ERRORS
+                          and isinstance(recorded.get("message"), str) and recorded["message"]
+                          and evidence.get("http_status") == status and evidence.get("message") == recorded["message"])
+    if not (legacy_questions or recorded_rejection):
+        raise ProjectError("Recovery only supports the evidenced question-limit or a recorded Codeer API 4xx rejection")
     from ._validate import validate_suggested_questions
     validate_suggested_questions(read_json(project.path("agent"), {}).get("suggested_questions"))
     from . import agents
